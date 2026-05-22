@@ -1,31 +1,112 @@
-# Campus-event-Finder-and-Manager
-📌 Event Manager Backend  Event Manager is a full-featured backend built with Node.js, Express.js, and MongoDB (Mongoose) for managing events in a college, club, or community. It supports role-based access with admins and users, secure authentication, event registration, and dynamic event filtering. 
+# 📌 Event Manager Backend
 
-⚡ Features
-JWT Authentication: Secure login and registration for users and admins
-Role-Based Access Control:
-Admin → create, update, delete events
-User → view and register for events
-Event Management:
-Events have title, description, type (hackathon, tech, seminar, games, movie, other), date, time, registration deadline, and location
-Admins can manage events
-User Registration:
-Users can register for events
-Duplicate registrations are prevented
-Admins can view registrations per event
-Filtering, Search & Sorting:
-Filter events by type
-Search events by title
-Sort by nearest registration deadline
-Middleware:
-JWT authentication
-Role-based authorization
-Validation & Error Handling: Using express-validator
-Async/Await & Modular Code: Clean, scalable, production-ready
+A scalable and secure backend application built using **Node.js, Express.js, and MongoDB** for managing events in colleges, clubs, communities, or organizations.
 
-🧪 Tech Stack
-Backend: Node.js, Express.js
-Database: MongoDB (Mongoose)
-Authentication: JWT, bcrypt
-Validation: express-validator
-Environment Config: dotenv
+This project supports authentication, role-based access control, event management, event registration, filtering, searching, and admin controls with a clean modular architecture.
+
+---
+
+# 🚀 Features
+
+## 🔐 Authentication & Security
+- JWT-based Authentication
+- Secure Password Hashing using bcrypt
+- Protected Routes with Middleware
+- Role-Based Authorization
+
+---
+
+## 👤 User Roles
+
+### 🛠️ Admin
+- Create Events
+- Update Events
+- Delete Events
+- View Event Registrations
+- Manage All Events
+
+### 🙋 User
+- Register/Login
+- View Events
+- Search & Filter Events
+- Register for Events
+- Prevent Duplicate Registrations
+
+---
+
+# 🎯 Event Features
+
+Each event contains:
+
+- Title
+- Description
+- Event Type
+- Date & Time
+- Registration Deadline
+- Location
+
+### 📂 Supported Event Types
+- Hackathon
+- Technical
+- Seminar
+- Games
+- Movie
+- Other
+
+---
+
+# 🔎 Search, Filter & Sorting
+
+✔️ Filter events by category  
+✔️ Search events by title  
+✔️ Sort by nearest registration deadline
+
+---
+
+# ⚙️ Tech Stack
+
+| Technology | Purpose |
+|---|---|
+| Node.js | Backend Runtime |
+| Express.js | Server Framework |
+| MongoDB | Database |
+| Mongoose | ODM |
+| JWT | Authentication |
+| bcrypt | Password Hashing |
+| express-validator | Validation |
+| dotenv | Environment Variables |
+
+---
+
+# 🧱 System Architecture
+
+```text
+                ┌────────────────────┐
+                │      Client        │
+                │ (Frontend / API)   │
+                └─────────┬──────────┘
+                          │
+                          ▼
+                ┌────────────────────┐
+                │   Express Server   │
+                │   (Routes Layer)   │
+                └─────────┬──────────┘
+                          │
+          ┌───────────────┼────────────────┐
+          ▼               ▼                ▼
+ ┌────────────────┐ ┌──────────────┐ ┌──────────────┐
+ │ Authentication │ │ Event Module │ │ Registration │
+ │ JWT + bcrypt   │ │ CRUD Events  │ │ Event Signup │
+ └────────────────┘ └──────────────┘ └──────────────┘
+          │               │                │
+          └───────────────┼────────────────┘
+                          ▼
+                ┌────────────────────┐
+                │     Middleware     │
+                │ Auth • Roles • API │
+                └─────────┬──────────┘
+                          ▼
+                ┌────────────────────┐
+                │      MongoDB       │
+                │     + Mongoose     │
+                └────────────────────┘
