@@ -2,12 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppNavbar from "../components/AppNavbar";
 import Alert from "../components/Alert";
+import PaymentModal from "../components/PaymentModal";
 import { useAuth } from "../context/AuthContext";
 import { getMyRegistrations, registerForEvent, cancelRegistration } from "../services/registrationService";
 import { submitFeedback, getMyFeedback } from "../services/feedbackService";
 import { getComments, addComment, deleteComment } from "../services/commentService";
 import axios from "axios";
+import api from "../services/api";
 import type { EventItem, RegistrationItem, CommentItem } from "../types";
+
+// Derive backend base URL for serving static assets (banners, screenshots)
+const API_BASE = (api.defaults.baseURL ?? "").replace(/\/api\/?$/, "");
 
 export default function UserDashboardPage() {
   const { logout, user } = useAuth();
@@ -40,7 +45,7 @@ export default function UserDashboardPage() {
       const params = new URLSearchParams();
       if (q?.trim()) params.set("search", q.trim());
       if (t)         params.set("type", t);
-      const url = `http://127.0.0.1:5000/api/events${params.toString() ? "?" + params.toString() : ""}`;
+      const url = `${API_BASE}/api/events${params.toString() ? "?" + params.toString() : ""}`;
       const res = await axios.get(url);
       if (res.data && !Array.isArray(res.data) && res.data.similarEvents) {
         setEvents([]);
@@ -109,17 +114,28 @@ export default function UserDashboardPage() {
     try {
       const response = await registerForEvent(eventId, { ...registerForm, collegeName: user?.collegeName || "" });
 
-      if (response.status === "confirmed") {
+      if (response.status === "confirmed" && !response.isPaid) {
         setEvents(prev => prev.map(ev =>
           ev._id === eventId ? { ...ev, registrationCount: (ev.registrationCount ?? 0) + 1 } : ev
         ));
       }
 
-      setFeedback({ type: "success", message: response.msg });
       await loadRegistrations();
       setTimeout(() => { void fetchEvents(); }, 500);
       setSelectedEventId(null);
       setRegisterForm({ name: "", collegeId: "", department: "" });
+
+      // If paid event — open payment modal immediately
+      if (response.isPaid && response.registrationId) {
+        const ev = events.find(e => e._id === eventId);
+        if (ev) {
+          setPaymentTarget({ registrationId: response.registrationId, event: ev });
+        } else {
+          setFeedback({ type: "success", message: response.msg });
+        }
+      } else {
+        setFeedback({ type: "success", message: response.msg });
+      }
     } catch (err: any) {
       setFeedback({ type: "error", message: err?.response?.data?.msg || "Registration failed." });
     }
@@ -133,6 +149,10 @@ export default function UserDashboardPage() {
   const [replyingTo, setReplyingTo]       = useState<string | null>(null);
   const [replyInput, setReplyInput]       = useState("");
   const [qaSubmitting, setQaSubmitting]   = useState(false);
+
+  // Payment modal state
+  interface PaymentTarget { registrationId: string; event: EventItem; }
+  const [paymentTarget, setPaymentTarget] = useState<PaymentTarget | null>(null);
 
   const loadComments = async (eventId: string) => {
     setQaLoading(eventId);
@@ -295,7 +315,7 @@ export default function UserDashboardPage() {
                 <article key={event._id} className="event-card">
                   <img
                     src={event.bannerImage
-                      ? (event.bannerSource === "local" ? `http://127.0.0.1:5000${event.bannerImage}` : event.bannerImage)
+                      ? (event.bannerSource === "local" ? `${API_BASE}${event.bannerImage}` : event.bannerImage)
                       : "https://images.unsplash.com/photo-1503676260728-1c00da094a0b"}
                     alt={event.title}
                     style={{ width: "100%", height: 160, objectFit: "cover" }}
@@ -345,20 +365,63 @@ export default function UserDashboardPage() {
                             ⏳ Waitlisted #{myReg.waitlistPosition}
                           </span>
                         ) : (
-                          <span style={{ background: "#dcfce7", color: "#166534", borderRadius: 8, padding: "6px 12px", fontSize: "0.82rem", fontWeight: 600 }}>
-                            ✓ Registered
-                          </span>
+                          /* Confirmed — show payment badge for paid events */
+                          myReg.paymentStatus === "pending" ? (
+                            <span style={{ background: "#fef3c7", color: "#92400e", borderRadius: 8, padding: "6px 12px", fontSize: "0.82rem", fontWeight: 600 }}>
+                              💳 Payment Pending
+                            </span>
+                          ) : myReg.paymentStatus === "rejected" ? (
+                            <span style={{ background: "#fee2e2", color: "#991b1b", borderRadius: 8, padding: "6px 12px", fontSize: "0.82rem", fontWeight: 600 }}>
+                              ❌ Payment Rejected
+                            </span>
+                          ) : (
+                            <span style={{ background: "#dcfce7", color: "#166534", borderRadius: 8, padding: "6px 12px", fontSize: "0.82rem", fontWeight: 600 }}>
+                              ✓ Registered
+                            </span>
+                          )
                         )}
-                        <button type="button" onClick={() => void handleCancel(event._id)}
-                          disabled={cancellingId === event._id}
-                          style={{ background: "#fee2e2", color: "#991b1b", border: 0, borderRadius: 8, padding: "6px 12px", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer" }}>
-                          {cancellingId === event._id ? "Cancelling…" : "Cancel"}
-                        </button>
+
+                        {/* Re-submit payment for rejected */}
+                        {myReg.paymentStatus === "rejected" && (
+                          <button
+                            type="button"
+                            onClick={() => setPaymentTarget({ registrationId: myReg._id, event })}
+                            style={{ background: "#4f46e5", color: "#fff", border: 0, borderRadius: 8, padding: "6px 12px", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer" }}
+                          >
+                            💳 Pay Again
+                          </button>
+                        )}
+
+                        {/* Pay Now for pending (not yet submitted) */}
+                        {myReg.paymentStatus === "pending" && !myReg.transactionId && (
+                          <button
+                            type="button"
+                            onClick={() => setPaymentTarget({ registrationId: myReg._id, event })}
+                            style={{ background: "#059669", color: "#fff", border: 0, borderRadius: 8, padding: "6px 12px", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer" }}
+                          >
+                            💳 Pay Now
+                          </button>
+                        )}
+
+                        {/* Payment rejection reason */}
+                        {myReg.paymentStatus === "rejected" && myReg.paymentNote && (
+                          <p style={{ width: "100%", margin: "2px 0 0", fontSize: "0.75rem", color: "#991b1b" }}>
+                            Reason: {myReg.paymentNote}
+                          </p>
+                        )}
+
+                        {myReg.status !== "waitlisted" && myReg.paymentStatus !== "pending" && (
+                          <button type="button" onClick={() => void handleCancel(event._id)}
+                            disabled={cancellingId === event._id}
+                            style={{ background: "#fee2e2", color: "#991b1b", border: 0, borderRadius: 8, padding: "6px 12px", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer" }}>
+                            {cancellingId === event._id ? "Cancelling…" : "Cancel"}
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <button type="button" onClick={() => setSelectedEventId(event._id)} className="btn btn-gradient"
                         style={{ background: isFull ? "linear-gradient(135deg,#7c3aed,#8b5cf6)" : undefined }}>
-                        {isFull ? "⏳ Join Waitlist" : "Register"}
+                        {isFull ? "⏳ Join Waitlist" : event.isPaid ? `Register · ₹${event.price}` : "Register"}
                       </button>
                     )}
 
@@ -703,6 +766,12 @@ export default function UserDashboardPage() {
                       This event is full. You'll be added to the waitlist and notified automatically if a spot opens.
                     </div>
                   )}
+                  {ev?.isPaid && !isFull && (
+                    <div style={{ background: "#fef3c7", borderRadius: 8, padding: "10px 14px", marginBottom: 12, fontSize: "0.85rem", color: "#92400e", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span>💳 This is a <strong>paid event</strong>. After registering you'll be prompted to complete payment.</span>
+                      <span style={{ fontWeight: 800, fontSize: "1rem", color: "#059669", marginLeft: 12, whiteSpace: "nowrap" }}>₹{ev.price}</span>
+                    </div>
+                  )}
                   {user?.collegeName && (
                     <div style={{ background: "#f0f7fb", borderRadius: 8, padding: "8px 12px", marginBottom: 10, fontSize: "0.85rem", color: "#023047" }}>
                       🏫 Registering as: <strong>{user.collegeName}</strong>
@@ -726,6 +795,23 @@ export default function UserDashboardPage() {
             })()}
           </div>
         </div>
+      )}
+
+      {/* ── PAYMENT MODAL ── */}
+      {paymentTarget && (
+        <PaymentModal
+          registrationId={paymentTarget.registrationId}
+          eventTitle={paymentTarget.event.title}
+          price={paymentTarget.event.price ?? 0}
+          upiId={paymentTarget.event.upiId}
+          qrImage={paymentTarget.event.qrImage}
+          onClose={() => setPaymentTarget(null)}
+          onSuccess={() => {
+            setPaymentTarget(null);
+            void loadRegistrations();
+            setFeedback({ type: "success", message: "Payment submitted! Awaiting admin verification." });
+          }}
+        />
       )}
     </div>
   );

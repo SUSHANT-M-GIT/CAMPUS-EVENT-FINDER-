@@ -5,8 +5,8 @@ const userSchema = new mongoose.Schema({
   email:       { type: String, unique: true, lowercase: true, trim: true },
   password:    String,
 
-  // role defaults to "user" — admin role only granted via approval workflow
-  role:        { type: String, enum: ["admin","user","student"], default: "user" },
+  // role: "student" (default) or "admin"
+  role:        { type: String, enum: ["admin","student"], default: "student" },
 
   collegeName: { type: String, default: "", trim: true },
   department:  { type: String, default: "", trim: true },

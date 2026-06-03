@@ -1,6 +1,7 @@
 const Registration = require("../models/Registration");
 const Event        = require("../models/Event");
 const User         = require("../models/User");
+const QRCode       = require("qrcode");
 const {
   sendConfirmationEmail,
   sendAdminRegistrationAlert,
@@ -55,7 +56,21 @@ exports.registerEvent = async (req, res) => {
       department,
       status,
       waitlistPosition,
+      // For paid events, student must pay before confirmed; for free events mark free
+      paymentStatus: event.isPaid ? "pending" : "free",
     }).save();
+
+    // Generate attendance QR immediately for free confirmed registrations
+    // (paid events get QR generated when payment is approved)
+    if (status === "confirmed" && !event.isPaid) {
+      try {
+        const qrData = JSON.stringify({ registrationId: reg._id.toString(), eventId: event._id.toString() });
+        reg.attendanceQr = await QRCode.toDataURL(qrData);
+        await reg.save();
+      } catch (qrErr) {
+        console.error("[QR] Generation failed:", qrErr.message);
+      }
+    }
 
     // Only increment registrationCount for confirmed registrations
     if (status === "confirmed") {
@@ -63,11 +78,16 @@ exports.registerEvent = async (req, res) => {
     }
 
     res.json({
-      msg: status === "confirmed"
-        ? "Registered"
-        : `Event is full. You've been added to the waitlist at position #${waitlistPosition}.`,
+      msg: status === "waitlisted"
+        ? `Event is full. You've been added to the waitlist at position #${waitlistPosition}.`
+        : event.isPaid
+          ? "Registration submitted. Please complete payment to confirm your spot."
+          : "Registered",
       status,
       waitlistPosition,
+      paymentStatus: event.isPaid ? "pending" : "free",
+      isPaid: event.isPaid,
+      registrationId: reg._id,
     });
 
     // Fire-and-forget emails
@@ -115,6 +135,13 @@ exports.cancelRegistration = async (req, res) => {
     });
     if (!reg) return res.status(404).json({ msg: "Registration not found" });
 
+    // Block cancellation of approved paid registrations
+    if (reg.paymentStatus === "approved") {
+      return res.status(400).json({
+        msg: "Cannot cancel a registration after payment has been approved. Please contact the event organizer."
+      });
+    }
+
     const wasConfirmed = reg.status === "confirmed";
     const cancelledPosition = reg.waitlistPosition;
 
@@ -134,6 +161,13 @@ exports.cancelRegistration = async (req, res) => {
       if (next) {
         next.status           = "confirmed";
         next.waitlistPosition = null;
+
+        // ✅ FIX: Check if event is paid — if so, promoted student must pay
+        const event = await Event.findById(req.params.eventId).lean();
+        if (event?.isPaid) {
+          next.paymentStatus = "pending"; // require payment before final confirmation
+        }
+
         await next.save();
 
         // Shift everyone else up by 1
@@ -142,13 +176,14 @@ exports.cancelRegistration = async (req, res) => {
           { $inc: { waitlistPosition: -1 } }
         );
 
-        // Increment confirmed count for the promoted person
-        await Event.findByIdAndUpdate(req.params.eventId, { $inc: { registrationCount: 1 } });
+        // Only increment confirmed count if it's a free event (paid events increment on approval)
+        if (!event?.isPaid) {
+          await Event.findByIdAndUpdate(req.params.eventId, { $inc: { registrationCount: 1 } });
+        }
 
         // Notify the promoted student
         (async () => {
           try {
-            const event   = await Event.findById(req.params.eventId).lean();
             const userDoc = await User.findById(next.userId).lean();
             if (userDoc?.email && event) {
               await sendWaitlistPromotedEmail(userDoc.email, event, { name: next.name || userDoc.name || "there" });

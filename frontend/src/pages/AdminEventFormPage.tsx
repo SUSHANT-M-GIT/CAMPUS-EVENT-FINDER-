@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Alert from "../components/Alert";
 import { createEvent, getEventById, updateEvent } from "../services/eventService";
-import type { EventItem } from "../types";
+import type { EventPayload } from "../services/eventService";
 
-const defaultFormData: Omit<EventItem, "_id"> = {
+const defaultFormData: EventPayload = {
   title: "",
   description: "",
   type: "other",
@@ -12,6 +12,12 @@ const defaultFormData: Omit<EventItem, "_id"> = {
   time: "",
   registrationDeadline: "",
   location: "",
+  maxRegistrations: 100,
+  eligibility: "all",
+  tags: [],
+  isPaid: false,
+  price: 0,
+  upiId: "",
 };
 
 export default function AdminEventFormPage() {

@@ -4,9 +4,15 @@ import Alert from "../components/Alert";
 import { useAuth } from "../context/AuthContext";
 import { createEvent, deleteEvent, getEvents, updateEvent } from "../services/eventService";
 import { getEventRegistrations } from "../services/registrationService";
+import { getPendingPayments, approvePayment, rejectPayment, getPendingRefunds, approveRefund, rejectRefund } from "../services/paymentService";
 import { getEventFeedback } from "../services/feedbackService";
 import { getComments, addComment, deleteComment } from "../services/commentService";
-import type { EventItem, FeedbackItem, CommentItem } from "../types";
+import QrScannerModal from "../components/QrScannerModal";
+import api from "../services/api";
+import type { EventItem, FeedbackItem, CommentItem, RegistrationItem } from "../types";
+
+// Derive backend base URL for serving static assets (screenshots, banners)
+const API_BASE = (api.defaults.baseURL ?? "").replace(/\/api\/?$/, "");
 
 // ── palette — matches the new design system ──────────────────────────────────
 const C = {
@@ -28,6 +34,15 @@ const defaultForm = {
   tags: [] as string[],
   imageFile: null as File | null,
   gdriveLink: "",
+  // Payment
+  isPaid: false,
+  price: 0,
+  upiId: "",
+  qrImageFile: null as File | null,
+  // Refund policy
+  refundAllowed: false,
+  refundPercentage: 80,
+  refundCutoffHours: 48,
 };
 
 // ── preset tags grouped by category ──────────────────────────────────────────
@@ -160,7 +175,7 @@ export default function AdminDashboardPage() {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab]   = useState<"overview" | "create" | "events">("overview");
+  const [activeTab, setActiveTab]   = useState<"overview" | "create" | "events" | "payments" | "refunds" | "attendance">("overview");
   const [events, setEvents]         = useState<EventItem[]>([]);
   const [regCounts, setRegCounts]   = useState<Record<string, number>>({});
   const [form, setForm]             = useState(defaultForm);
@@ -185,6 +200,21 @@ export default function AdminDashboardPage() {
   const [qaLoading, setQaLoading]       = useState(false);
   const [replyInputs, setReplyInputs]   = useState<Record<string, string>>({});
   const [qaSubmitting, setQaSubmitting] = useState<string | null>(null);
+
+  // Payments state
+  const [pendingPayments, setPendingPayments]       = useState<RegistrationItem[]>([]);
+  const [paymentsLoading, setPaymentsLoading]       = useState(false);
+  const [rejectReason, setRejectReason]             = useState<Record<string, string>>({});
+  const [paymentActionLoading, setPaymentActionLoading] = useState<string | null>(null);
+
+  // Refunds state
+  const [pendingRefunds, setPendingRefunds]           = useState<any[]>([]);
+  const [refundsLoading, setRefundsLoading]           = useState(false);
+  const [refundRejectReason, setRefundRejectReason]   = useState<Record<string, string>>({});
+  const [refundActionLoading, setRefundActionLoading] = useState<string | null>(null);
+
+  // QR Attendance Scanner state
+  const [scannerTarget, setScannerTarget] = useState<{ eventId: string; eventTitle: string; certificatesEnabled?: boolean } | null>(null);
 
   const openQa = async (ev: EventItem) => {
     setQaEvent(ev);
@@ -235,7 +265,75 @@ export default function AdminDashboardPage() {
     } catch { setFeedback({ type: "error", message: "Unable to fetch events." }); }
   };
 
-  useEffect(() => { void loadEvents(); }, []);
+  const loadPendingPayments = async () => {
+    setPaymentsLoading(true);
+    try {
+      const data = await getPendingPayments();
+      setPendingPayments(Array.isArray(data) ? data : []);
+    } catch { /* silent */ }
+    finally { setPaymentsLoading(false); }
+  };
+
+  const loadPendingRefunds = async () => {
+    setRefundsLoading(true);
+    try {
+      const data = await getPendingRefunds();
+      setPendingRefunds(Array.isArray(data) ? data : []);
+    } catch { /* silent */ }
+    finally { setRefundsLoading(false); }
+  };
+
+  const handleApprovePayment = async (regId: string) => {
+    setPaymentActionLoading(regId);
+    try {
+      await approvePayment(regId);
+      setFeedback({ type: "success", message: "🎉 Payment verified successfully. Registration completed." });
+      await loadPendingPayments();
+    } catch (err: any) {
+      setFeedback({ type: "error", message: err?.response?.data?.msg || "Approval failed." });
+    } finally { setPaymentActionLoading(null); }
+  };
+
+  const handleRejectPayment = async (regId: string) => {
+    setPaymentActionLoading(regId);
+    try {
+      await rejectPayment(regId, rejectReason[regId] || "");
+      setFeedback({ type: "error", message: "❌ Payment rejected. Student has been notified." });
+      setRejectReason(prev => { const n = { ...prev }; delete n[regId]; return n; });
+      await loadPendingPayments();
+    } catch (err: any) {
+      setFeedback({ type: "error", message: err?.response?.data?.msg || "Rejection failed." });
+    } finally { setPaymentActionLoading(null); }
+  };
+
+  const handleApproveRefund = async (regId: string) => {
+    setRefundActionLoading(regId);
+    try {
+      await approveRefund(regId);
+      setFeedback({ type: "success", message: "✅ Refund approved. Student has been notified." });
+      await loadPendingRefunds();
+    } catch (err: any) {
+      setFeedback({ type: "error", message: err?.response?.data?.msg || "Refund approval failed." });
+    } finally { setRefundActionLoading(null); }
+  };
+
+  const handleRejectRefund = async (regId: string) => {
+    setRefundActionLoading(regId);
+    try {
+      await rejectRefund(regId, refundRejectReason[regId] || "");
+      setFeedback({ type: "error", message: "❌ Refund rejected. Student has been notified." });
+      setRefundRejectReason(prev => { const n = { ...prev }; delete n[regId]; return n; });
+      await loadPendingRefunds();
+    } catch (err: any) {
+      setFeedback({ type: "error", message: err?.response?.data?.msg || "Refund rejection failed." });
+    } finally { setRefundActionLoading(null); }
+  };
+
+  useEffect(() => {
+    void loadEvents();
+    void loadPendingPayments();
+    void loadPendingRefunds();
+  }, []);
 
   const myEvents     = events.filter(e => e.createdBy === user?.id);
   const totalRegs    = myEvents.reduce((s, e) => s + (regCounts[e._id] ?? 0), 0);
@@ -280,6 +378,13 @@ export default function AdminDashboardPage() {
       tags: ev.tags ?? [],
       imageFile: null,
       gdriveLink: ev.bannerSource === "gdrive" ? ev.bannerImage ?? "" : "",
+      isPaid: ev.isPaid ?? false,
+      price: ev.price ?? 0,
+      upiId: ev.upiId ?? "",
+      qrImageFile: null,
+      refundAllowed: ev.refundAllowed ?? false,
+      refundPercentage: ev.refundPercentage ?? 80,
+      refundCutoffHours: ev.refundCutoffHours ?? 48,
     });
     setActiveTab("create");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -328,9 +433,13 @@ export default function AdminDashboardPage() {
   const handleLogout = () => { logout(); navigate("/login"); };
 
   // ── sidebar nav item ────────────────────────────────────────────────────────
-  const NavItem = ({ id, icon, label }: { id: typeof activeTab; icon: string; label: string }) => (
+  const NavItem = ({ id, icon, label, badge }: { id: typeof activeTab; icon: string; label: string; badge?: number }) => (
     <button
-      onClick={() => setActiveTab(id)}
+      onClick={() => {
+        setActiveTab(id);
+        if (id === "payments")   void loadPendingPayments();
+        if (id === "refunds")    void loadPendingRefunds();
+      }}
       style={{
         display: "flex", alignItems: "center", gap: 10,
         padding: "11px 16px", borderRadius: 10, border: 0, cursor: "pointer",
@@ -340,7 +449,13 @@ export default function AdminDashboardPage() {
         transition: "background 0.2s, color 0.2s",
       }}
     >
-      <span style={{ fontSize: "1.1rem" }}>{icon}</span> {label}
+      <span style={{ fontSize: "1.1rem" }}>{icon}</span>
+      <span style={{ flex: 1 }}>{label}</span>
+      {badge != null && badge > 0 && (
+        <span style={{ background: "#EF233C", color: "#fff", borderRadius: "50%", minWidth: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem", fontWeight: 700, padding: "0 4px" }}>
+          {badge}
+        </span>
+      )}
     </button>
   );
 
@@ -360,9 +475,12 @@ export default function AdminDashboardPage() {
         </div>
 
         <nav style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
-          <NavItem id="overview" icon="📊" label="Overview" />
-          <NavItem id="create"   icon="➕" label="Create Event" />
-          <NavItem id="events"   icon="📋" label="My Events" />
+          <NavItem id="overview"    icon="📊" label="Overview" />
+          <NavItem id="create"      icon="➕" label="Create Event" />
+          <NavItem id="events"      icon="📋" label="My Events" />
+          <NavItem id="payments"    icon="💳" label="Payments"   badge={pendingPayments.length} />
+          <NavItem id="refunds"     icon="↩️" label="Refunds"    badge={pendingRefunds.length} />
+          <NavItem id="attendance"  icon="📱" label="Attendance" />
         </nav>
 
         <button
@@ -384,9 +502,12 @@ export default function AdminDashboardPage() {
         {/* header */}
         <div style={{ marginBottom: 24 }}>
           <h1 style={{ margin: 0, fontSize: "1.5rem", fontFamily: "'Space Grotesk',sans-serif", color: C.dark, letterSpacing: "-0.025em" }}>
-            {activeTab === "overview" && "Dashboard Overview"}
-            {activeTab === "create"   && (editingId ? "Update Event" : "Create New Event")}
-            {activeTab === "events"   && "My Events"}
+            {activeTab === "overview"    && "Dashboard Overview"}
+            {activeTab === "create"      && (editingId ? "Update Event" : "Create New Event")}
+            {activeTab === "events"      && "My Events"}
+            {activeTab === "payments"    && "Payment Verification"}
+            {activeTab === "refunds"     && "Refund Requests"}
+            {activeTab === "attendance"  && "QR Attendance"}
           </h1>
           <p style={{ margin: "4px 0 0", color: "#64748b", fontSize: "0.88rem" }}>
             Welcome back, Admin
@@ -451,6 +572,7 @@ export default function AdminDashboardPage() {
                             <div style={{ display: "flex", gap: 6 }}>
                               <button onClick={() => handleViewRegs(ev)} style={{ background: C.light, color: C.dark, border: 0, borderRadius: 7, padding: "5px 10px", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600 }}>Registrants</button>
                               <button onClick={() => handleEdit(ev)} style={{ background: C.cyan, color: "#fff", border: 0, borderRadius: 7, padding: "5px 10px", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600 }}>Edit</button>
+                              <button onClick={() => setScannerTarget({ eventId: ev._id, eventTitle: ev.title, certificatesEnabled: ev.certificatesEnabled })} style={{ background: "#7c3aed", color: "#fff", border: 0, borderRadius: 7, padding: "5px 10px", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600 }}>📱 QR</button>
                               <button onClick={() => handleDelete(ev)} style={{ background: C.orange, color: "#fff", border: 0, borderRadius: 7, padding: "5px 10px", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600 }}>Delete</button>
                             </div>
                           </td>
@@ -562,6 +684,104 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
               </Field>
+
+              {/* ── Payment settings ── */}
+              <div style={{ borderTop: "1.5px solid #e2e8f0", paddingTop: 16 }}>
+                <h4 style={{ margin: "0 0 12px", color: C.dark, fontSize: "0.95rem", display: "flex", alignItems: "center", gap: 6 }}>
+                  💳 Payment Settings
+                  <span style={{ background: form.isPaid ? "#dcfce7" : "#f1f5f9", color: form.isPaid ? "#166534" : "#64748b", borderRadius: 99, padding: "2px 10px", fontSize: "0.72rem", fontWeight: 700 }}>
+                    {form.isPaid ? "Paid Event" : "Free Event"}
+                  </span>
+                </h4>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={form.isPaid}
+                      onChange={e => setForm(prev => ({ ...prev, isPaid: e.target.checked }))}
+                      style={{ width: 18, height: 18, cursor: "pointer", accentColor: "#059669" }}
+                    />
+                    <span style={{ fontSize: "0.88rem", fontWeight: 600, color: C.dark }}>This is a paid event</span>
+                  </label>
+                </div>
+
+                {form.isPaid && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                    <Field label="Registration Fee (₹)">
+                      <input
+                        type="number"
+                        value={form.price}
+                        onChange={e => setForm(prev => ({ ...prev, price: Number(e.target.value) || 0 }))}
+                        min={1}
+                        placeholder="e.g. 199"
+                        style={inputStyle}
+                      />
+                    </Field>
+                    <Field label="UPI ID">
+                      <input
+                        value={form.upiId}
+                        onChange={e => setForm(prev => ({ ...prev, upiId: e.target.value }))}
+                        placeholder="e.g. organiser@upi"
+                        style={inputStyle}
+                      />
+                    </Field>
+                    <Field label="QR Code Image (optional)">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={e => setForm(prev => ({ ...prev, qrImageFile: e.target.files?.[0] ?? null }))}
+                        style={{ ...inputStyle, padding: "7px 12px", cursor: "pointer" }}
+                      />
+                      {form.qrImageFile && (
+                        <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "#10b981" }}>✓ {form.qrImageFile.name}</p>
+                      )}
+                    </Field>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Refund Policy ── */}
+              <div style={{ borderTop: "1.5px solid #e2e8f0", paddingTop: 16 }}>
+                <h4 style={{ margin: "0 0 12px", color: C.dark, fontSize: "0.95rem" }}>↩️ Refund Policy</h4>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={form.refundAllowed}
+                      onChange={e => setForm(prev => ({ ...prev, refundAllowed: e.target.checked }))}
+                      style={{ width: 18, height: 18, cursor: "pointer", accentColor: "#059669" }}
+                    />
+                    <span style={{ fontSize: "0.88rem", fontWeight: 600, color: C.dark }}>Allow refunds for this event</span>
+                  </label>
+                </div>
+                {form.refundAllowed && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                    <Field label="Refund Percentage (%)">
+                      <input
+                        type="number"
+                        value={form.refundPercentage}
+                        onChange={e => setForm(prev => ({ ...prev, refundPercentage: Math.min(100, Math.max(0, Number(e.target.value))) }))}
+                        min={0} max={100}
+                        placeholder="e.g. 80"
+                        style={inputStyle}
+                      />
+                      <span style={{ fontSize: "0.72rem", color: "#94a3b8" }}>% of paid amount returned</span>
+                    </Field>
+                    <Field label="Cutoff (hours before event)">
+                      <input
+                        type="number"
+                        value={form.refundCutoffHours}
+                        onChange={e => setForm(prev => ({ ...prev, refundCutoffHours: Number(e.target.value) || 48 }))}
+                        min={1}
+                        placeholder="e.g. 48"
+                        style={inputStyle}
+                      />
+                      <span style={{ fontSize: "0.72rem", color: "#94a3b8" }}>Must request before this window closes</span>
+                    </Field>
+                  </div>
+                )}
+              </div>
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
                 <button type="submit" style={{ background: C.dark, color: "#fff", border: 0, borderRadius: 10, padding: "12px 28px", fontWeight: 700, cursor: "pointer", fontSize: "0.95rem" }}>
                   {editingId ? "Update Event" : "Create Event"}
@@ -661,69 +881,233 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* ── CHECK-IN SCANNER TAB ─────────────────────────────────────── */}
-        {activeTab === "checkin" && (
-          <div style={{ maxWidth: 520 }}>
-            <div style={{ background: "#fff", borderRadius: 14, padding: 28, boxShadow: "0 2px 12px rgba(2,48,71,0.07)", marginBottom: 20 }}>
-              <h3 style={{ margin: "0 0 6px", color: C.dark }}>📷 Scan Student QR Code</h3>
-              <p style={{ margin: "0 0 20px", color: "#64748b", fontSize: "0.88rem" }}>
-                Ask the student to open their QR code in the app. Paste or type the token below to check them in.
+        {/* ── PAYMENTS TAB ─────────────────────────────────────────────── */}
+        {activeTab === "payments" && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <p style={{ margin: 0, color: "#64748b", fontSize: "0.9rem" }}>
+                Review and verify student payment submissions for paid events.
               </p>
+              <button onClick={() => void loadPendingPayments()}
+                style={{ background: C.light, color: C.dark, border: 0, borderRadius: 8, padding: "7px 14px", cursor: "pointer", fontWeight: 600, fontSize: "0.83rem" }}>
+                🔄 Refresh
+              </button>
+            </div>
 
-              <div style={{ display: "flex", gap: 10 }}>
-                <input
-                  value={scanInput}
-                  onChange={e => { setScanInput(e.target.value); setScanResult(null); }}
-                  onKeyDown={e => { if (e.key === "Enter") void handleCheckIn(); }}
-                  placeholder="Paste QR token here…"
-                  style={{ ...inputStyle, flex: 1, fontFamily: "monospace", fontSize: "0.82rem" }}
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={() => void handleCheckIn()}
-                  disabled={scanLoading || !scanInput.trim()}
-                  style={{ background: C.dark, color: C.yellow, border: 0, borderRadius: 9, padding: "0 20px", fontWeight: 700, cursor: "pointer", fontSize: "0.9rem", whiteSpace: "nowrap" }}
-                >
-                  {scanLoading ? "Checking…" : "✓ Check In"}
-                </button>
+            {paymentsLoading ? (
+              <div style={{ textAlign: "center", padding: "60px 0", color: "#94a3b8" }}>Loading payments…</div>
+            ) : pendingPayments.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "60px 0", color: "#94a3b8" }}>
+                <div style={{ fontSize: "3rem", marginBottom: 12 }}>✅</div>
+                <p style={{ margin: 0, fontWeight: 600, fontSize: "1rem" }}>No pending payments</p>
+                <p style={{ margin: "6px 0 0", fontSize: "0.85rem" }}>All payments have been verified.</p>
               </div>
+            ) : (
+              <div style={{ display: "grid", gap: 16 }}>
+                {pendingPayments.map((reg: any) => {
+                  const student = reg.userId && typeof reg.userId === "object" ? reg.userId : null;
+                  const event   = reg.eventId && typeof reg.eventId === "object" ? reg.eventId : null;
+                  const isActing = paymentActionLoading === reg._id;
+                  const screenshotUrl = reg.paymentScreenshot
+                    ? `${API_BASE}${reg.paymentScreenshot}`
+                    : null;
+                  return (
+                    <div key={reg._id} style={{ background: "#fff", borderRadius: 14, boxShadow: "0 2px 12px rgba(2,48,71,0.08)", overflow: "hidden", border: "1px solid #e2e8f0" }}>
+                      {/* Card header */}
+                      <div style={{ background: "#fef3c7", padding: "12px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                        <div>
+                          <span style={{ fontWeight: 700, color: "#92400e", fontSize: "0.95rem" }}>
+                            💳 {event?.title || "Unknown Event"}
+                          </span>
+                          <span style={{ background: "#FEF3C7", color: "#d97706", borderRadius: 99, padding: "2px 10px", fontSize: "0.72rem", fontWeight: 700, marginLeft: 10, border: "1px solid #fcd34d" }}>
+                            PENDING
+                          </span>
+                        </div>
+                        <span style={{ fontWeight: 700, fontSize: "1.1rem", color: "#059669" }}>
+                          ₹{event?.price || 0}
+                        </span>
+                      </div>
 
-              {/* Result card */}
-              {scanResult && (
-                <div style={{
-                  marginTop: 20, borderRadius: 10, padding: "16px 18px",
-                  background: scanResult.success ? "#dcfce7" : "#fef2f2",
-                  border: `1.5px solid ${scanResult.success ? "#86efac" : "#fecaca"}`,
-                }}>
-                  <p style={{ margin: "0 0 8px", fontWeight: 700, fontSize: "1rem", color: scanResult.success ? "#166534" : "#991b1b" }}>
-                    {scanResult.success ? "✅" : "❌"} {scanResult.msg}
-                  </p>
-                  {scanResult.student && (
-                    <div style={{ fontSize: "0.85rem", color: "#334155", display: "grid", gap: 3 }}>
-                      <span><strong>Name:</strong> {scanResult.student.name || "N/A"}</span>
-                      <span><strong>College:</strong> {scanResult.student.collegeName || "N/A"}</span>
-                      {scanResult.student.department && <span><strong>Dept:</strong> {scanResult.student.department}</span>}
-                      {scanResult.event && <span><strong>Event:</strong> {scanResult.event.title}</span>}
+                      <div style={{ padding: "16px 18px", display: "grid", gridTemplateColumns: "1fr auto", gap: 16, alignItems: "start" }}>
+                        <div>
+                          {/* Student info */}
+                          <div style={{ marginBottom: 12 }}>
+                            <p style={{ margin: "0 0 2px", fontWeight: 700, fontSize: "0.92rem", color: C.dark }}>
+                              {student?.name || "Unknown Student"}
+                            </p>
+                            <p style={{ margin: "0 0 2px", color: "#64748b", fontSize: "0.83rem" }}>{student?.email || ""}</p>
+                            {student?.collegeName && <p style={{ margin: 0, color: "#94a3b8", fontSize: "0.78rem" }}>🏫 {student.collegeName}</p>}
+                          </div>
+
+                          {/* Transaction ID */}
+                          <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 8, padding: "8px 12px", marginBottom: 12 }}>
+                            <p style={{ margin: 0, fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>Transaction ID</p>
+                            <p style={{ margin: "2px 0 0", fontFamily: "monospace", fontSize: "0.88rem", color: "#0369a1", fontWeight: 700 }}>
+                              {reg.transactionId || "Not provided"}
+                            </p>
+                          </div>
+
+                          {/* Rejection reason input */}
+                          <div style={{ marginBottom: 12 }}>
+                            <label style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>
+                              Rejection reason (optional)
+                            </label>
+                            <input
+                              value={rejectReason[reg._id] ?? ""}
+                              onChange={e => setRejectReason(prev => ({ ...prev, [reg._id]: e.target.value }))}
+                              placeholder="e.g. Screenshot unclear, wrong amount…"
+                              style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: "0.83rem", outline: "none" }}
+                            />
+                          </div>
+
+                          {/* Action buttons */}
+                          <div style={{ display: "flex", gap: 10 }}>
+                            <button onClick={() => void handleApprovePayment(reg._id)} disabled={isActing}
+                              style={{ flex: 1, background: "#059669", color: "#fff", border: 0, borderRadius: 9, padding: "10px", fontWeight: 700, cursor: isActing ? "not-allowed" : "pointer", fontSize: "0.88rem", opacity: isActing ? 0.6 : 1 }}>
+                              {isActing ? "Processing…" : "✅ Approve"}
+                            </button>
+                            <button onClick={() => void handleRejectPayment(reg._id)} disabled={isActing}
+                              style={{ flex: 1, background: "#dc2626", color: "#fff", border: 0, borderRadius: 9, padding: "10px", fontWeight: 700, cursor: isActing ? "not-allowed" : "pointer", fontSize: "0.88rem", opacity: isActing ? 0.6 : 1 }}>
+                              {isActing ? "…" : "❌ Reject"}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Screenshot preview */}
+                        {screenshotUrl && (
+                          <div>
+                            <p style={{ margin: "0 0 6px", fontSize: "0.78rem", fontWeight: 600, color: "#64748b" }}>Screenshot</p>
+                            <a href={screenshotUrl} target="_blank" rel="noreferrer">
+                              <img
+                                src={screenshotUrl}
+                                alt="Payment screenshot"
+                                style={{ width: 140, height: 140, objectFit: "cover", borderRadius: 10, border: "1.5px solid #e2e8f0", cursor: "pointer", transition: "transform 0.2s" }}
+                                onMouseEnter={e => { (e.target as HTMLImageElement).style.transform = "scale(1.04)"; }}
+                                onMouseLeave={e => { (e.target as HTMLImageElement).style.transform = ""; }}
+                              />
+                            </a>
+                            <p style={{ margin: "4px 0 0", fontSize: "0.7rem", color: "#94a3b8", textAlign: "center" }}>Click to view full</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
-            <div style={{ background: "#fff", borderRadius: 14, padding: 20, boxShadow: "0 2px 12px rgba(2,48,71,0.07)" }}>
-              <h4 style={{ margin: "0 0 10px", color: C.dark, fontSize: "0.95rem" }}>How it works</h4>
-              <ol style={{ margin: 0, paddingLeft: 20, color: "#64748b", fontSize: "0.85rem", lineHeight: 2 }}>
-                <li>Student opens their <strong>My Registrations</strong> tab in the app</li>
-                <li>They click <strong>📱 My QR</strong> on the event card</li>
-                <li>They show the QR code on their screen</li>
-                <li>You paste the token here (or use a QR scanner app that copies to clipboard)</li>
-                <li>Hit <strong>Check In</strong> — attendance is marked instantly</li>
-              </ol>
+        {/* ── REFUNDS TAB ──────────────────────────────────────────────── */}
+        {activeTab === "refunds" && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <p style={{ margin: 0, color: "#64748b", fontSize: "0.9rem" }}>Review and process student refund requests.</p>
+              <button onClick={() => void loadPendingRefunds()}
+                style={{ background: C.light, color: C.dark, border: 0, borderRadius: 8, padding: "7px 14px", cursor: "pointer", fontWeight: 600, fontSize: "0.83rem" }}>
+                🔄 Refresh
+              </button>
             </div>
+            {refundsLoading ? (
+              <div style={{ textAlign: "center", padding: "60px 0", color: "#94a3b8" }}>Loading refunds…</div>
+            ) : pendingRefunds.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "60px 0", color: "#94a3b8" }}>
+                <div style={{ fontSize: "3rem", marginBottom: 12 }}>✅</div>
+                <p style={{ margin: 0, fontWeight: 600 }}>No pending refund requests</p>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: 16 }}>
+                {pendingRefunds.map((reg: any) => {
+                  const student   = reg.userId && typeof reg.userId === "object" ? reg.userId : null;
+                  const event     = reg.eventId && typeof reg.eventId === "object" ? reg.eventId : null;
+                  const isActing  = refundActionLoading === reg._id;
+                  return (
+                    <div key={reg._id} style={{ background: "#fff", borderRadius: 14, boxShadow: "0 2px 12px rgba(2,48,71,0.08)", overflow: "hidden", border: "1px solid #e2e8f0" }}>
+                      <div style={{ background: "#eff6ff", padding: "12px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                        <div>
+                          <span style={{ fontWeight: 700, color: "#1d4ed8", fontSize: "0.95rem" }}>↩️ {event?.title || "Unknown Event"}</span>
+                          <span style={{ background: "#dbeafe", color: "#1d4ed8", borderRadius: 99, padding: "2px 10px", fontSize: "0.72rem", fontWeight: 700, marginLeft: 10, border: "1px solid #bfdbfe" }}>REFUND REQUESTED</span>
+                        </div>
+                        <span style={{ fontWeight: 700, fontSize: "1.1rem", color: "#059669" }}>₹{reg.refundAmount}</span>
+                      </div>
+                      <div style={{ padding: "16px 18px" }}>
+                        <p style={{ margin: "0 0 4px", fontWeight: 700, color: C.dark }}>{student?.name}</p>
+                        <p style={{ margin: "0 0 12px", fontSize: "0.83rem", color: "#64748b" }}>{student?.email} · {student?.collegeName}</p>
+                        <div style={{ marginBottom: 12 }}>
+                          <label style={{ fontSize: "0.78rem", fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Rejection reason (optional)</label>
+                          <input
+                            value={refundRejectReason[reg._id] ?? ""}
+                            onChange={e => setRefundRejectReason(prev => ({ ...prev, [reg._id]: e.target.value }))}
+                            placeholder="Reason for rejection…"
+                            style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: "0.83rem", outline: "none" }}
+                          />
+                        </div>
+                        <div style={{ display: "flex", gap: 10 }}>
+                          <button onClick={() => void handleApproveRefund(reg._id)} disabled={isActing}
+                            style={{ flex: 1, background: "#059669", color: "#fff", border: 0, borderRadius: 9, padding: "10px", fontWeight: 700, cursor: "pointer", fontSize: "0.88rem", opacity: isActing ? 0.6 : 1 }}>
+                            {isActing ? "Processing…" : "✅ Approve Refund"}
+                          </button>
+                          <button onClick={() => void handleRejectRefund(reg._id)} disabled={isActing}
+                            style={{ flex: 1, background: "#dc2626", color: "#fff", border: 0, borderRadius: 9, padding: "10px", fontWeight: 700, cursor: "pointer", fontSize: "0.88rem", opacity: isActing ? 0.6 : 1 }}>
+                            {isActing ? "…" : "❌ Reject"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── ATTENDANCE TAB ────────────────────────────────────────────── */}
+        {activeTab === "attendance" && (
+          <div>
+            <p style={{ marginBottom: 20, color: "#64748b", fontSize: "0.9rem" }}>
+              Select an event to open the QR scanner and mark attendance.
+            </p>
+            {myEvents.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "60px 0", color: "#94a3b8" }}>
+                <div style={{ fontSize: "3rem", marginBottom: 12 }}>📱</div>
+                <p style={{ margin: 0, fontWeight: 600 }}>No events to scan for</p>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 14 }}>
+                {myEvents.map(ev => (
+                  <div key={ev._id} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "16px 18px", boxShadow: "0 2px 8px rgba(2,48,71,0.06)" }}>
+                    <p style={{ margin: "0 0 4px", fontWeight: 700, color: C.dark, fontSize: "0.95rem" }}>{ev.title}</p>
+                    <p style={{ margin: "0 0 12px", fontSize: "0.8rem", color: "#64748b" }}>
+                      📅 {new Date(ev.date).toLocaleDateString()} · 📍 {ev.location}
+                    </p>
+                    {ev.certificatesEnabled && (
+                      <span style={{ background: "#f3e8ff", color: "#7c3aed", borderRadius: 99, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700, display: "inline-block", marginBottom: 10 }}>
+                        🏆 Certificates Active
+                      </span>
+                    )}
+                    <button
+                      onClick={() => setScannerTarget({ eventId: ev._id, eventTitle: ev.title, certificatesEnabled: ev.certificatesEnabled })}
+                      style={{ width: "100%", background: "linear-gradient(135deg,#023047,#1e3a5f)", color: "#fff", border: 0, borderRadius: 9, padding: "10px", fontWeight: 700, cursor: "pointer", fontSize: "0.88rem" }}
+                    >
+                      📱 Open QR Scanner
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </main>
+
+      {/* ── QR SCANNER MODAL ─────────────────────────────────────────────── */}
+      {scannerTarget && (
+        <QrScannerModal
+          eventId={scannerTarget.eventId}
+          eventTitle={scannerTarget.eventTitle}
+          certificatesEnabled={scannerTarget.certificatesEnabled}
+          onClose={() => setScannerTarget(null)}
+        />
+      )}
 
       {/* ── REGISTRANTS MODAL ────────────────────────────────────────────── */}
       {viewEvent && (

@@ -1,0 +1,363 @@
+/**
+ * paymentController.js
+ * Handles student payment submission and admin payment verification.
+ * Also generates attendance QR after approval.
+ */
+const path         = require("path");
+const fs           = require("fs");
+const QRCode       = require("qrcode");
+const Registration = require("../models/Registration");
+const Event        = require("../models/Event");
+const User         = require("../models/User");
+const { sendEmail } = require("../services/emailService");
+
+// ── SUBMIT PAYMENT (student) ──────────────────────────────────────────────────
+// POST /api/payment/submit/:registrationId
+// Body (multipart): transactionId, screenshot file
+exports.submitPayment = async (req, res) => {
+  try {
+    const reg = await Registration.findById(req.params.registrationId);
+    if (!reg) return res.status(404).json({ msg: "Registration not found" });
+    if (reg.userId.toString() !== req.user.id)
+      return res.status(403).json({ msg: "Access denied" });
+    if (reg.paymentStatus === "approved")
+      return res.status(400).json({ msg: "Payment already approved" });
+
+    const { transactionId } = req.body;
+    if (!transactionId?.trim())
+      return res.status(400).json({ msg: "Transaction ID is required" });
+    if (!req.file)
+      return res.status(400).json({ msg: "Payment screenshot is required" });
+
+    const screenshotPath = `/uploads/payment-screenshots/${req.file.filename}`;
+    reg.transactionId     = transactionId.trim();
+    reg.paymentScreenshot = screenshotPath;
+    reg.paymentStatus     = "pending";
+    await reg.save();
+
+    // Notify admin via socket
+    if (global.io) {
+      const event = await Event.findById(reg.eventId).lean();
+      const student = await User.findById(reg.userId, "name email").lean();
+      global.io.to("admins").emit("paymentSubmitted", {
+        registrationId: reg._id,
+        studentName:    student?.name,
+        studentEmail:   student?.email,
+        eventTitle:     event?.title,
+        transactionId:  reg.transactionId,
+      });
+    }
+
+    res.json({ msg: "Payment submitted. Awaiting admin verification." });
+  } catch (e) {
+    console.error("submitPayment error:", e.message);
+    res.status(500).json({ msg: e.message });
+  }
+};
+
+// ── GET PENDING PAYMENTS (admin) ──────────────────────────────────────────────
+// GET /api/payment/pending
+exports.getPendingPayments = async (req, res) => {
+  try {
+    const regs = await Registration.find({ paymentStatus: "pending" })
+      .populate("userId",  "name email collegeName")
+      .populate("eventId", "title date price upiId")
+      .sort({ registeredAt: -1 })
+      .lean();
+    res.json(regs);
+  } catch (e) {
+    res.status(500).json({ msg: e.message });
+  }
+};
+
+// ── APPROVE PAYMENT (admin) ───────────────────────────────────────────────────
+// PUT /api/payment/approve/:registrationId
+exports.approvePayment = async (req, res) => {
+  try {
+    const reg = await Registration.findById(req.params.registrationId)
+      .populate("eventId")
+      .populate("userId", "name email");
+
+    if (!reg) return res.status(404).json({ msg: "Registration not found" });
+    if (reg.paymentStatus !== "pending")
+      return res.status(400).json({ msg: `Payment is already ${reg.paymentStatus}` });
+
+    reg.paymentStatus = "approved";
+    reg.status        = "confirmed"; // activate the registration slot
+
+    // Generate unique attendance QR code (encodes registrationId)
+    try {
+      const qrData = JSON.stringify({ registrationId: reg._id.toString(), eventId: reg.eventId._id?.toString() || reg.eventId.toString() });
+      reg.attendanceQr = await QRCode.toDataURL(qrData);
+    } catch (qrErr) {
+      console.error("[QR] Generation failed:", qrErr.message);
+    }
+
+    await reg.save();
+
+    // Increment registrationCount on the event
+    await Event.findByIdAndUpdate(reg.eventId._id || reg.eventId, { $inc: { registrationCount: 1 } });
+
+    // Notify student via socket
+    if (global.io) {
+      global.io.to(reg.userId._id?.toString() || reg.userId.toString()).emit("paymentApproved", {
+        registrationId: reg._id,
+        eventTitle:     reg.eventId?.title,
+        message:        `🎉 Payment verified successfully. Registration completed for "${reg.eventId?.title}".`,
+      });
+    }
+
+    // Send approval email
+    const email = reg.userId?.email;
+    const name  = reg.userId?.name || "there";
+    if (email) {
+      await sendEmail({
+        to:      email,
+        subject: `🎉 Payment Approved: ${reg.eventId?.title}`,
+        html: `
+<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;border:1px solid #e0e0e0;border-radius:10px;overflow:hidden;">
+  <div style="background:#059669;padding:20px 24px;color:#fff;"><h2 style="margin:0;">Payment Approved!</h2></div>
+  <div style="padding:24px;">
+    <p>Hi <strong>${name}</strong>,</p>
+    <p>Your payment for <strong>${reg.eventId?.title}</strong> has been <strong style="color:#059669;">approved</strong>.</p>
+    <p>Your registration is now confirmed. See you at the event!</p>
+    <p style="color:#888;font-size:0.8rem;margin-top:24px;">Campus Event Finder</p>
+  </div>
+</div>`,
+      }).catch(err => console.error("[Email] Payment approval:", err.message));
+    }
+
+    res.json({ msg: "Payment approved. Student has been notified." });
+  } catch (e) {
+    console.error("approvePayment error:", e.message);
+    res.status(500).json({ msg: e.message });
+  }
+};
+
+// ── REJECT PAYMENT (admin) ────────────────────────────────────────────────────
+// PUT /api/payment/reject/:registrationId
+exports.rejectPayment = async (req, res) => {
+  try {
+    const reg = await Registration.findById(req.params.registrationId)
+      .populate("eventId")
+      .populate("userId", "name email");
+
+    if (!reg) return res.status(404).json({ msg: "Registration not found" });
+    if (reg.paymentStatus !== "pending")
+      return res.status(400).json({ msg: `Payment is already ${reg.paymentStatus}` });
+
+    const reason = req.body?.reason?.trim() || "";
+    reg.paymentStatus = "rejected";
+    reg.paymentNote   = reason;
+    await reg.save();
+
+    // Notify student via socket
+    if (global.io) {
+      global.io.to(reg.userId._id?.toString() || reg.userId.toString()).emit("paymentRejected", {
+        registrationId: reg._id,
+        eventTitle:     reg.eventId?.title,
+        reason,
+        message:        `❌ Payment verification failed for "${reg.eventId?.title}". Please try again.`,
+      });
+    }
+
+    // Send rejection email
+    const email = reg.userId?.email;
+    const name  = reg.userId?.name || "there";
+    if (email) {
+      await sendEmail({
+        to:      email,
+        subject: `❌ Payment Not Verified: ${reg.eventId?.title}`,
+        html: `
+<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;border:1px solid #e0e0e0;border-radius:10px;overflow:hidden;">
+  <div style="background:#dc2626;padding:20px 24px;color:#fff;"><h2 style="margin:0;">Payment Not Verified</h2></div>
+  <div style="padding:24px;">
+    <p>Hi <strong>${name}</strong>,</p>
+    <p>Unfortunately your payment for <strong>${reg.eventId?.title}</strong> could not be verified.</p>
+    ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ""}
+    <p>Please re-submit with the correct details or contact the event organiser.</p>
+    <p style="color:#888;font-size:0.8rem;margin-top:24px;">Campus Event Finder</p>
+  </div>
+</div>`,
+      }).catch(err => console.error("[Email] Payment rejection:", err.message));
+    }
+
+    res.json({ msg: "Payment rejected. Student has been notified." });
+  } catch (e) {
+    console.error("rejectPayment error:", e.message);
+    res.status(500).json({ msg: e.message });
+  }
+};
+
+// ── GET MY PAYMENT STATUS (student) ──────────────────────────────────────────
+// GET /api/payment/my-status/:eventId
+exports.getMyPaymentStatus = async (req, res) => {
+  try {
+    const reg = await Registration.findOne({
+      userId:  req.user.id,
+      eventId: req.params.eventId,
+    }).lean();
+    if (!reg) return res.status(404).json({ msg: "No registration found" });
+    res.json({
+      paymentStatus:     reg.paymentStatus,
+      transactionId:     reg.transactionId,
+      paymentScreenshot: reg.paymentScreenshot,
+      paymentNote:       reg.paymentNote,
+    });
+  } catch (e) {
+    res.status(500).json({ msg: e.message });
+  }
+};
+
+// ── REQUEST REFUND (student) ──────────────────────────────────────────────────
+// POST /api/payment/refund/:registrationId
+exports.requestRefund = async (req, res) => {
+  try {
+    const reg = await Registration.findById(req.params.registrationId)
+      .populate("eventId")
+      .populate("userId", "name email");
+    if (!reg) return res.status(404).json({ msg: "Registration not found" });
+    if (reg.userId._id?.toString() !== req.user.id && reg.userId.toString() !== req.user.id)
+      return res.status(403).json({ msg: "Access denied" });
+    if (reg.paymentStatus !== "approved")
+      return res.status(400).json({ msg: "Refund only available for approved payments" });
+    if (reg.refundStatus !== "none")
+      return res.status(400).json({ msg: `Refund already ${reg.refundStatus}` });
+
+    const event = reg.eventId;
+    if (!event?.refundAllowed)
+      return res.status(400).json({ msg: "This event does not support refunds" });
+
+    // Check cutoff window
+    const eventDate   = new Date(event.date);
+    const cutoffMs    = (event.refundCutoffHours || 48) * 60 * 60 * 1000;
+    const cutoffDate  = new Date(eventDate.getTime() - cutoffMs);
+    if (new Date() > cutoffDate)
+      return res.status(400).json({ msg: `Refund period expired. Refunds must be requested at least ${event.refundCutoffHours}h before the event.` });
+
+    const refundAmt = Math.round((event.price || 0) * (event.refundPercentage || 100) / 100);
+    reg.refundStatus = "requested";
+    reg.refundAmount = refundAmt;
+    await reg.save();
+
+    // Notify admin via socket
+    if (global.io) {
+      global.io.to("admins").emit("refundRequested", {
+        registrationId: reg._id,
+        eventTitle:     event.title,
+        refundAmount:   refundAmt,
+      });
+    }
+
+    res.json({ msg: `Refund of ₹${refundAmt} requested. Admin will review shortly.`, refundAmount: refundAmt });
+  } catch (e) {
+    console.error("requestRefund error:", e.message);
+    res.status(500).json({ msg: e.message });
+  }
+};
+
+// ── PROCESS REFUND (admin: approve or reject) ─────────────────────────────────
+// PUT /api/payment/refund/:registrationId/approve  |  /reject
+exports.approveRefund = async (req, res) => {
+  try {
+    const reg = await Registration.findById(req.params.registrationId)
+      .populate("eventId")
+      .populate("userId", "name email");
+    if (!reg) return res.status(404).json({ msg: "Registration not found" });
+    if (reg.refundStatus !== "requested")
+      return res.status(400).json({ msg: "No pending refund request" });
+
+    reg.refundStatus  = "approved";
+    reg.paymentStatus = "rejected"; // invalidate the registration
+    reg.status        = "waitlisted"; // move out of confirmed slot
+    await reg.save();
+
+    // Decrement count
+    await Event.findByIdAndUpdate(reg.eventId._id || reg.eventId, { $inc: { registrationCount: -1 } });
+
+    // Email student
+    const email = reg.userId?.email;
+    const name  = reg.userId?.name || "there";
+    if (email) {
+      sendEmail({
+        to: email,
+        subject: `✅ Refund Approved: ${reg.eventId?.title}`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;border:1px solid #e0e0e0;border-radius:10px;overflow:hidden;">
+  <div style="background:#059669;padding:20px 24px;color:#fff;"><h2 style="margin:0;">Refund Approved!</h2></div>
+  <div style="padding:24px;">
+    <p>Hi <strong>${name}</strong>,</p>
+    <p>Your refund of <strong>₹${reg.refundAmount}</strong> for <strong>${reg.eventId?.title}</strong> has been approved.</p>
+    <p>The amount will be credited back within 5-7 business days.</p>
+    <p style="color:#888;font-size:0.8rem;margin-top:24px;">Campus Event Finder</p>
+  </div>
+</div>`,
+      }).catch(() => {});
+    }
+
+    // Notify via socket
+    if (global.io) {
+      global.io.to(reg.userId._id?.toString() || reg.userId.toString()).emit("refundApproved", {
+        registrationId: reg._id,
+        eventTitle:     reg.eventId?.title,
+        refundAmount:   reg.refundAmount,
+      });
+    }
+
+    res.json({ msg: "Refund approved. Student notified." });
+  } catch (e) {
+    res.status(500).json({ msg: e.message });
+  }
+};
+
+exports.rejectRefund = async (req, res) => {
+  try {
+    const reg = await Registration.findById(req.params.registrationId)
+      .populate("eventId")
+      .populate("userId", "name email");
+    if (!reg) return res.status(404).json({ msg: "Registration not found" });
+    if (reg.refundStatus !== "requested")
+      return res.status(400).json({ msg: "No pending refund request" });
+
+    const reason = req.body?.reason?.trim() || "";
+    reg.refundStatus = "rejected";
+    reg.refundNote   = reason;
+    await reg.save();
+
+    const email = reg.userId?.email;
+    const name  = reg.userId?.name || "there";
+    if (email) {
+      sendEmail({
+        to: email,
+        subject: `❌ Refund Rejected: ${reg.eventId?.title}`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;border:1px solid #e0e0e0;border-radius:10px;overflow:hidden;">
+  <div style="background:#dc2626;padding:20px 24px;color:#fff;"><h2 style="margin:0;">Refund Not Approved</h2></div>
+  <div style="padding:24px;">
+    <p>Hi <strong>${name}</strong>,</p>
+    <p>Your refund request for <strong>${reg.eventId?.title}</strong> was not approved.</p>
+    ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ""}
+    <p style="color:#888;font-size:0.8rem;margin-top:24px;">Campus Event Finder</p>
+  </div>
+</div>`,
+      }).catch(() => {});
+    }
+
+    res.json({ msg: "Refund rejected. Student notified." });
+  } catch (e) {
+    res.status(500).json({ msg: e.message });
+  }
+};
+
+// ── GET PENDING REFUNDS (admin) ───────────────────────────────────────────────
+// GET /api/payment/refunds/pending
+exports.getPendingRefunds = async (req, res) => {
+  try {
+    const regs = await Registration.find({ refundStatus: "requested" })
+      .populate("userId",  "name email collegeName")
+      .populate("eventId", "title date price refundPercentage")
+      .sort({ registeredAt: -1 })
+      .lean();
+    res.json(regs);
+  } catch (e) {
+    res.status(500).json({ msg: e.message });
+  }
+};

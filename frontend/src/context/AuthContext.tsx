@@ -35,10 +35,6 @@ function parseJwt(token: string): AuthUser | null {
   }
 }
 
-function normalizeRole(role: string): AuthUser["role"] {
-  return (role === "user" ? "student" : role) as AuthUser["role"];
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() =>
     localStorage.getItem("token"),
@@ -48,8 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
       try {
-        const parsed = JSON.parse(storedUser) as AuthUser;
-        return { ...parsed, role: normalizeRole(parsed.role) };
+        return JSON.parse(storedUser) as AuthUser;
       } catch {
         localStorage.removeItem("user");
       }
@@ -61,16 +56,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const response = await loginRequest({ email, password });
     const parsedUser = parseJwt(response.token);
-    const normalizedUser = parsedUser
-      ? ({ ...parsedUser, role: normalizeRole(parsedUser.role) } as AuthUser)
-      : null;
     localStorage.setItem("token", response.token);
-    if (normalizedUser) {
-      localStorage.setItem("user", JSON.stringify(normalizedUser));
+    if (parsedUser) {
+      localStorage.setItem("user", JSON.stringify(parsedUser));
     }
     setToken(response.token);
-    setUser(normalizedUser);
-    return normalizedUser;
+    setUser(parsedUser);
+    return parsedUser;
   }, []);
 
   const signup = useCallback(async ({ name, email, password, role, collegeName }: SignupInput) => {

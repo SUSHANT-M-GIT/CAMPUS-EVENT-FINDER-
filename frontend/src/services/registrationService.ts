@@ -12,6 +12,9 @@ export interface RegisterResponse {
   msg: string;
   status: "confirmed" | "waitlisted";
   waitlistPosition?: number | null;
+  paymentStatus?: "free" | "pending" | "approved" | "rejected";
+  isPaid?: boolean;
+  registrationId?: string;
 }
 
 export async function registerForEvent(eventId: string, payload?: RegistrationPayload) {

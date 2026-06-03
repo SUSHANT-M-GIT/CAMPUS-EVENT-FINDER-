@@ -28,6 +28,20 @@ const eventSchema = new mongoose.Schema({
   // Banner image
   bannerImage:  { type: String, default: "" },  // local path or Google Drive direct URL
   bannerSource: { type: String, enum: ["local", "gdrive", ""], default: "" },
+
+  // ── Payment fields ────────────────────────────────────────────────────────
+  isPaid:  { type: Boolean, default: false },
+  price:   { type: Number,  default: 0 },
+  upiId:   { type: String,  default: "", trim: true },
+  qrImage: { type: String,  default: "" }, // Cloudinary / local URL for QR code image
+
+  // ── Refund policy ─────────────────────────────────────────────────────────
+  refundAllowed:      { type: Boolean, default: false },
+  refundPercentage:   { type: Number,  default: 100, min: 0, max: 100 },
+  refundCutoffHours:  { type: Number,  default: 48 },  // hours before event
+
+  // ── Certificate control ───────────────────────────────────────────────────
+  certificatesEnabled: { type: Boolean, default: false },
 }, { timestamps: true });
 
 // Text index for fast full-text search on title, description, tags

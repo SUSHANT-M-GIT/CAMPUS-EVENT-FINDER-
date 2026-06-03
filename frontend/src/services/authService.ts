@@ -9,7 +9,7 @@ export async function login(payload: LoginPayload) {
 }
 
 export async function signup(payload: SignupPayload) {
-  const { data } = await api.post<{ msg: string; email: string }>("/auth/register", payload);
+  const { data } = await api.post<{ success: boolean; msg: string; email: string }>("/auth/register", payload);
   return data;
 }
 
@@ -19,6 +19,6 @@ export async function verifyEmail(email: string, otp: string) {
 }
 
 export async function resendOtp(email: string) {
-  const { data } = await api.post<{ msg: string }>("/auth/resend-otp", { email });
+  const { data } = await api.post<{ success: boolean; msg: string }>("/auth/resend-otp", { email });
   return data;
 }

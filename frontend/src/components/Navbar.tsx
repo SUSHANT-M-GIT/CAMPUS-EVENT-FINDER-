@@ -23,7 +23,7 @@ export default function Navbar() {
         </Link>
 
         <div className="flex items-center gap-4">
-          {isAuthenticated && user?.role === "user" && (
+          {isAuthenticated && user?.role === "student" && (
             <>
               <NavLink to="/events" className={navClass}>
                 Events

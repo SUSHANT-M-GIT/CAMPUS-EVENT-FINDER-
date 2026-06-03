@@ -71,7 +71,7 @@ export default function EventDetailsPage() {
         <div className="mt-6">
           {error && <Alert type="error" message={error} />}
           {success && <Alert type="success" message={success} />}
-          {user?.role === "user" && (
+          {user?.role === "student" && (
             <button
               onClick={handleRegister}
               disabled={registering}

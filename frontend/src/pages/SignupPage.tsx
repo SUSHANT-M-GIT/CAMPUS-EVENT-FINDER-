@@ -6,13 +6,17 @@ import { verifyEmail, resendOtp } from "../services/authService";
 
 // Mirrors backend validation exactly
 const FORMAT_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-const COLLEGE_SUFFIXES = [".edu", ".ac.in", ".edu.in", ".ac.uk", ".edu.au"];
+// Blocked for students only — admins may use any valid email
+const STUDENT_BLOCKED_DOMAINS = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "live.com", "icloud.com", "protonmail.com"];
 
-function validateEmail(email: string): string | null {
+function validateEmail(email: string, role: string): string | null {
   if (!FORMAT_RE.test(email)) return "Invalid email format";
-  const domain = email.split("@")[1].toLowerCase();
-  const isCollege = COLLEGE_SUFFIXES.some(s => domain.endsWith(s));
-  if (!isCollege) return "Please use a valid college email ID (e.g. .edu, .ac.in, .edu.in)";
+  // Only apply domain restriction for students
+  if (role !== "admin") {
+    const domain = email.split("@")[1].toLowerCase();
+    if (STUDENT_BLOCKED_DOMAINS.includes(domain))
+      return "Personal email addresses (Gmail, Yahoo, Hotmail, Outlook) are not allowed. Please use your institutional/college email.";
+  }
   return null;
 }
 
@@ -33,33 +37,40 @@ export default function SignupPage() {
   const [emailError, setEmailError] = useState("");
 
   const handleEmailBlur = () => {
-    if (form.email && form.role === "student") {
-      setEmailError(validateEmail(form.email) || "");
+    if (form.email) {
+      setEmailError(validateEmail(form.email, form.role) || "");
     } else {
       setEmailError("");
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
-    if (e.target.name === "role" && e.target.value === "admin") setEmailError("");
-    if (e.target.name === "email") setEmailError("");
+    const { name, value } = e.target;
+    setForm(prev => {
+      const updated = { ...prev, [name]: value };
+      // Re-validate email immediately when role changes (domain rules differ)
+      if (name === "role" && prev.email) {
+        setEmailError(validateEmail(prev.email, value) || "");
+      }
+      return updated;
+    });
+    if (name === "email") setEmailError("");
   };
 
   // ── Step 1: submit registration ──────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (form.role === "student") {
-      const err = validateEmail(form.email);
-      if (err) { setEmailError(err); return; }
-    }
+    const err = validateEmail(form.email, form.role);
+    if (err) { setEmailError(err); return; }
     setError(""); setSuccess(""); setLoading(true);
     try {
-      const res = await signup(form as any);
-      setPendingEmail(res.email || form.email);
+      const result = await signup(form as any);
+      // Only proceed to OTP step if backend confirms success
+      setPendingEmail(form.email);
       setStep("otp");
       setSuccess("OTP sent to your college email. Enter it below.");
     } catch (err: any) {
+      // Show exact error from backend (e.g. email delivery failure)
       setError(err.response?.data?.msg || err.message || "Something went wrong.");
     } finally {
       setLoading(false);
@@ -85,9 +96,10 @@ export default function SignupPage() {
     setError(""); setSuccess(""); setLoading(true);
     try {
       const res = await resendOtp(pendingEmail);
-      setSuccess(res.msg);
+      // Only show success if backend confirmed email was sent
+      setSuccess(res.msg || "New OTP sent successfully.");
     } catch (err: any) {
-      setError(err.response?.data?.msg || "Failed to resend OTP.");
+      setError(err.response?.data?.msg || "Failed to resend OTP. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -117,23 +129,23 @@ export default function SignupPage() {
               <input name="name" value={form.name} onChange={handleChange} placeholder="Jane Smith" className="input" required />
             </div>
             <div>
-              {lbl(form.role === "admin" ? "Email address" : "College email address")}
+              {lbl("Email address")}
               <input
                 type="text"
                 name="email"
                 value={form.email}
                 onChange={handleChange}
                 onBlur={handleEmailBlur}
-                placeholder={form.role === "admin" ? "you@gmail.com or you@college.edu" : "you@college.edu"}
+                placeholder={form.role === "admin" ? "organizer@gmail.com or admin@company.com" : "you@college.edu or you@university.ac.in"}
                 className="input"
                 required
                 style={emailError ? { borderColor: "#ef4444", boxShadow: "0 0 0 3px rgba(239,68,68,0.15)" } : {}}
               />
               {emailError
                 ? <p style={{ margin: "4px 0 0", fontSize: "0.78rem", color: "#ef4444" }}>⚠ {emailError}</p>
-                : form.role === "student"
-                  ? <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "#94a3b8" }}>Must end in .edu, .ac.in, .edu.in, .ac.uk, or .edu.au</p>
-                  : <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "#94a3b8" }}>Gmail, Yahoo, or any valid email accepted</p>
+                : form.role !== "admin"
+                  ? <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "#94a3b8" }}>Personal emails (Gmail, Yahoo, Outlook) are not accepted</p>
+                  : <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "#94a3b8" }}>Any valid email is accepted for admin accounts</p>
               }
             </div>
             <div>

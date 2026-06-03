@@ -22,6 +22,15 @@ export interface EventPayload {
   // Banner: either a local File or a Google Drive share link
   imageFile?: File | null;
   gdriveLink?: string;
+  // Payment
+  isPaid?: boolean;
+  price?: number;
+  upiId?: string;
+  qrImageFile?: File | null;
+  // Refund policy
+  refundAllowed?: boolean;
+  refundPercentage?: number;
+  refundCutoffHours?: number;
 }
 
 export async function getEvents(query: EventsQuery = {}) {
@@ -49,6 +58,15 @@ function buildFormData(payload: EventPayload): FormData {
   payload.tags.forEach(t => fd.append("tags[]", t));
   if (payload.imageFile)  fd.append("image",      payload.imageFile);
   if (payload.gdriveLink) fd.append("gdriveLink", payload.gdriveLink);
+  // Payment fields
+  fd.append("isPaid", String(payload.isPaid ?? false));
+  fd.append("price",  String(payload.price  ?? 0));
+  if (payload.upiId)       fd.append("upiId",      payload.upiId);
+  if (payload.qrImageFile) fd.append("qrImage",    payload.qrImageFile);
+  // Refund policy
+  fd.append("refundAllowed",      String(payload.refundAllowed     ?? false));
+  fd.append("refundPercentage",   String(payload.refundPercentage  ?? 100));
+  fd.append("refundCutoffHours",  String(payload.refundCutoffHours ?? 48));
   return fd;
 }
 

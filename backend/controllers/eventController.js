@@ -20,12 +20,16 @@ function parseGdriveLink(link) {
 
 // ── Build banner fields from request ─────────────────────────────────────────
 // Called by both createEvent and updateEvent.
+// Now reads from req.files (fields upload) — req.files["image"]?.[0]
 // Returns { bannerImage, bannerSource } or {} if nothing provided.
 function extractBannerFields(req) {
-  // 1. File uploaded via multer
-  if (req.file) {
-    const relativePath = `/uploads/event-banners/${req.file.filename}`;
-    return { bannerImage: relativePath, bannerSource: "local" };
+  // 1. File uploaded via multer fields
+  const imageFile = req.files?.["image"]?.[0];
+  if (imageFile) {
+    return {
+      bannerImage:  `/uploads/event-banners/${imageFile.filename}`,
+      bannerSource: "local",
+    };
   }
 
   // 2. Google Drive link in body
@@ -39,23 +43,52 @@ function extractBannerFields(req) {
   return {};
 }
 
+// ── Extract QR code field from request ───────────────────────────────────────
+function extractQrFields(req) {
+  const qrFile = req.files?.["qrImage"]?.[0];
+  if (qrFile) {
+    return { qrImage: `/uploads/qr-codes/${qrFile.filename}` };
+  }
+  return {};
+}
+
 // ── CREATE EVENT ──────────────────────────────────────────────────────────────
 exports.createEvent = async (req, res) => {
   try {
-    const banner = extractBannerFields(req);
+    const banner   = extractBannerFields(req);
     if (banner._gdriveError) return res.status(400).json({ msg: banner._gdriveError });
+    const qrFields = extractQrFields(req);
 
     // Strip non-model fields from body before spreading
     const { gdriveLink, ...bodyFields } = req.body;
 
-    const e = new Event({ ...bodyFields, ...banner, createdBy: req.user.id });
+    // Parse isPaid / price properly from FormData strings
+    if (bodyFields.isPaid !== undefined) bodyFields.isPaid = bodyFields.isPaid === "true" || bodyFields.isPaid === true;
+    if (bodyFields.price  !== undefined) bodyFields.price  = Number(bodyFields.price) || 0;
+    // Parse refund policy fields
+    if (bodyFields.refundAllowed     !== undefined) bodyFields.refundAllowed     = bodyFields.refundAllowed === "true" || bodyFields.refundAllowed === true;
+    if (bodyFields.refundPercentage  !== undefined) bodyFields.refundPercentage  = Number(bodyFields.refundPercentage) || 100;
+    if (bodyFields.refundCutoffHours !== undefined) bodyFields.refundCutoffHours = Number(bodyFields.refundCutoffHours) || 48;
+
+    const e = new Event({ ...bodyFields, ...banner, ...qrFields, createdBy: req.user.id });
     await e.save();
     res.json(e);
+
+    // Real-time notification — broadcast to all connected users
+    if (global.io) {
+      global.io.to("all").emit("newEvent", {
+        _id:   e._id,
+        title: e.title,
+        type:  e.type,
+        date:  e.date,
+        message: `📢 New Event Added: ${e.title}`,
+      });
+    }
 
     // Fire-and-forget announcement email
     (async () => {
       try {
-        const users  = await User.find({ role: { $in: ["user","student"] } }, "email").lean();
+        const users  = await User.find({ role: "student" }, "email").lean();
         const emails = [...new Set(users.map(u => u.email).filter(v => v?.includes("@")))];
         console.log(`[Email] New event "${e.title}" — ${emails.length} recipient(s)`);
         await sendNewEventAnnouncement(emails, e, process.env.APP_URL || "");
@@ -132,19 +165,28 @@ exports.updateEvent = async (req, res) => {
     if (e.createdBy.toString() !== req.user.id)
       return res.status(403).json({ msg: "Forbidden: you do not own this event" });
 
-    const banner = extractBannerFields(req);
+    const banner   = extractBannerFields(req);
     if (banner._gdriveError) return res.status(400).json({ msg: banner._gdriveError });
+    const qrFields = extractQrFields(req);
 
-    // If a new local file was uploaded, delete the old local file
-    if (req.file && e.bannerSource === "local" && e.bannerImage) {
+    // If a new local banner was uploaded, delete the old local file
+    const newImageFile = req.files?.["image"]?.[0];
+    if (newImageFile && e.bannerSource === "local" && e.bannerImage) {
       const oldPath = path.join(__dirname, "..", e.bannerImage);
       fs.unlink(oldPath, err => { if (err) console.warn("[Upload] Could not delete old banner:", err.message); });
     }
 
     const { gdriveLink, ...bodyFields } = req.body;
+    // Parse boolean / numeric fields from FormData strings
+    if (bodyFields.isPaid !== undefined) bodyFields.isPaid = bodyFields.isPaid === "true" || bodyFields.isPaid === true;
+    if (bodyFields.price  !== undefined) bodyFields.price  = Number(bodyFields.price) || 0;
+    // Parse refund policy fields
+    if (bodyFields.refundAllowed     !== undefined) bodyFields.refundAllowed     = bodyFields.refundAllowed === "true" || bodyFields.refundAllowed === true;
+    if (bodyFields.refundPercentage  !== undefined) bodyFields.refundPercentage  = Number(bodyFields.refundPercentage) || 100;
+    if (bodyFields.refundCutoffHours !== undefined) bodyFields.refundCutoffHours = Number(bodyFields.refundCutoffHours) || 48;
     const updated = await Event.findByIdAndUpdate(
       req.params.id,
-      { ...bodyFields, ...banner },
+      { ...bodyFields, ...banner, ...qrFields },
       { new: true, runValidators: true }
     );
     res.json(updated);

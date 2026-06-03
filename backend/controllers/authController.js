@@ -6,13 +6,16 @@ const { sendEmail } = require("../services/emailService");
 // ── Email validation helpers ──────────────────────────────────────────────────
 
 const FORMAT_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-const COLLEGE_SUFFIXES = [".edu", ".ac.in", ".edu.in", ".ac.uk", ".edu.au"];
 
-/** Returns true only for institutional/college email domains */
-function isValidCollegeEmail(email) {
+// Personal/consumer email providers blocked for STUDENTS only.
+// Admins/Organizers may use any valid email (Gmail, work, personal, etc.)
+const STUDENT_BLOCKED_DOMAINS = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "live.com", "icloud.com", "protonmail.com"];
+
+/** Returns true when the email domain is a blocked personal provider (students only) */
+function isBlockedDomain(email) {
   if (!FORMAT_RE.test(email)) return false;
   const domain = email.split("@")[1].toLowerCase();
-  return COLLEGE_SUFFIXES.some(s => domain.endsWith(s));
+  return STUDENT_BLOCKED_DOMAINS.includes(domain);
 }
 
 // ── OTP helpers ───────────────────────────────────────────────────────────────
@@ -22,7 +25,10 @@ function generateOtp() {
 }
 
 async function sendOtpEmail(email, otp, name) {
-  await sendEmail({
+  console.log(`[OTP] Sending OTP to: ${email}`);
+  console.log(`[OTP] Generated OTP: ${otp}`);
+  
+  const sent = await sendEmail({
     to: email,
     subject: "🔐 Verify your Campus Event Finder account",
     html: `
@@ -41,6 +47,14 @@ async function sendOtpEmail(email, otp, name) {
   </div>
 </div>`,
   });
+
+  if (sent) {
+    console.log(`✅ [OTP] Email sent successfully to: ${email}`);
+  } else {
+    console.error(`❌ [OTP] Email failed to send to: ${email}`);
+  }
+
+  return sent; // returns true/false
 }
 
 // ── REGISTER ──────────────────────────────────────────────────────────────────
@@ -51,15 +65,16 @@ exports.register = async (req, res) => {
     if (!email)                 return res.status(400).json({ msg: "Email is required" });
     if (!FORMAT_RE.test(email)) return res.status(400).json({ msg: "Invalid email format" });
 
-    // College email required for students only.
-    // Admins/organizers can use Gmail, Yahoo, or any valid email.
-    const isAdmin = role === "admin";
-    if (!isAdmin && !isValidCollegeEmail(email))
+    // Students must use institutional/college email — block personal domains.
+    // Admins/Organizers can use any valid email (Gmail, work, personal, etc.)
+    if (role !== "admin" && isBlockedDomain(email))
       return res.status(400).json({
-        msg: "Students must use a college email (ending in .edu, .ac.in, .edu.in, .ac.uk, or .edu.au)",
+        msg: "Personal email addresses (Gmail, Yahoo, Hotmail, Outlook) are not allowed for students. Please use your institutional/college email.",
       });
 
     if (!collegeName?.trim()) return res.status(400).json({ msg: "College / organisation name is required" });
+
+    const isAdmin = role === "admin";
 
     let u = await User.findOne({ email: new RegExp(`^${email}$`, "i") });
     if (u && u.isVerified) return res.status(400).json({ msg: "User already exists" });
@@ -71,24 +86,34 @@ exports.register = async (req, res) => {
     if (u) {
       // Unverified account — refresh with new data
       u.name = name; u.password = hash;
-      u.role = isAdmin ? "admin" : "user";
+      u.role = isAdmin ? "admin" : "student";
       u.collegeName = collegeName.trim();
       u.otp = otp; u.otpExpiry = otpExpiry;
       await u.save();
     } else {
       u = await new User({
         name, email, password: hash,
-        role: isAdmin ? "admin" : "user",
+        role: isAdmin ? "admin" : "student",
         collegeName: collegeName.trim(),
         isVerified: false, otp, otpExpiry,
       }).save();
     }
 
-    sendOtpEmail(email, otp, name).catch(err =>
-      console.error("[OTP] Failed to send:", err.message)
-    );
+    console.log(`[Register] Sending OTP to: ${email}`);
+    console.log(`[Register] Generated OTP: ${otp}`);
 
-    res.json({ msg: "OTP sent to your email. Please verify to complete registration.", email });
+    const emailSent = await sendOtpEmail(email, otp, name);
+
+    if (!emailSent) {
+      console.error(`[Register] OTP email failed for: ${email}`);
+      return res.status(500).json({ 
+        success: false,
+        msg: "Failed to send OTP email. Please check your email address and try again." 
+      });
+    }
+
+    console.log(`[Register] OTP email sent successfully to: ${email}`);
+    res.json({ success: true, msg: "OTP sent to your email. Please verify to complete registration.", email });
   } catch (e) {
     console.error("Register Error:", e);
     res.status(500).json({ msg: e.message || "error" });
@@ -131,11 +156,21 @@ exports.resendOtp = async (req, res) => {
     u.otp = otp; u.otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
     await u.save();
 
-    sendOtpEmail(email, otp, u.name).catch(err =>
-      console.error("[OTP] Resend failed:", err.message)
-    );
+    console.log(`[ResendOTP] Resending OTP to: ${email}`);
+    console.log(`[ResendOTP] Generated OTP: ${otp}`);
 
-    res.json({ msg: "New OTP sent to your email." });
+    const emailSent = await sendOtpEmail(email, otp, u.name);
+
+    if (!emailSent) {
+      console.error(`[ResendOTP] OTP email failed for: ${email}`);
+      return res.status(500).json({ 
+        success: false,
+        msg: "Failed to send OTP email. Please check your email address and try again." 
+      });
+    }
+
+    console.log(`[ResendOTP] OTP email sent successfully to: ${email}`);
+    res.json({ success: true, msg: "New OTP sent to your email." });
   } catch (e) {
     res.status(500).json({ msg: e.message || "error" });
   }

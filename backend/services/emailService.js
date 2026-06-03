@@ -1,23 +1,46 @@
 /**
  * emailService.js
- * Transport: Brevo SMTP via Nodemailer — 300 free emails/day.
+ * Primary: Gmail SMTP via Nodemailer (requires App Password)
+ * Fallback: Brevo SMTP (300 free emails/day)
  * All env vars read at call-time (never at module load).
  */
 const nodemailer = require("nodemailer");
 
 function getTransport() {
-  return nodemailer.createTransport({
-    host: "smtp-relay.brevo.com",
-    port: 587,
-    secure: false,
-    auth: {
-      user: process.env.BREVO_USER,
-      pass: process.env.BREVO_PASS,
-    },
-  });
+  // Primary: Gmail SMTP (if configured)
+  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    console.log("🔧 Using Gmail SMTP transport");
+    return nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+  }
+  
+  // Fallback: Brevo SMTP
+  if (process.env.BREVO_USER && process.env.BREVO_PASS) {
+    console.log("🔧 Using Brevo SMTP transport (fallback)");
+    return nodemailer.createTransport({
+      host: "smtp-relay.brevo.com",
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.BREVO_USER,
+        pass: process.env.BREVO_PASS,
+      },
+    });
+  }
+
+  throw new Error("No email transport configured. Set EMAIL_USER/EMAIL_PASS or BREVO_USER/BREVO_PASS");
 }
 
 function getFrom() {
+  // Use EMAIL_USER for Gmail, otherwise EMAIL_FROM or default
+  if (process.env.EMAIL_USER) {
+    return `Campus Event Finder <${process.env.EMAIL_USER}>`;
+  }
   return process.env.EMAIL_FROM || "Campus Event Finder <noreply@campuseventfinder.com>";
 }
 
@@ -28,28 +51,55 @@ function formatDate(d) {
   });
 }
 
-// ─── core send (never throws — logs and returns false on failure) ─────────────
+// ─── core send (returns true on success, false on failure) ────────────────────
 
 async function sendEmail({ to, subject, html }) {
   // ── diagnostic logs (safe to keep in production) ──
-  console.log("📧 Sending email to:", to);
-  console.log("BREVO_USER:", process.env.BREVO_USER);
-  console.log("BREVO_PASS:", process.env.BREVO_PASS ? process.env.BREVO_PASS.slice(0, 10) + "..." : "NOT SET");
+  console.log("📧 Attempting to send email to:", to);
+  console.log("📧 Subject:", subject);
 
   try {
-    const user = process.env.BREVO_USER;
-    const pass = process.env.BREVO_PASS;
-    if (!user || !pass) {
-      console.error(`[Email] SKIP — BREVO_USER or BREVO_PASS not set (to="${to}")`);
+    // Check if email transport is configured
+    const gmailConfigured = !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
+    const brevoConfigured = !!(process.env.BREVO_USER && process.env.BREVO_PASS);
+
+    if (!gmailConfigured && !brevoConfigured) {
+      console.error(`❌ [Email] SKIP — No email service configured (to="${to}")`);
+      console.error("⚠️  Set EMAIL_USER/EMAIL_PASS for Gmail OR BREVO_USER/BREVO_PASS for Brevo");
       return false;
     }
+
+    if (gmailConfigured) {
+      console.log("✅ Gmail credentials detected:");
+      console.log("   EMAIL_USER:", process.env.EMAIL_USER);
+      console.log("   EMAIL_PASS:", process.env.EMAIL_PASS ? process.env.EMAIL_PASS.slice(0, 4) + "..." : "NOT SET");
+    } else if (brevoConfigured) {
+      console.log("✅ Brevo credentials detected (fallback):");
+      console.log("   BREVO_USER:", process.env.BREVO_USER);
+      console.log("   BREVO_PASS:", process.env.BREVO_PASS ? process.env.BREVO_PASS.slice(0, 10) + "..." : "NOT SET");
+    }
+
     const from = getFrom();
-    console.log(`[Email] from="${from}" subject="${subject}"`);
-    const info = await getTransport().sendMail({ from, to, subject, html });
-    console.log(`✅ [Email] Delivered → to="${to}" messageId="${info.messageId}"`);
+    console.log(`📤 [Email] Sending from="${from}" to="${to}"`);
+    
+    const transporter = getTransport();
+    const info = await transporter.sendMail({ from, to, subject, html });
+    
+    console.log(`✅ [Email] SUCCESS → Email delivered to="${to}" | messageId="${info.messageId}"`);
     return true;
   } catch (err) {
-    console.error(`❌ [Email] Failed → to="${to}" | ${err.message}`);
+    console.error(`❌ [Email] FAILED → to="${to}"`);
+    console.error(`❌ Error details: ${err.message}`);
+    
+    // Provide helpful troubleshooting info
+    if (err.message.includes("Invalid login") || err.message.includes("Username and Password not accepted")) {
+      console.error("⚠️  Gmail Authentication Failed:");
+      console.error("   1. Make sure you're using Gmail App Password (NOT regular password)");
+      console.error("   2. Enable 2-Step Verification in Google Account");
+      console.error("   3. Generate App Password: https://myaccount.google.com/apppasswords");
+      console.error("   4. Use the 16-character app password in .env EMAIL_PASS");
+    }
+    
     return false;
   }
 }

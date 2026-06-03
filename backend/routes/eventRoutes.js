@@ -4,9 +4,13 @@ const role   = require("../middleware/role");
 const upload = require("../middleware/upload");
 const c      = require("../controllers/eventController");
 
-// upload.single("image") handles multipart/form-data with an optional "image" field.
-// If no file is sent, multer passes through cleanly — the controller checks req.file.
-// multer error handler converts multer errors to clean JSON responses.
+// Accept up to two files per request:
+//   "image"   — event banner
+//   "qrImage" — UPI QR code for paid events
+const uploadFields = upload.fields([
+  { name: "image",   maxCount: 1 },
+  { name: "qrImage", maxCount: 1 },
+]);
 
 function handleMulterError(err, req, res, next) {
   if (err && err.code === "LIMIT_FILE_SIZE")
@@ -16,10 +20,10 @@ function handleMulterError(err, req, res, next) {
   next();
 }
 
-router.post(  "/", auth, role(["admin"]), upload.single("image"), handleMulterError, c.createEvent);
+router.post(  "/", auth, role(["admin"]), uploadFields, handleMulterError, c.createEvent);
 router.get(   "/", c.getEvents);
 router.get(   "/:id", c.getEventById);
-router.put(   "/:id", auth, role(["admin"]), upload.single("image"), handleMulterError, c.updateEvent);
+router.put(   "/:id", auth, role(["admin"]), uploadFields, handleMulterError, c.updateEvent);
 router.delete("/:id", auth, role(["admin"]), c.deleteEvent);
 
 module.exports = router;

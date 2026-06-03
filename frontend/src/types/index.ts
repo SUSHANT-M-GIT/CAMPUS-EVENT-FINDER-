@@ -1,4 +1,4 @@
-export type UserRole = "admin" | "user" | "student";
+export type UserRole = "admin" | "student";
 
 export interface AuthUser {
   id: string;
@@ -26,6 +26,17 @@ export interface EventItem {
   bannerSource?: "local" | "gdrive" | "";
   createdAt?: string;
   updatedAt?: string;
+  // Payment fields
+  isPaid?: boolean;
+  price?: number;
+  upiId?: string;
+  qrImage?: string;
+  // Refund policy
+  refundAllowed?: boolean;
+  refundPercentage?: number;
+  refundCutoffHours?: number;
+  // Certificate
+  certificatesEnabled?: boolean;
 }
 
 export interface FeedbackItem {
@@ -48,6 +59,20 @@ export interface RegistrationItem {
   department?: string;
   status?: "confirmed" | "waitlisted";
   waitlistPosition?: number | null;
+  // Payment fields
+  paymentStatus?: "free" | "pending" | "approved" | "rejected";
+  transactionId?: string;
+  paymentScreenshot?: string;
+  paymentNote?: string;
+  // QR Attendance
+  attendanceQr?: string;
+  attendanceStatus?: "absent" | "present";
+  // Refund
+  refundStatus?: "none" | "requested" | "approved" | "rejected";
+  refundAmount?: number;
+  refundNote?: string;
+  // Certificate
+  certificateId?: string;
 }
 
 export interface ApiMessage {
