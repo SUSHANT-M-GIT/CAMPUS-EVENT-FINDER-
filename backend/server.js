@@ -4,6 +4,9 @@ const { Server } = require("socket.io");
 const dotenv     = require("dotenv");
 const cors       = require("cors");
 const path       = require("path");
+const helmet     = require("helmet");
+const rateLimit  = require("express-rate-limit");
+const mongoSanitize = require("express-mongo-sanitize");
 const connectDB  = require("./config/db");
 const { startReminderScheduler } = require("./services/reminderScheduler");
 
@@ -33,9 +36,21 @@ io.on("connection", (socket) => {
 });
 
 // ── Middleware ───────────────────────────────────────────────────────────────
+// Security headers
+app.use(helmet({ contentSecurityPolicy: false }));
+// Rate limiting — 100 requests per minute per IP
+app.use("/api/", rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { msg: "Too many requests, please try again later." },
+}));
+// NoSQL injection protection
+app.use(mongoSanitize());
 app.use(cors());
 app.options("*", cors());
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 
 // Serve uploaded files (banners, payment screenshots, QR codes)
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

@@ -1,20 +1,20 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Zap, ArrowLeft } from "lucide-react";
 import Alert from "../components/Alert";
 import { useAuth } from "../context/AuthContext";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function LoginPage() {
-  const [email, setEmail]         = useState("");
-  const [password, setPassword]   = useState("");
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState("");
+  const [email, setEmail]           = useState("");
+  const [password, setPassword]     = useState("");
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState("");
   const [emailError, setEmailError] = useState("");
   const { login }  = useAuth();
   const navigate   = useNavigate();
 
-  // Validate on blur so the user sees feedback after leaving the field
   const handleEmailBlur = () => {
     if (email && !EMAIL_RE.test(email)) {
       setEmailError("Please enter a valid email address");
@@ -26,21 +26,17 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
-
-    // Guard: block submission if email format is wrong
     if (!EMAIL_RE.test(email)) {
       setEmailError("Please enter a valid email address");
       return;
     }
     setEmailError("");
-
     setLoading(true);
     try {
       const user = await login(email, password);
       if (!user) { setError("Login failed. Please try again."); return; }
       navigate(user.role === "admin" ? "/admin" : "/user", { replace: true });
     } catch (err: any) {
-      // If account exists but email not verified, send them to signup OTP step
       if (err.response?.data?.needsVerification) {
         navigate(`/signup?verify=${encodeURIComponent(email)}`);
         return;
@@ -60,17 +56,18 @@ export default function LoginPage() {
     <main className="auth-page">
       <section className="auth-card">
         <div style={{ textAlign: "center", marginBottom: "24px" }}>
-          <div style={{ fontSize: "2rem", marginBottom: "8px" }}>🎓</div>
-          <h1 style={{ fontSize: "1.6rem" }}>Welcome back</h1>
-          <p>Sign in to Campus Event Finder</p>
+          <div style={{ width: 52, height: 52, borderRadius: 14, background: "linear-gradient(135deg,#4f46e5,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", margin: "0 auto 14px", boxShadow: "0 8px 24px rgba(79,70,229,0.4)" }}>
+            <Zap size={24} color="#fff" fill="#fff" />
+          </div>
+          <h1 style={{ fontSize: "1.6rem", margin: "0 0 6px", color: "var(--text)", letterSpacing: "-0.025em" }}>Welcome back</h1>
+          <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", margin: 0 }}>Sign in to Campus Event Finder</p>
         </div>
 
         {error && <Alert type="error" message={error} />}
 
         <form onSubmit={handleSubmit} className="auth-form">
-          {/* Email */}
           <div>
-            <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "#374151", marginBottom: "6px" }}>
+            <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-2)", marginBottom: "6px" }}>
               Email address
             </label>
             <input
@@ -85,22 +82,19 @@ export default function LoginPage() {
               style={emailError ? { borderColor: "#ef4444", boxShadow: "0 0 0 3px rgba(239,68,68,0.15)" } : {}}
             />
             {emailError && (
-              <p style={{ margin: "5px 0 0", fontSize: "0.8rem", color: "#ef4444" }}>
-                ⚠ {emailError}
-              </p>
+              <p style={{ margin: "5px 0 0", fontSize: "0.8rem", color: "#ef4444" }}> {emailError}</p>
             )}
           </div>
 
-          {/* Password */}
           <div>
-            <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "#374151", marginBottom: "6px" }}>
+            <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-2)", marginBottom: "6px" }}>
               Password
             </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder=""
               className="input"
               required
               autoComplete="current-password"
@@ -113,7 +107,7 @@ export default function LoginPage() {
             className="btn btn-gradient full-width"
             style={{ marginTop: "4px", padding: "13px", fontSize: "1rem" }}
           >
-            {loading ? "Signing in…" : "Sign In →"}
+            {loading ? "Signing in…" : <>Sign In <ArrowLeft size={14} style={{ verticalAlign: "middle", marginLeft: 4, transform: "rotate(180deg)" }} /></>}
           </button>
         </form>
 
@@ -121,7 +115,7 @@ export default function LoginPage() {
           Don't have an account? <Link to="/signup">Create one free</Link>
         </p>
         <p className="auth-footnote" style={{ marginTop: "8px" }}>
-          <Link to="/" style={{ color: "#94a3b8", fontSize: "0.85rem" }}>← Back to home</Link>
+          <Link to="/" style={{ color: "var(--text-dim)", fontSize: "0.85rem" }}><ArrowLeft size={12} style={{ verticalAlign: "middle", marginRight: 4 }} />Back to home</Link>
         </p>
       </section>
     </main>

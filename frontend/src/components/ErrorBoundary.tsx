@@ -20,7 +20,7 @@ export default class ErrorBoundary extends Component<Props, State> {
       return (
         <div style={{ padding: "40px", textAlign: "center", fontFamily: "Arial, sans-serif" }}>
           <h2 style={{ color: "#dc2626" }}>Something went wrong</h2>
-          <p style={{ color: "#64748b", marginBottom: "16px" }}>{this.state.error.message}</p>
+          <p style={{ color: "var(--text-muted)", marginBottom: "16px" }}>{this.state.error.message}</p>
           <button
             style={{ padding: "10px 20px", background: "#4f46e5", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" }}
             onClick={() => { this.setState({ error: null }); window.location.href = "/login"; }}

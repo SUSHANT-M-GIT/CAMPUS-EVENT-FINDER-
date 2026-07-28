@@ -57,12 +57,20 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    // ── New event broadcast ──────────────────────────────────────────────────
+    //  Attendance marked notification (personal room)
+    socket.on("attendanceMarked", (data: { eventTitle: string; message: string }) => {
+      addNotification(
+        `✅ Attendance marked for "${data.eventTitle}" — your certificate will be available soon!`,
+        "success"
+      );
+    });
+
+    //  New event broadcast 
     socket.on("newEvent", (data: { message: string }) => {
       addNotification(data.message, "info");
     });
 
-    // ── Payment status notifications (personal room) ─────────────────────────
+    //  Payment status notifications (personal room) 
     socket.on("paymentApproved", (data: { message: string }) => {
       addNotification(data.message, "success");
     });
@@ -73,7 +81,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     socket.on("paymentSubmitted", (data: { studentName: string; eventTitle: string }) => {
       addNotification(
-        `💳 New payment from ${data.studentName || "a student"} for "${data.eventTitle}"`,
+        ` New payment from ${data.studentName || "a student"} for "${data.eventTitle}"`,
         "payment"
       );
     });

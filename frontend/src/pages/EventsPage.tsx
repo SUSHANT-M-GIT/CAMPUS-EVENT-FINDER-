@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import EventCard from "../components/EventCard";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { getEvents } from "../services/eventService";

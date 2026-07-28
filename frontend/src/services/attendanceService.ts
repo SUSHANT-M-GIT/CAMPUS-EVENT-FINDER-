@@ -21,11 +21,9 @@ export async function getMyQr(registrationId: string) {
   return data;
 }
 
-/** Student: download certificate PDF — returns blob URL */
+/** Student: download certificate PDF  returns blob URL */
 export function getCertificateUrl(registrationId: string): string {
-  const token = localStorage.getItem("token") ?? "";
-  // We call via anchor href directly (authenticated via token in URL is not ideal,
-  // so we use the fetch approach in the component instead)
+  // Token is passed via Authorization header by the axios interceptor
   return `/api/attendance/certificate/${registrationId}`;
 }
 

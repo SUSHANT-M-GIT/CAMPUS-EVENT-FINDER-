@@ -2,12 +2,19 @@ const Registration = require("../models/Registration");
 const Event        = require("../models/Event");
 const User         = require("../models/User");
 const QRCode       = require("qrcode");
+const crypto       = require("crypto");
 const {
   sendConfirmationEmail,
   sendAdminRegistrationAlert,
   sendWaitlistConfirmEmail,
   sendWaitlistPromotedEmail,
+  sendEmail,
 } = require("../services/emailService");
+
+/** Generate a short unique registration code like REG-A1B2C3 */
+function makeRegCode() {
+  return "REG-" + crypto.randomBytes(3).toString("hex").toUpperCase();
+}
 
 // ── REGISTER (or join waitlist) ───────────────────────────────────────────────
 exports.registerEvent = async (req, res) => {
@@ -56,16 +63,21 @@ exports.registerEvent = async (req, res) => {
       department,
       status,
       waitlistPosition,
-      // For paid events, student must pay before confirmed; for free events mark free
       paymentStatus: event.isPaid ? "pending" : "free",
+      registrationCode: makeRegCode(),
     }).save();
 
-    // Generate attendance QR immediately for free confirmed registrations
-    // (paid events get QR generated when payment is approved)
+    // Generate attendance QR for ALL free confirmed registrations
+    // (paid events get QR on payment approval)
     if (status === "confirmed" && !event.isPaid) {
       try {
-        const qrData = JSON.stringify({ registrationId: reg._id.toString(), eventId: event._id.toString() });
-        reg.attendanceQr = await QRCode.toDataURL(qrData);
+        const qrPayload = JSON.stringify({
+          registrationId:   reg._id.toString(),
+          registrationCode: reg.registrationCode,
+          eventId:          event._id.toString(),
+          studentName:      name,
+        });
+        reg.attendanceQr = await QRCode.toDataURL(qrPayload, { width: 256, margin: 2 });
         await reg.save();
       } catch (qrErr) {
         console.error("[QR] Generation failed:", qrErr.message);
@@ -99,7 +111,11 @@ exports.registerEvent = async (req, res) => {
         if (!recipientEmail) return;
 
         if (status === "confirmed") {
-          await sendConfirmationEmail(recipientEmail, event, { name: recipientName });
+          await sendConfirmationEmail(recipientEmail, event, {
+            name: recipientName,
+            attendanceQr:     reg.attendanceQr     || "",
+            registrationCode: reg.registrationCode || "",
+          });
           // Alert admin
           const adminDoc = await User.findById(event.createdBy).lean();
           if (adminDoc?.email) {
@@ -120,82 +136,51 @@ exports.registerEvent = async (req, res) => {
     })();
 
   } catch (e) {
-    if (e.code === 11000) return res.status(400).json({ msg: "Already registered" });
+    if (e.code === 11000) return res.status(400).json({ msg: "You are already registered for this event." });
     res.status(500).send("error");
   }
 };
 
 // ── CANCEL REGISTRATION ───────────────────────────────────────────────────────
-// DELETE /api/registrations/:eventId
 exports.cancelRegistration = async (req, res) => {
   try {
-    const reg = await Registration.findOne({
-      userId:  req.user.id,
-      eventId: req.params.eventId,
-    });
+    const reg = await Registration.findOne({ userId: req.user.id, eventId: req.params.eventId });
     if (!reg) return res.status(404).json({ msg: "Registration not found" });
 
-    // Block cancellation of approved paid registrations
-    if (reg.paymentStatus === "approved") {
-      return res.status(400).json({
-        msg: "Cannot cancel a registration after payment has been approved. Please contact the event organizer."
-      });
-    }
-
-    const wasConfirmed = reg.status === "confirmed";
+    const wasConfirmed      = reg.status === "confirmed";
     const cancelledPosition = reg.waitlistPosition;
 
     await Registration.findByIdAndDelete(reg._id);
 
     if (wasConfirmed) {
-      // Decrement confirmed count
       await Event.findByIdAndUpdate(req.params.eventId, { $inc: { registrationCount: -1 } });
 
-      // Promote the first waitlisted person
-      const next = await Registration.findOne({
-        eventId:  req.params.eventId,
-        status:   "waitlisted",
-        waitlistPosition: 1,
-      });
-
+      // Promote next waitlisted person
+      const next = await Registration.findOne({ eventId: req.params.eventId, status: "waitlisted", waitlistPosition: 1 });
       if (next) {
-        next.status           = "confirmed";
-        next.waitlistPosition = null;
-
-        // ✅ FIX: Check if event is paid — if so, promoted student must pay
+        next.status = "confirmed"; next.waitlistPosition = null;
         const event = await Event.findById(req.params.eventId).lean();
         if (event?.isPaid) {
-          next.paymentStatus = "pending"; // require payment before final confirmation
-        }
-
-        await next.save();
-
-        // Shift everyone else up by 1
-        await Registration.updateMany(
-          { eventId: req.params.eventId, status: "waitlisted" },
-          { $inc: { waitlistPosition: -1 } }
-        );
-
-        // Only increment confirmed count if it's a free event (paid events increment on approval)
-        if (!event?.isPaid) {
+          next.paymentStatus = "pending";
+        } else {
+          try {
+            const qrPayload = JSON.stringify({ registrationId: next._id.toString(), registrationCode: next.registrationCode || "", eventId: req.params.eventId });
+            next.attendanceQr = await QRCode.toDataURL(qrPayload, { width: 256, margin: 2 });
+          } catch {}
           await Event.findByIdAndUpdate(req.params.eventId, { $inc: { registrationCount: 1 } });
         }
-
-        // Notify the promoted student
+        await next.save();
+        await Registration.updateMany({ eventId: req.params.eventId, status: "waitlisted" }, { $inc: { waitlistPosition: -1 } });
+        // Notify promoted student
         (async () => {
           try {
             const userDoc = await User.findById(next.userId).lean();
-            if (userDoc?.email && event) {
-              await sendWaitlistPromotedEmail(userDoc.email, event, { name: next.name || userDoc.name || "there" });
-              console.log(`[Waitlist] Promoted ${userDoc.email} for "${event.title}"`);
-            }
-          } catch (err) {
-            console.error("[Waitlist] Promotion email failed:", err.message);
-          }
+            const event = await Event.findById(req.params.eventId).lean();
+            if (userDoc?.email && event) await sendWaitlistPromotedEmail(userDoc.email, event, { name: next.name || userDoc.name || "there" });
+          } catch (err) { console.error("[Waitlist]", err.message); }
         })();
       }
     } else {
-      // Cancelled from waitlist — shift positions down for those behind
       if (cancelledPosition) {
         await Registration.updateMany(
           { eventId: req.params.eventId, status: "waitlisted", waitlistPosition: { $gt: cancelledPosition } },
@@ -205,6 +190,125 @@ exports.cancelRegistration = async (req, res) => {
     }
 
     res.json({ msg: "Registration cancelled." });
+  } catch (e) {
+    res.status(500).json({ msg: e.message });
+  }
+};
+
+// ── GET PENDING CANCELLATION REQUESTS (admin) ─────────────────────────────────
+// GET /api/registrations/cancellations/pending
+exports.getPendingCancellations = async (req, res) => {
+  try {
+    const regs = await Registration.find({ cancellationStatus: "requested" })
+      .populate("userId", "name email collegeName")
+      .populate("eventId", "title date price isPaid")
+      .sort({ registeredAt: -1 })
+      .lean();
+    res.json(regs);
+  } catch (e) {
+    res.status(500).json({ msg: e.message });
+  }
+};
+
+// ── APPROVE CANCELLATION (admin) ──────────────────────────────────────────────
+// PUT /api/registrations/cancellations/:registrationId/approve
+exports.approveCancellation = async (req, res) => {
+  try {
+    const reg = await Registration.findById(req.params.registrationId)
+      .populate("eventId").populate("userId", "name email");
+    if (!reg) return res.status(404).json({ msg: "Registration not found" });
+    if (reg.cancellationStatus !== "requested")
+      return res.status(400).json({ msg: "No pending cancellation request" });
+
+    const eventId = reg.eventId._id || reg.eventId;
+
+    // Delete the registration and decrement count
+    await Registration.findByIdAndDelete(reg._id);
+    await Event.findByIdAndUpdate(eventId, { $inc: { registrationCount: -1 } });
+
+    // Promote next waitlisted person
+    const next = await Registration.findOne({ eventId, status: "waitlisted", waitlistPosition: 1 });
+    if (next) {
+      next.status = "confirmed"; next.waitlistPosition = null;
+      const event = await Event.findById(eventId).lean();
+      if (event?.isPaid) { next.paymentStatus = "pending"; }
+      else {
+        try {
+          const qrPayload = JSON.stringify({ registrationId: next._id.toString(), registrationCode: next.registrationCode, eventId: eventId.toString() });
+          next.attendanceQr = await QRCode.toDataURL(qrPayload, { width: 256, margin: 2 });
+        } catch {}
+        await Event.findByIdAndUpdate(eventId, { $inc: { registrationCount: 1 } });
+      }
+      await next.save();
+      await Registration.updateMany({ eventId, status: "waitlisted" }, { $inc: { waitlistPosition: -1 } });
+    }
+
+    // Notify student
+    const email = reg.userId?.email;
+    const name  = reg.userId?.name || "there";
+    if (email) {
+      sendEmail({
+        to: email,
+        subject: `Cancellation Approved: ${reg.eventId?.title}`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;border:1px solid #e0e0e0;border-radius:10px;overflow:hidden;">
+  <div style="background:#4f46e5;padding:20px 24px;color:#fff;"><h2 style="margin:0;">Cancellation Confirmed</h2></div>
+  <div style="padding:24px;"><p>Hi <strong>${name}</strong>,</p>
+  <p>Your cancellation request for <strong>${reg.eventId?.title}</strong> has been approved.</p>
+  <p style="color:#888;font-size:0.8rem;margin-top:24px;">Campus Event Finder</p></div></div>`,
+      }).catch(() => {});
+    }
+
+    if (global.io) {
+      global.io.to(reg.userId._id?.toString() || reg.userId.toString()).emit("cancellationApproved", {
+        eventTitle: reg.eventId?.title,
+        message: `Your cancellation for "${reg.eventId?.title}" has been approved.`,
+      });
+    }
+
+    res.json({ msg: "Cancellation approved. Student notified." });
+  } catch (e) {
+    res.status(500).json({ msg: e.message });
+  }
+};
+
+// ── REJECT CANCELLATION (admin) ───────────────────────────────────────────────
+// PUT /api/registrations/cancellations/:registrationId/reject
+exports.rejectCancellation = async (req, res) => {
+  try {
+    const reg = await Registration.findById(req.params.registrationId)
+      .populate("eventId").populate("userId", "name email");
+    if (!reg) return res.status(404).json({ msg: "Registration not found" });
+    if (reg.cancellationStatus !== "requested")
+      return res.status(400).json({ msg: "No pending cancellation request" });
+
+    const reason = req.body?.reason?.trim() || "";
+    reg.cancellationStatus = "rejected";
+    reg.cancellationNote   = reason;
+    await reg.save();
+
+    const email = reg.userId?.email;
+    const name  = reg.userId?.name || "there";
+    if (email) {
+      sendEmail({
+        to: email,
+        subject: `Cancellation Not Approved: ${reg.eventId?.title}`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;border:1px solid #e0e0e0;border-radius:10px;overflow:hidden;">
+  <div style="background:#dc2626;padding:20px 24px;color:#fff;"><h2 style="margin:0;">Cancellation Rejected</h2></div>
+  <div style="padding:24px;"><p>Hi <strong>${name}</strong>,</p>
+  <p>Your cancellation request for <strong>${reg.eventId?.title}</strong> was not approved.</p>
+  ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ""}
+  <p style="color:#888;font-size:0.8rem;margin-top:24px;">Campus Event Finder</p></div></div>`,
+      }).catch(() => {});
+    }
+
+    if (global.io) {
+      global.io.to(reg.userId._id?.toString() || reg.userId.toString()).emit("cancellationRejected", {
+        eventTitle: reg.eventId?.title,
+        reason,
+      });
+    }
+
+    res.json({ msg: "Cancellation rejected. Student notified." });
   } catch (e) {
     res.status(500).json({ msg: e.message });
   }

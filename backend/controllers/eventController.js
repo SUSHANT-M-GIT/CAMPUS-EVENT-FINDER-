@@ -184,10 +184,18 @@ exports.updateEvent = async (req, res) => {
     if (bodyFields.refundAllowed     !== undefined) bodyFields.refundAllowed     = bodyFields.refundAllowed === "true" || bodyFields.refundAllowed === true;
     if (bodyFields.refundPercentage  !== undefined) bodyFields.refundPercentage  = Number(bodyFields.refundPercentage) || 100;
     if (bodyFields.refundCutoffHours !== undefined) bodyFields.refundCutoffHours = Number(bodyFields.refundCutoffHours) || 48;
+    if (bodyFields.maxRegistrations  !== undefined) bodyFields.maxRegistrations  = Number(bodyFields.maxRegistrations) || 100;
+    // Handle tags[] from FormData — ensure it's always an array
+    if (bodyFields["tags[]"]) {
+      bodyFields.tags = Array.isArray(bodyFields["tags[]"]) ? bodyFields["tags[]"] : [bodyFields["tags[]"]];
+      delete bodyFields["tags[]"];
+    } else if (bodyFields.tags && !Array.isArray(bodyFields.tags)) {
+      bodyFields.tags = [bodyFields.tags];
+    }
     const updated = await Event.findByIdAndUpdate(
       req.params.id,
       { ...bodyFields, ...banner, ...qrFields },
-      { new: true, runValidators: true }
+      { new: true, runValidators: false }  // disable validators so existing past-deadline events can still be updated
     );
     res.json(updated);
   } catch (err) {

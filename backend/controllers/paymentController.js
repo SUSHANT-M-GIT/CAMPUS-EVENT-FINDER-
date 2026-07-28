@@ -1,10 +1,8 @@
 /**
  * paymentController.js
- * Handles student payment submission and admin payment verification.
- * Also generates attendance QR after approval.
+ * Manual UPI payment — student scans QR, uploads screenshot + transaction ID.
+ * Admin verifies and approves/rejects.
  */
-const path         = require("path");
-const fs           = require("fs");
 const QRCode       = require("qrcode");
 const Registration = require("../models/Registration");
 const Event        = require("../models/Event");
@@ -13,7 +11,6 @@ const { sendEmail } = require("../services/emailService");
 
 // ── SUBMIT PAYMENT (student) ──────────────────────────────────────────────────
 // POST /api/payment/submit/:registrationId
-// Body (multipart): transactionId, screenshot file
 exports.submitPayment = async (req, res) => {
   try {
     const reg = await Registration.findById(req.params.registrationId);
@@ -29,20 +26,18 @@ exports.submitPayment = async (req, res) => {
     if (!req.file)
       return res.status(400).json({ msg: "Payment screenshot is required" });
 
-    const screenshotPath = `/uploads/payment-screenshots/${req.file.filename}`;
     reg.transactionId     = transactionId.trim();
-    reg.paymentScreenshot = screenshotPath;
+    reg.paymentScreenshot = `/uploads/payment-screenshots/${req.file.filename}`;
     reg.paymentStatus     = "pending";
     await reg.save();
 
     // Notify admin via socket
     if (global.io) {
-      const event = await Event.findById(reg.eventId).lean();
+      const event   = await Event.findById(reg.eventId).lean();
       const student = await User.findById(reg.userId, "name email").lean();
       global.io.to("admins").emit("paymentSubmitted", {
         registrationId: reg._id,
         studentName:    student?.name,
-        studentEmail:   student?.email,
         eventTitle:     event?.title,
         transactionId:  reg.transactionId,
       });
@@ -57,6 +52,7 @@ exports.submitPayment = async (req, res) => {
 
 // ── GET PENDING PAYMENTS (admin) ──────────────────────────────────────────────
 // GET /api/payment/pending
+// Now shows only registrations that somehow ended up pending (edge cases)
 exports.getPendingPayments = async (req, res) => {
   try {
     const regs = await Registration.find({ paymentStatus: "pending" })
@@ -85,10 +81,15 @@ exports.approvePayment = async (req, res) => {
     reg.paymentStatus = "approved";
     reg.status        = "confirmed"; // activate the registration slot
 
-    // Generate unique attendance QR code (encodes registrationId)
+    // Generate unique attendance QR code (encodes registrationId + registrationCode)
     try {
-      const qrData = JSON.stringify({ registrationId: reg._id.toString(), eventId: reg.eventId._id?.toString() || reg.eventId.toString() });
-      reg.attendanceQr = await QRCode.toDataURL(qrData);
+      const qrData = JSON.stringify({
+        registrationId:   reg._id.toString(),
+        registrationCode: reg.registrationCode || "",
+        eventId:          reg.eventId._id?.toString() || reg.eventId.toString(),
+        studentName:      reg.name || reg.userId?.name || "",
+      });
+      reg.attendanceQr = await QRCode.toDataURL(qrData, { width: 256, margin: 2 });
     } catch (qrErr) {
       console.error("[QR] Generation failed:", qrErr.message);
     }
@@ -107,9 +108,19 @@ exports.approvePayment = async (req, res) => {
       });
     }
 
-    // Send approval email
+    // Send approval email with QR
     const email = reg.userId?.email;
     const name  = reg.userId?.name || "there";
+    const regCode = reg.registrationCode || "";
+    const qrSection = reg.attendanceQr
+      ? `<div style="text-align:center;margin:20px 0;padding:20px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
+          <p style="margin:0 0 12px;font-weight:700;color:#1e293b;">📱 Your Attendance QR Code</p>
+          <img src="${reg.attendanceQr}" alt="QR" style="width:180px;height:180px;border-radius:8px;border:1px solid #e2e8f0;" />
+          <p style="margin:12px 0 4px;font-size:0.85rem;color:#64748b;">Show this QR at the venue for attendance.</p>
+          ${regCode ? `<div style="display:inline-block;background:#4f46e5;color:#fff;padding:8px 20px;border-radius:99px;font-family:monospace;font-size:1.1rem;font-weight:800;letter-spacing:0.1em;margin-top:8px;">${regCode}</div>
+          <p style="margin:6px 0 0;font-size:0.78rem;color:#94a3b8;">Use this code for manual attendance if QR scan fails.</p>` : ""}
+        </div>`
+      : "";
     if (email) {
       await sendEmail({
         to:      email,
@@ -119,8 +130,9 @@ exports.approvePayment = async (req, res) => {
   <div style="background:#059669;padding:20px 24px;color:#fff;"><h2 style="margin:0;">Payment Approved!</h2></div>
   <div style="padding:24px;">
     <p>Hi <strong>${name}</strong>,</p>
-    <p>Your payment for <strong>${reg.eventId?.title}</strong> has been <strong style="color:#059669;">approved</strong>.</p>
-    <p>Your registration is now confirmed. See you at the event!</p>
+    <p>Your payment for <strong>${reg.eventId?.title}</strong> has been <strong style="color:#059669;">approved</strong>. Your registration is now confirmed!</p>
+    ${qrSection}
+    <p>See you at the event!</p>
     <p style="color:#888;font-size:0.8rem;margin-top:24px;">Campus Event Finder</p>
   </div>
 </div>`,

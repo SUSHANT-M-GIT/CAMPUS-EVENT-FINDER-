@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Calendar, Clock, MapPin, IndianRupee, ShieldAlert, CreditCard, QrCode, Award, CheckCircle, Hourglass, AlertCircle, BookOpen, Download } from "lucide-react";
+
 import LoadingSpinner from "../components/LoadingSpinner";
 import PaymentModal from "../components/PaymentModal";
 import { getMyRegistrations } from "../services/registrationService";
@@ -62,33 +64,33 @@ export default function MyRegistrationsPage() {
 
   const now = new Date();
 
-  /** Payment status badge — mirrors UserDashboardPage styling */
+  /** Payment status badge  mirrors UserDashboardPage styling */
   const PaymentBadge = ({ status }: { status: RegistrationItem["paymentStatus"] }) => {
     if (!status || status === "free") {
       return (
-        <span style={{ background: "#dcfce7", color: "#166534", borderRadius: 8, padding: "4px 10px", fontSize: "0.78rem", fontWeight: 600 }}>
-          🟢 Registration Confirmed
+        <span style={{ background: "rgba(34,197,94,0.15)", color: "var(--success)", borderRadius: 8, padding: "4px 10px", fontSize: "0.78rem", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <CheckCircle size={12} /> Registration Confirmed
         </span>
       );
     }
     if (status === "approved") {
       return (
-        <span style={{ background: "#dcfce7", color: "#166534", borderRadius: 8, padding: "4px 10px", fontSize: "0.78rem", fontWeight: 600 }}>
-          🟢 Payment Approved
+        <span style={{ background: "rgba(34,197,94,0.15)", color: "var(--success)", borderRadius: 8, padding: "4px 10px", fontSize: "0.78rem", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <CheckCircle size={12} /> Payment Approved
         </span>
       );
     }
     if (status === "pending") {
       return (
-        <span style={{ background: "#fef3c7", color: "#92400e", borderRadius: 8, padding: "4px 10px", fontSize: "0.78rem", fontWeight: 600 }}>
-          🟡 Payment Pending
+        <span style={{ background: "rgba(245,158,11,0.15)", color: "#92400e", borderRadius: 8, padding: "4px 10px", fontSize: "0.78rem", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <Hourglass size={12} /> Payment Pending
         </span>
       );
     }
     if (status === "rejected") {
       return (
-        <span style={{ background: "#fee2e2", color: "#991b1b", borderRadius: 8, padding: "4px 10px", fontSize: "0.78rem", fontWeight: 600 }}>
-          🔴 Payment Rejected
+        <span style={{ background: "rgba(239,68,68,0.15)", color: "var(--danger)", borderRadius: 8, padding: "4px 10px", fontSize: "0.78rem", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <AlertCircle size={12} /> Payment Rejected
         </span>
       );
     }
@@ -98,8 +100,8 @@ export default function MyRegistrationsPage() {
   const StatusBadge = ({ status }: { status?: string }) => {
     if (status === "waitlisted") {
       return (
-        <span style={{ background: "#f3e8ff", color: "#7c3aed", borderRadius: 8, padding: "4px 10px", fontSize: "0.78rem", fontWeight: 600 }}>
-          ⏳ Waitlisted
+        <span style={{ background: "rgba(168,85,247,0.15)", color: "#7c3aed", borderRadius: 8, padding: "4px 10px", fontSize: "0.78rem", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <Clock size={12} /> Waitlisted
         </span>
       );
     }
@@ -108,13 +110,13 @@ export default function MyRegistrationsPage() {
 
   return (
     <main style={{ maxWidth: 800, margin: "0 auto", padding: "32px 16px" }}>
-      <h1 style={{ marginBottom: 24, fontSize: "1.5rem", fontWeight: 700, color: "#1e293b" }}>
-        🎟️ My Registrations
+      <h1 style={{ marginBottom: 24, fontSize: "1.5rem", fontWeight: 700, color: "var(--text)" }}>
+        <BookOpen size={20} style={{ verticalAlign: "middle", marginRight: 8 }} />My Registrations
       </h1>
 
       {successMsg && (
-        <div style={{ background: "#dcfce7", border: "1px solid #86efac", borderRadius: 10, padding: "12px 16px", marginBottom: 20, color: "#166534", fontWeight: 600 }}>
-          ✅ {successMsg}
+        <div style={{ background: "rgba(34,197,94,0.15)", border: "1px solid #86efac", borderRadius: 10, padding: "12px 16px", marginBottom: 20, color: "var(--success)", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+          <CheckCircle size={16} /> {successMsg}
         </div>
       )}
 
@@ -123,8 +125,8 @@ export default function MyRegistrationsPage() {
       ) : error ? (
         <p style={{ color: "#dc2626" }}>{error}</p>
       ) : registrations.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "60px 0", color: "#94a3b8" }}>
-          <div style={{ fontSize: "3rem", marginBottom: 12 }}>🎟️</div>
+        <div style={{ textAlign: "center", padding: "60px 0", color: "var(--text-dim)" }}>
+          <div style={{ fontSize: "3rem", marginBottom: 12 }}>🎫</div>
           <p style={{ margin: 0, fontWeight: 600, fontSize: "1rem" }}>No registrations yet</p>
           <p style={{ margin: "6px 0 0", fontSize: "0.85rem" }}>Browse events on your dashboard to register!</p>
         </div>
@@ -138,35 +140,28 @@ export default function MyRegistrationsPage() {
               <div
                 key={reg._id}
                 style={{
-                  background: "#fff",
+                  background: "var(--surface-2)",
                   borderRadius: 14,
-                  border: "1px solid #e2e8f0",
+                  border: "1px solid var(--border)",
                   boxShadow: "0 2px 8px rgba(2,48,71,0.06)",
                   overflow: "hidden",
                 }}
               >
                 {/* Card header */}
                 <div style={{
-                  background: isPast ? "#f8fafc" : "#f0f7fb",
+                  background: isPast ? "rgba(148, 163, 184, 0.08)" : "rgba(108, 99, 255, 0.08)",
                   padding: "12px 18px",
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  borderBottom: "1px solid #e2e8f0",
+                  borderBottom: "1px solid var(--border)",
                   flexWrap: "wrap",
                   gap: 8,
                 }}>
-                  <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "#1e293b" }}>
+                  <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "var(--text)" }}>
                     {event?.title ?? "Event Removed"}
                   </h2>
-                  <span style={{
-                    background: isPast ? "#f1f5f9" : "#dcfce7",
-                    color:      isPast ? "#475569"  : "#166534",
-                    borderRadius: 99,
-                    padding: "2px 10px",
-                    fontSize: "0.72rem",
-                    fontWeight: 700,
-                  }}>
+                  <span className={isPast ? "badge badge-muted" : "badge badge-primary"}>
                     {isPast ? "Past" : "Upcoming"}
                   </span>
                 </div>
@@ -174,16 +169,29 @@ export default function MyRegistrationsPage() {
                 {/* Card body */}
                 <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
                   {/* Event meta */}
-                  <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: "0.83rem", color: "#64748b" }}>
+                  <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: "0.83rem", color: "var(--text-muted)", alignItems: "center" }}>
                     {event?.date && (
-                      <span>📅 {new Date(event.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</span>
+                      <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <Calendar size={14} />
+                        {new Date(event.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+                      </span>
                     )}
-                    {event?.time && <span>⏰ {event.time}</span>}
-                    {event?.location && <span>📍 {event.location}</span>}
+                    {event?.time && (
+                      <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <Clock size={14} />
+                        {event.time}
+                      </span>
+                    )}
+                    {event?.location && (
+                      <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <MapPin size={14} />
+                        {event.location}
+                      </span>
+                    )}
                   </div>
 
                   {/* Registration meta */}
-                  <div style={{ fontSize: "0.78rem", color: "#94a3b8" }}>
+                  <div style={{ fontSize: "0.78rem", color: "var(--text-dim)" }}>
                     Registered: {new Date(reg.registeredAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                   </div>
 
@@ -198,17 +206,17 @@ export default function MyRegistrationsPage() {
 
                     {/* Event price badge */}
                     {event?.isPaid && (
-                      <span style={{ background: "#f0fdf4", color: "#166534", borderRadius: 8, padding: "4px 10px", fontSize: "0.78rem", fontWeight: 600, border: "1px solid #86efac" }}>
-                        💰 ₹{event.price}
+                      <span className="badge badge-success">
+                        <IndianRupee size={11} /> {event.price}
                       </span>
                     )}
                   </div>
 
                   {/* Transaction ID if available */}
                   {reg.transactionId && (
-                    <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 8, padding: "8px 12px" }}>
-                      <span style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>Transaction ID: </span>
-                      <span style={{ fontFamily: "monospace", fontSize: "0.85rem", color: "#0369a1", fontWeight: 700 }}>
+                    <div style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 12px", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600 }}>Transaction ID: </span>
+                      <span style={{ fontFamily: "monospace", fontSize: "0.85rem", color: "var(--primary)", fontWeight: 700 }}>
                         {reg.transactionId}
                       </span>
                     </div>
@@ -216,32 +224,44 @@ export default function MyRegistrationsPage() {
 
                   {/* Rejection reason if rejected */}
                   {reg.paymentStatus === "rejected" && reg.paymentNote && (
-                    <div style={{ background: "#fee2e2", border: "1px solid #fecaca", borderRadius: 8, padding: "8px 12px", fontSize: "0.82rem", color: "#991b1b" }}>
-                      <strong>Rejection reason:</strong> {reg.paymentNote}
+                    <div className="alert alert-error" style={{ padding: "8px 12px", margin: 0, fontSize: "0.82rem" }}>
+                      <ShieldAlert size={14} style={{ marginTop: 2, flexShrink: 0 }} />
+                      <div><strong>Rejection reason:</strong> {reg.paymentNote}</div>
+                    </div>
+                  )}
+
+                  {/* Registration Code — always visible, used for manual attendance */}
+                  {reg.registrationCode && reg.status === "confirmed" && reg.paymentStatus !== "pending" && reg.paymentStatus !== "rejected" && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(79,70,229,0.1)", border: "1px solid rgba(79,70,229,0.25)", borderRadius: 10, padding: "10px 14px", flexWrap: "wrap" }}>
+                      <QrCode size={16} color="#818cf8" style={{ flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: 0, fontSize: "0.72rem", color: "var(--text-dim)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Your Registration Code</p>
+                        <span style={{ fontFamily: "monospace", fontSize: "1.05rem", fontWeight: 800, color: "#a5b4fc", letterSpacing: "0.1em" }}>
+                          {reg.registrationCode}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: "0.72rem", color: "var(--text-dim)", textAlign: "right" }}>Show this to admin if QR scan fails</span>
                     </div>
                   )}
 
                   {/* Action buttons */}
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
-                    {/* Pay Now — pending, no transaction yet */}
+                    {/* Pay Now  pending, no screenshot submitted yet */}
                     {reg.status !== "waitlisted" && reg.paymentStatus === "pending" && !reg.transactionId && event?._id && (
-                      <button
-                        type="button"
-                        onClick={() => setPaymentTarget({ registrationId: reg._id, event })}
-                        style={{ background: "#059669", color: "#fff", border: 0, borderRadius: 8, padding: "8px 14px", fontSize: "0.82rem", fontWeight: 700, cursor: "pointer" }}
-                      >
-                        💳 Pay Now
+                      <button type="button" onClick={() => setPaymentTarget({ registrationId: reg._id, event })}
+                        className="btn btn-primary btn-sm">
+                        <CreditCard size={14} /> Pay Now
                       </button>
                     )}
 
-                    {/* Pay Again — rejected, re-submit */}
+                    {/* Pay Again  rejected, re-submit */}
                     {reg.paymentStatus === "rejected" && event?._id && (
                       <button
                         type="button"
                         onClick={() => setPaymentTarget({ registrationId: reg._id, event })}
-                        style={{ background: "#4f46e5", color: "#fff", border: 0, borderRadius: 8, padding: "8px 14px", fontSize: "0.82rem", fontWeight: 700, cursor: "pointer" }}
+                        className="btn btn-primary btn-sm"
                       >
-                        💳 Pay Again
+                        <CreditCard size={14} /> Pay Again
                       </button>
                     )}
 
@@ -250,9 +270,9 @@ export default function MyRegistrationsPage() {
                       <button
                         type="button"
                         onClick={() => setQrOpen(qrOpen === reg._id ? null : reg._id)}
-                        style={{ background: "#0369a1", color: "#fff", border: 0, borderRadius: 8, padding: "8px 14px", fontSize: "0.82rem", fontWeight: 700, cursor: "pointer" }}
+                        className="btn btn-secondary btn-sm"
                       >
-                        {qrOpen === reg._id ? "🔼 Hide QR" : "📱 Show QR"}
+                        <QrCode size={14} /> {qrOpen === reg._id ? "Hide QR" : "Show QR"}
                       </button>
                     )}
 
@@ -262,26 +282,26 @@ export default function MyRegistrationsPage() {
                         type="button"
                         onClick={() => void handleRequestRefund(reg._id)}
                         disabled={refundLoading === reg._id}
-                        style={{ background: "#f59e0b", color: "#fff", border: 0, borderRadius: 8, padding: "8px 14px", fontSize: "0.82rem", fontWeight: 700, cursor: "pointer" }}
+                        className="btn btn-warning btn-sm"
                       >
-                        {refundLoading === reg._id ? "Requesting…" : "↩️ Request Refund"}
+                        {refundLoading === reg._id ? "Requesting" : "Request Refund"}
                       </button>
                     )}
 
                     {/* Refund status badges */}
                     {reg.refundStatus === "requested" && (
-                      <span style={{ background: "#dbeafe", color: "#1d4ed8", borderRadius: 8, padding: "8px 12px", fontSize: "0.78rem", fontWeight: 700 }}>
-                        ⏳ Refund Pending
+                      <span className="badge badge-warning">
+                        <Hourglass size={11} style={{ verticalAlign: "middle", marginRight: 3 }} />Refund Pending
                       </span>
                     )}
                     {reg.refundStatus === "approved" && (
-                      <span style={{ background: "#dcfce7", color: "#166534", borderRadius: 8, padding: "8px 12px", fontSize: "0.78rem", fontWeight: 700 }}>
-                        ✅ Refund Approved · ₹{reg.refundAmount}
+                      <span className="badge badge-success">
+                        <CheckCircle size={11} style={{ verticalAlign: "middle", marginRight: 3 }} />Refund Approved · ₹{reg.refundAmount}
                       </span>
                     )}
                     {reg.refundStatus === "rejected" && (
-                      <span style={{ background: "#fee2e2", color: "#991b1b", borderRadius: 8, padding: "8px 12px", fontSize: "0.78rem", fontWeight: 700 }}>
-                        ❌ Refund Rejected
+                      <span className="badge badge-danger">
+                        <AlertCircle size={11} style={{ verticalAlign: "middle", marginRight: 3 }} />Refund Rejected
                       </span>
                     )}
 
@@ -291,32 +311,34 @@ export default function MyRegistrationsPage() {
                         type="button"
                         onClick={() => void handleDownloadCertificate(reg._id)}
                         disabled={certLoading === reg._id}
-                        style={{ background: "linear-gradient(135deg,#7c3aed,#6d28d9)", color: "#fff", border: 0, borderRadius: 8, padding: "8px 14px", fontSize: "0.82rem", fontWeight: 700, cursor: "pointer" }}
+                        className="btn btn-primary btn-sm"
                       >
-                        {certLoading === reg._id ? "Generating…" : "🏆 Download Certificate"}
+                        <Award size={14} /> {certLoading === reg._id ? "Generating" : "Download Certificate"}
                       </button>
                     )}
 
                     {/* Attendance badge */}
                     {reg.attendanceStatus === "present" && (
-                      <span style={{ background: "#dcfce7", color: "#166534", borderRadius: 8, padding: "8px 12px", fontSize: "0.78rem", fontWeight: 700 }}>
-                        ✅ Attended
+                      <span className="badge badge-success">
+                        <CheckCircle size={11} style={{ verticalAlign: "middle", marginRight: 3 }} />Attended
                       </span>
                     )}
                   </div>
 
                   {/* QR Code Display */}
                   {qrOpen === reg._id && reg.attendanceQr && (
-                    <div style={{ marginTop: 12, textAlign: "center", background: "#f8fafc", borderRadius: 10, padding: "16px", border: "1px solid #e2e8f0" }}>
-                      <p style={{ margin: "0 0 8px", fontSize: "0.82rem", fontWeight: 600, color: "#374151" }}>Your Attendance QR Code</p>
-                      <img src={reg.attendanceQr} alt="Attendance QR" style={{ width: 180, height: 180, border: "1px solid #e2e8f0", borderRadius: 8 }} />
-                      <p style={{ margin: "8px 0 0", fontSize: "0.75rem", color: "#94a3b8" }}>Show this to the event organizer at the venue</p>
+                    <div style={{ marginTop: 12, textAlign: "center", background: "var(--surface-2)", borderRadius: 10, padding: "20px 16px", border: "1px solid var(--border)" }}>
+                      <p style={{ margin: "0 0 12px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-2)" }}>📱 Attendance QR Code</p>
+                      <img src={reg.attendanceQr} alt="Attendance QR" style={{ width: 200, height: 200, border: "2px solid var(--border)", borderRadius: 12, background: "#fff", padding: 6 }} />
+                      <p style={{ margin: "12px 0 4px", fontSize: "0.78rem", color: "var(--text-dim)" }}>
+                        Show this to the organizer at the venue — or give your code above if scanning fails.
+                      </p>
                       <a
                         href={reg.attendanceQr}
-                        download={`qr-${reg._id}.png`}
-                        style={{ display: "inline-block", marginTop: 8, background: "#4f46e5", color: "#fff", borderRadius: 7, padding: "6px 14px", fontSize: "0.78rem", fontWeight: 700, textDecoration: "none" }}
+                        download={`qr-${reg.registrationCode || reg._id}.png`}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 10, background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "#fff", borderRadius: 8, padding: "8px 18px", fontSize: "0.82rem", fontWeight: 700, textDecoration: "none" }}
                       >
-                        ⬇️ Download QR
+                        <Download size={13} /> Download QR
                       </a>
                     </div>
                   )}
@@ -327,7 +349,7 @@ export default function MyRegistrationsPage() {
         </div>
       )}
 
-      {/* ── PAYMENT MODAL ── */}
+      {/*  PAYMENT MODAL  */}
       {paymentTarget && (
         <PaymentModal
           registrationId={paymentTarget.registrationId}
@@ -338,7 +360,7 @@ export default function MyRegistrationsPage() {
           onClose={() => setPaymentTarget(null)}
           onSuccess={() => {
             setPaymentTarget(null);
-            setSuccessMsg("Payment submitted! Awaiting admin verification.");
+            setSuccessMsg("Payment submitted! Admin will verify and confirm your registration shortly.");
             void load();
           }}
         />
@@ -346,3 +368,4 @@ export default function MyRegistrationsPage() {
     </main>
   );
 }
+

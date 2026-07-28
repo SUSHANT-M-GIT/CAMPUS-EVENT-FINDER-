@@ -1,7 +1,10 @@
 const User   = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt    = require("jsonwebtoken");
+const { OAuth2Client } = require("google-auth-library");
 const { sendEmail } = require("../services/emailService");
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // ── Email validation helpers ──────────────────────────────────────────────────
 
@@ -233,5 +236,100 @@ exports.requestAdmin = async (req, res) => {
   } catch (e) {
     console.error("requestAdmin Error:", e);
     res.status(500).json({ msg: e.message || "error" });
+  }
+};
+
+// ── GOOGLE OAUTH ──────────────────────────────────────────────────────────────
+// POST /api/auth/google
+// Body: { idToken, collegeName, role }
+// idToken may be a Google ID token OR an access token from useGoogleLogin
+exports.googleAuth = async (req, res) => {
+  try {
+    const { idToken, collegeName, role } = req.body;
+    if (!idToken) return res.status(400).json({ msg: "Google token is required" });
+
+    let googleEmail = "";
+    let googleName  = "User";
+
+    // Try ID token verification first (credential flow)
+    // If that fails, try access token via userinfo endpoint (implicit/auth-code flow)
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      const payload = ticket.getPayload();
+      googleEmail = (payload.email || "").toLowerCase().trim();
+      googleName  = payload.name || "User";
+      console.log("[Google OAuth] Verified via ID token:", googleEmail);
+    } catch {
+      // Fall back to access token — fetch user info from Google
+      console.log("[Google OAuth] ID token failed, trying access token userinfo...");
+      try {
+        const infoRes = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo`, {
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        if (!infoRes.ok) throw new Error(`userinfo returned ${infoRes.status}`);
+        const info = await infoRes.json();
+        googleEmail = (info.email || "").toLowerCase().trim();
+        googleName  = info.name || info.given_name || "User";
+        console.log("[Google OAuth] Verified via access token:", googleEmail);
+      } catch (err2) {
+        console.error("[Google OAuth] Both token methods failed:", err2.message);
+        return res.status(401).json({ msg: "Invalid Google token. Please try signing in again." });
+      }
+    }
+
+    if (!googleEmail) return res.status(400).json({ msg: "Could not retrieve email from Google account" });
+
+    // Check if user already exists
+    let u = await User.findOne({ email: new RegExp(`^${googleEmail}$`, "i") });
+
+    if (u) {
+      // Existing user — log in directly (Google is trusted, no OTP needed)
+      if (!u.isVerified) {
+        u.isVerified = true;
+        await u.save();
+      }
+      const token = jwt.sign(
+        { user: { id: u.id, role: u.role, collegeName: u.collegeName || "" } },
+        process.env.JWT_SECRET,
+        { expiresIn: "1d" }
+      );
+      return res.json({ token, isNewUser: false });
+    }
+
+    // New user — need collegeName before account creation
+    if (!collegeName?.trim()) {
+      return res.status(202).json({
+        needsCollegeName: true,
+        msg: "Please provide your college/organisation name to complete sign-up.",
+        googleEmail,
+        googleName,
+      });
+    }
+
+    const assignedRole = role === "admin" ? "admin" : "student";
+
+    // Create account — Google-verified, no password, no OTP needed
+    u = await new User({
+      name:        googleName,
+      email:       googleEmail,
+      password:    "",
+      role:        assignedRole,
+      collegeName: collegeName.trim(),
+      isVerified:  true,
+    }).save();
+
+    const token = jwt.sign(
+      { user: { id: u.id, role: u.role, collegeName: u.collegeName || "" } },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    res.json({ token, isNewUser: true });
+  } catch (e) {
+    console.error("googleAuth Error:", e);
+    res.status(500).json({ msg: e.message || "Google sign-in failed" });
   }
 };

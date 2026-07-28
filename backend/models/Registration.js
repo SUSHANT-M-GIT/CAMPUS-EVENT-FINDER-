@@ -17,9 +17,14 @@ const schema = new mongoose.Schema({
   // ── Payment fields ────────────────────────────────────────────────────────
   // paymentStatus: only relevant when event.isPaid === true
   paymentStatus:     { type: String, enum: ["free", "pending", "approved", "rejected"], default: "free" },
-  transactionId:     { type: String, default: "" },
-  paymentScreenshot: { type: String, default: "" }, // stored URL after upload
-  paymentNote:       { type: String, default: "" }, // admin rejection reason
+  transactionId:     { type: String, default: "" },  // Razorpay payment ID after success
+  paymentScreenshot: { type: String, default: "" },  // kept for legacy; not used in new flow
+  paymentNote:       { type: String, default: "" },  // rejection reason (edge cases)
+
+  // ── Razorpay fields ───────────────────────────────────────────────────────
+  razorpayOrderId:   { type: String, default: "" },
+  razorpayPaymentId: { type: String, default: "" },
+  razorpaySignature: { type: String, default: "" },
 
   // ── QR Attendance ─────────────────────────────────────────────────────────
   attendanceQr:     { type: String, default: "" },   // base64 QR data-URL
@@ -32,6 +37,13 @@ const schema = new mongoose.Schema({
 
   // ── Certificate ───────────────────────────────────────────────────────────
   certificateId:    { type: String, default: "" },   // unique cert ID assigned on generation
+
+  // ── Cancellation request (for approved-payment registrations) ─────────────
+  cancellationStatus: { type: String, enum: ["none", "requested", "approved", "rejected"], default: "none" },
+  cancellationNote:   { type: String, default: "" },  // admin note on decision
+
+  // ── Unique registration code (shown on QR + ticket) ───────────────────────
+  registrationCode: { type: String, default: "" },  // e.g. "REG-ABC123"
 });
 
 schema.index({ userId: 1, eventId: 1 }, { unique: true });

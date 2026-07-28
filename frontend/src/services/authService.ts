@@ -22,3 +22,23 @@ export async function resendOtp(email: string) {
   const { data } = await api.post<{ success: boolean; msg: string }>("/auth/resend-otp", { email });
   return data;
 }
+
+export interface GoogleAuthPayload {
+  idToken: string;
+  collegeName?: string;
+  role?: string;
+}
+
+export interface GoogleAuthResponse {
+  token?: string;
+  isNewUser?: boolean;
+  needsCollegeName?: boolean;
+  msg?: string;
+  googleEmail?: string;
+  googleName?: string;
+}
+
+export async function googleAuth(payload: GoogleAuthPayload) {
+  const { data } = await api.post<GoogleAuthResponse>("/auth/google", payload);
+  return data;
+}

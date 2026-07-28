@@ -1,5 +1,5 @@
 import api from "./api";
-import type { ApiMessage, RegistrationItem } from "../types";
+import type { RegistrationItem } from "../types";
 
 export interface RegistrationPayload {
   name: string;
@@ -15,6 +15,7 @@ export interface RegisterResponse {
   paymentStatus?: "free" | "pending" | "approved" | "rejected";
   isPaid?: boolean;
   registrationId?: string;
+  requested?: boolean;
 }
 
 export async function registerForEvent(eventId: string, payload?: RegistrationPayload) {
@@ -23,7 +24,7 @@ export async function registerForEvent(eventId: string, payload?: RegistrationPa
 }
 
 export async function cancelRegistration(eventId: string) {
-  const { data } = await api.delete<ApiMessage>(`/registrations/${eventId}`);
+  const { data } = await api.delete<{ msg: string; requested?: boolean }>(`/registrations/${eventId}`);
   return data;
 }
 
@@ -34,5 +35,21 @@ export async function getMyRegistrations() {
 
 export async function getEventRegistrations(eventId: string) {
   const { data } = await api.get<RegistrationItem[]>(`/event/${eventId}/registrations`);
+  return data;
+}
+
+// Admin: cancellation management
+export async function getPendingCancellations() {
+  const { data } = await api.get<any[]>("/cancellations/pending");
+  return data;
+}
+
+export async function approveCancellation(registrationId: string) {
+  const { data } = await api.put<{ msg: string }>(`/cancellations/${registrationId}/approve`);
+  return data;
+}
+
+export async function rejectCancellation(registrationId: string, reason?: string) {
+  const { data } = await api.put<{ msg: string }>(`/cancellations/${registrationId}/reject`, { reason: reason ?? "" });
   return data;
 }

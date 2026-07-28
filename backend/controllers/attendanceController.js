@@ -12,13 +12,23 @@ const { sendEmail } = require("../services/emailService");
 // ── SCAN QR (admin marks student present) ────────────────────────────────────
 // POST /api/attendance/scan
 // Body: { registrationId, eventId }
+// registrationId can be either the MongoDB _id OR the short registrationCode (REG-XXXXXX)
 exports.scanAttendance = async (req, res) => {
   try {
     const { registrationId, eventId } = req.body;
     if (!registrationId) return res.status(400).json({ msg: "registrationId is required" });
 
-    const reg = await Registration.findById(registrationId).populate("eventId").populate("userId", "name email");
-    if (!reg) return res.status(404).json({ msg: "Registration not found" });
+    // Support both MongoDB _id and short REG-XXXXXX code
+    const mongoose = require("mongoose");
+    let reg;
+    if (mongoose.Types.ObjectId.isValid(registrationId)) {
+      reg = await Registration.findById(registrationId).populate("eventId").populate("userId", "name email");
+    } else {
+      // Try matching registrationCode (e.g. REG-A1B2C3)
+      reg = await Registration.findOne({ registrationCode: registrationId.trim().toUpperCase() })
+        .populate("eventId").populate("userId", "name email");
+    }
+    if (!reg) return res.status(404).json({ msg: "Registration not found. Check the ID or code." });
 
     // Verify this registration belongs to the event being scanned
     const regEventId = reg.eventId?._id?.toString() || reg.eventId?.toString();

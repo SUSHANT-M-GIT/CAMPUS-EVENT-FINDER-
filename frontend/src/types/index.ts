@@ -73,6 +73,11 @@ export interface RegistrationItem {
   refundNote?: string;
   // Certificate
   certificateId?: string;
+  // Cancellation request
+  cancellationStatus?: "none" | "requested" | "approved" | "rejected";
+  cancellationNote?: string;
+  // Unique registration code
+  registrationCode?: string;
 }
 
 export interface ApiMessage {

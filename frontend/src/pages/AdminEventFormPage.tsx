@@ -42,6 +42,9 @@ export default function AdminEventFormPage() {
           time: data.time,
           registrationDeadline: data.registrationDeadline.slice(0, 16),
           location: data.location,
+          maxRegistrations: data.maxRegistrations ?? 100,
+          eligibility: data.eligibility ?? "all",
+          tags: data.tags ?? [],
         });
       } catch {
         setFeedback({ type: "error", message: "Unable to load event." });
@@ -58,12 +61,12 @@ export default function AdminEventFormPage() {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  // ✅ FINAL FIXED SUBMIT FUNCTION
+  //  FINAL FIXED SUBMIT FUNCTION
   const handleSubmit = async () => {
-    // 🚨 VALIDATION FIRST
+    //  VALIDATION FIRST
 
     if (!formData.date || !formData.registrationDeadline) {
-      alert("❌ Please fill all required dates.");
+      alert(" Please fill all required dates.");
       return;
     }
 
@@ -76,26 +79,26 @@ export default function AdminEventFormPage() {
     deadlineDate.setHours(0, 0, 0, 0);
 
     if (isNaN(eventDate.getTime()) || isNaN(deadlineDate.getTime())) {
-      alert("❌ Invalid date.");
+      alert(" Invalid date.");
       return;
     }
 
     if (eventDate < today) {
-      alert("❌ Event date cannot be in the past");
+      alert("Event date cannot be in the past");
       return;
     }
 
     if (deadlineDate < today) {
-      alert("❌ Registration deadline cannot be in the past");
+      alert("Registration deadline cannot be in the past");
       return;
     }
 
     if (deadlineDate > eventDate) {
-      alert("❌ Registration deadline cannot be after event date");
+      alert("Registration deadline cannot be after event date");
       return;
     }
 
-    // ✅ ONLY AFTER VALIDATION
+    //  ONLY AFTER VALIDATION
     setLoading(true);
     setFeedback(null);
 
@@ -129,7 +132,7 @@ export default function AdminEventFormPage() {
 
         {feedback && <Alert type={feedback.type} message={feedback.message} />}
 
-        {/* ❌ REMOVED onSubmit */}
+        {/*  REMOVED onSubmit */}
         <form className="space-y-4">
           <input
             name="title"
@@ -205,7 +208,7 @@ export default function AdminEventFormPage() {
             />
           </div>
 
-          {/* ✅ FIXED BUTTON */}
+          {/*  FIXED BUTTON */}
           <button
             type="button"
             onClick={handleSubmit}

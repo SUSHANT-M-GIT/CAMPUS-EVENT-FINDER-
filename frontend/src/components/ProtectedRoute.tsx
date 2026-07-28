@@ -9,8 +9,8 @@ interface ProtectedRouteProps {
 
 /**
  * Guards a route by role.
- * - Unauthenticated users → /login
- * - Wrong role → redirected to their own dashboard
+ * - Unauthenticated users  /login
+ * - Wrong role  redirected to their own dashboard
  */
 export default function ProtectedRoute({ role, children }: ProtectedRouteProps) {
   const { user, isAuthenticated } = useAuth();

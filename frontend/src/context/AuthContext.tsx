@@ -16,6 +16,7 @@ interface AuthContextValue {
   token: string | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<AuthUser | null>;
+  loginWithToken: (token: string) => AuthUser | null;
   signup: (input: SignupInput) => Promise<string>;
   logout: () => void;
 }
@@ -65,6 +66,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return parsedUser;
   }, []);
 
+  // Used by Google OAuth  receives a JWT directly from the backend
+  const loginWithToken = useCallback((jwtToken: string) => {
+    const parsedUser = parseJwt(jwtToken);
+    localStorage.setItem("token", jwtToken);
+    if (parsedUser) {
+      localStorage.setItem("user", JSON.stringify(parsedUser));
+    }
+    setToken(jwtToken);
+    setUser(parsedUser);
+    return parsedUser;
+  }, []);
+
   const signup = useCallback(async ({ name, email, password, role, collegeName }: SignupInput) => {
     const response = await signupRequest({ name, email, password, role, collegeName });
     return response.msg;
@@ -83,10 +96,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       token,
       isAuthenticated: Boolean(token && user),
       login,
+      loginWithToken,
       signup,
       logout,
     }),
-    [user, token, login, signup, logout],
+    [user, token, login, loginWithToken, signup, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

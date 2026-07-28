@@ -10,11 +10,14 @@ function getTransport() {
   // Primary: Gmail SMTP (if configured)
   if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
     console.log("🔧 Using Gmail SMTP transport");
+    // Google App Passwords are sometimes stored with spaces (e.g. "abcd efgh ijkl mnop")
+    // Nodemailer requires no spaces — strip them here
+    const cleanPass = process.env.EMAIL_PASS.replace(/\s+/g, "");
     return nodemailer.createTransport({
       service: "gmail",
       auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        pass: cleanPass,
       },
     });
   }
@@ -72,7 +75,9 @@ async function sendEmail({ to, subject, html }) {
     if (gmailConfigured) {
       console.log("✅ Gmail credentials detected:");
       console.log("   EMAIL_USER:", process.env.EMAIL_USER);
-      console.log("   EMAIL_PASS:", process.env.EMAIL_PASS ? process.env.EMAIL_PASS.slice(0, 4) + "..." : "NOT SET");
+      const cleanPass = process.env.EMAIL_PASS.replace(/\s+/g, "");
+      console.log("   EMAIL_PASS (cleaned):", cleanPass ? cleanPass.slice(0, 4) + "..." : "NOT SET");
+      console.log("   Password length (no spaces):", cleanPass.length);
     } else if (brevoConfigured) {
       console.log("✅ Brevo credentials detected (fallback):");
       console.log("   BREVO_USER:", process.env.BREVO_USER);
@@ -107,6 +112,24 @@ async function sendEmail({ to, subject, html }) {
 // ─── named helpers used by controllers and scheduler ─────────────────────────
 
 async function sendConfirmationEmail(to, event, registration) {
+  const qrSection = registration.attendanceQr
+    ? `<div style="text-align:center;margin:24px 0;padding:20px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
+        <p style="margin:0 0 12px;font-weight:700;color:#1e293b;font-size:1rem;">📱 Your Attendance QR Code</p>
+        <img src="${registration.attendanceQr}" alt="Attendance QR" style="width:180px;height:180px;border-radius:8px;border:1px solid #e2e8f0;" />
+        <p style="margin:12px 0 4px;font-size:0.85rem;color:#64748b;">Show this QR at the venue for attendance.</p>
+        <div style="display:inline-block;background:#4f46e5;color:#fff;padding:8px 20px;border-radius:99px;font-family:monospace;font-size:1.1rem;font-weight:800;letter-spacing:0.1em;margin-top:8px;">
+          ${registration.registrationCode || ""}
+        </div>
+        <p style="margin:6px 0 0;font-size:0.78rem;color:#94a3b8;">Use this code for manual attendance if QR scan fails.</p>
+      </div>`
+    : `<div style="text-align:center;margin:20px 0;padding:14px;background:#f1f5f9;border-radius:8px;">
+        <p style="margin:0 0 6px;font-size:0.85rem;color:#64748b;">Your Registration Code</p>
+        <div style="display:inline-block;background:#4f46e5;color:#fff;padding:8px 20px;border-radius:99px;font-family:monospace;font-size:1.1rem;font-weight:800;letter-spacing:0.1em;">
+          ${registration.registrationCode || ""}
+        </div>
+        <p style="margin:6px 0 0;font-size:0.78rem;color:#94a3b8;">Provide this code to the admin for manual attendance.</p>
+      </div>`;
+
   await sendEmail({
     to,
     subject: `✅ Registration Confirmed: ${event.title}`,
@@ -123,6 +146,7 @@ async function sendConfirmationEmail(to, event, registration) {
       <tr style="background:#f9f9f9;"><td style="padding:8px;font-weight:bold;">Venue</td><td style="padding:8px;">${event.location || "TBD"}</td></tr>
       ${event.description ? `<tr><td style="padding:8px;font-weight:bold;">Description</td><td style="padding:8px;">${event.description}</td></tr>` : ""}
     </table>
+    ${qrSection}
     <p>You will receive a reminder email before the event starts.</p>
     <p style="color:#888;font-size:12px;margin-top:32px;">Campus Event Finder</p>
   </div>

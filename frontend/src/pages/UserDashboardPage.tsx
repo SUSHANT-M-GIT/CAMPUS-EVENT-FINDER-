@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Ticket, Calendar, CheckCircle2, Clock, MapPin, GraduationCap, Star, Share2, CreditCard, AlertCircle, CheckCircle, Hourglass, Award } from "lucide-react";
 import AppNavbar from "../components/AppNavbar";
 import Alert from "../components/Alert";
 import PaymentModal from "../components/PaymentModal";
+import EventCarousel from "../components/EventCarousel";
+import { SkeletonCard } from "../components/SkeletonCard";
+import EmptyState from "../components/EmptyState";
 import { useAuth } from "../context/AuthContext";
 import { getMyRegistrations, registerForEvent, cancelRegistration } from "../services/registrationService";
 import { submitFeedback, getMyFeedback } from "../services/feedbackService";
@@ -22,8 +26,9 @@ export default function UserDashboardPage() {
   const [noResultsMsg, setNoResultsMsg]   = useState("");
   const [registrations, setRegistrations] = useState<RegistrationItem[]>([]);
   const [feedback, setFeedback]           = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [eventsLoading, setEventsLoading] = useState(true);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [registerForm, setRegisterForm]   = useState({ name: "", collegeId: "", department: "" });
+  const [registerForm, setRegisterForm]   = useState({ name: "", collegeId: "", department: "", customDepartment: "" });
   const [cancellingId, setCancellingId]   = useState<string | null>(null);
 
   // Feedback modal state
@@ -42,6 +47,7 @@ export default function UserDashboardPage() {
 
   const fetchEvents = useCallback(async (q?: string, t?: string) => {
     try {
+      setEventsLoading(true);
       const params = new URLSearchParams();
       if (q?.trim()) params.set("search", q.trim());
       if (t)         params.set("type", t);
@@ -59,6 +65,8 @@ export default function UserDashboardPage() {
     } catch (err) {
       console.error("[UserDashboard] fetchEvents failed:", err);
       setFeedback({ type: "error", message: "Could not load events." });
+    } finally {
+      setEventsLoading(false);
     }
   }, []);
 
@@ -74,13 +82,13 @@ export default function UserDashboardPage() {
     void loadRegistrations();
     const onStorage = (e: StorageEvent) => { if (e.key === "events_last_updated") void fetchEvents(); };
     window.addEventListener("storage", onStorage);
-    // Close share popover on outside click — removed (share is now direct copy)
+    // Close share popover on outside click  removed (share is now direct copy)
     return () => {
       window.removeEventListener("storage", onStorage);
     };
   }, [fetchEvents, loadRegistrations]);
 
-  // Map eventId → registration for quick lookup
+  // Map eventId  registration for quick lookup
   const registrationByEventId = useMemo(() => {
     const map = new Map<string, RegistrationItem>();
     registrations.forEach(r => {
@@ -89,12 +97,6 @@ export default function UserDashboardPage() {
     });
     return map;
   }, [registrations]);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSearch(searchInput);
-    void fetchEvents(searchInput, typeFilter);
-  };
 
   const handleTypeChange = (t: string) => {
     setTypeFilter(t);
@@ -111,8 +113,15 @@ export default function UserDashboardPage() {
       setFeedback({ type: "error", message: "Please fill all registration details." });
       return;
     }
+    if (registerForm.department === "Others — Please specify below" && !registerForm.customDepartment.trim()) {
+      setFeedback({ type: "error", message: "Please describe your role or field in the text box." });
+      return;
+    }
     try {
-      const response = await registerForEvent(eventId, { ...registerForm, collegeName: user?.collegeName || "" });
+      const finalDepartment = registerForm.department === "Others — Please specify below"
+        ? (registerForm.customDepartment.trim() || "Others")
+        : registerForm.department;
+      const response = await registerForEvent(eventId, { ...registerForm, department: finalDepartment, collegeName: user?.collegeName || "" });
 
       if (response.status === "confirmed" && !response.isPaid) {
         setEvents(prev => prev.map(ev =>
@@ -123,9 +132,9 @@ export default function UserDashboardPage() {
       await loadRegistrations();
       setTimeout(() => { void fetchEvents(); }, 500);
       setSelectedEventId(null);
-      setRegisterForm({ name: "", collegeId: "", department: "" });
+      setRegisterForm({ name: "", collegeId: "", department: "", customDepartment: "" });
 
-      // If paid event — open payment modal immediately
+      // If paid event  open payment modal immediately
       if (response.isPaid && response.registrationId) {
         const ev = events.find(e => e._id === eventId);
         if (ev) {
@@ -141,6 +150,11 @@ export default function UserDashboardPage() {
     }
   };
 
+  // Payment modal state
+  interface PaymentTarget { registrationId: string; event: EventItem; }
+  const [paymentTarget, setPaymentTarget] = useState<PaymentTarget | null>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Q&A state
   const [qaOpenId, setQaOpenId]           = useState<string | null>(null);
   const [comments, setComments]           = useState<Record<string, CommentItem[]>>({});
@@ -149,10 +163,6 @@ export default function UserDashboardPage() {
   const [replyingTo, setReplyingTo]       = useState<string | null>(null);
   const [replyInput, setReplyInput]       = useState("");
   const [qaSubmitting, setQaSubmitting]   = useState(false);
-
-  // Payment modal state
-  interface PaymentTarget { registrationId: string; event: EventItem; }
-  const [paymentTarget, setPaymentTarget] = useState<PaymentTarget | null>(null);
 
   const loadComments = async (eventId: string) => {
     setQaLoading(eventId);
@@ -205,11 +215,10 @@ export default function UserDashboardPage() {
       document.execCommand("copy");
       document.body.removeChild(ta);
     }
-    setFeedback({ type: "success", message: "Event link copied to clipboard! 🔗" });
+    setFeedback({ type: "success", message: "Event link copied to clipboard! 📋" });
   };
 
   const handleCancel = async (eventId: string) => {
-    if (!window.confirm("Cancel your registration? If you're confirmed, the next person on the waitlist will be promoted automatically.")) return;
     setCancellingId(eventId);
     try {
       await cancelRegistration(eventId);
@@ -249,7 +258,7 @@ export default function UserDashboardPage() {
       await submitFeedback(feedbackEventId, { rating: starRating, comment: feedbackComment });
       setSubmittedFeedbacks(prev => new Set([...prev, feedbackEventId]));
       setFeedbackEventId(null);
-      setFeedback({ type: "success", message: "Thank you for your feedback! ⭐" });
+      setFeedback({ type: "success", message: "Thank you for your feedback! 🎉" });
     } catch (err: any) {
       setFeedback({ type: "error", message: err?.response?.data?.msg || "Failed to submit feedback." });
     } finally {
@@ -259,193 +268,313 @@ export default function UserDashboardPage() {
 
   return (
     <div className="dashboard-page">
-      <AppNavbar links={[
-        { label: "Events", href: "#events" },
-        { label: "My Registrations", href: "#registrations" },
-        { label: "Logout", onClick: handleLogout },
-      ]} />
+      <AppNavbar
+        links={[
+          { label: "Events", href: "#events" },
+          { label: "My Registrations", href: "#registrations" },
+          { label: "Logout", onClick: handleLogout },
+        ]}
+        showBell
+        userName={user?.collegeName}
+        userInitial={user?.collegeName?.charAt(0).toUpperCase() ?? "S"}
+      />
 
-      <section className="dashboard-banner app-container">
-        <img src="https://images.unsplash.com/photo-1511578314322-379afb476865" alt="Students at a campus event" />
-        <div className="dashboard-banner-overlay">
-          <h1>User Dashboard</h1>
-          <p>Explore and register for events</p>
-        </div>
-      </section>
+      {/*  PREMIUM HERO BANNER  */}
+      <div className="app-container">
+        <section className="dashboard-banner" style={{ marginTop: 24 }}>
+          <img src="https://images.unsplash.com/photo-1511578314322-379afb476865?w=1400" alt="Campus event" />
+          <div className="dashboard-banner-overlay">
+            {/* Welcome greeting */}
+            <p style={{ margin: "0 0 6px", fontSize: "0.85rem", color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>
+              👋 Welcome back
+            </p>
+            <h1 style={{ margin: "0 0 4px" }}>
+              {user?.collegeName ? `${user.collegeName}` : "Student Dashboard"}
+            </h1>
+            <p style={{ margin: "0 0 20px", color: "rgba(255,255,255,0.75)", fontSize: "0.9rem" }}>
+              {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+            </p>
+
+            {/* Summary cards inside banner */}
+            <div className="summary-grid">
+              {(() => {
+                const confirmed   = registrations.filter(r => r.status === "confirmed" || !r.status);
+                const now         = new Date();
+                const upcoming    = confirmed.filter(r => { const ev = r.eventId as EventItem; return ev?.date && new Date(ev.date) >= now; });
+                const pendingPay  = registrations.filter(r => r.paymentStatus === "pending");
+                const certs       = registrations.filter(r => r.attendanceStatus === "present" && (r.eventId as EventItem)?.certificatesEnabled);
+                return [
+                  { icon: "Cal", value: upcoming.length,   label: "Upcoming Events",     color: "#4f46e5" },
+                  { icon: "Reg", value: confirmed.length,  label: "Registered",           color: "#8b5cf6" },
+                  { icon: "Pay", value: pendingPay.length,  label: "Pending Payments",    color: "#f59e0b" },
+                  { icon: "Cert", value: certs.length,      label: "Certificates Ready",  color: "#10b981" },
+                ].map(s => (
+                  <div key={s.label} className="summary-card">
+                    <div className="summary-card-value" style={{ fontSize: "1.8rem", color: "#fff" }}>{s.value}</div>
+                    <div className="summary-card-label">{s.label}</div>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        </section>
+      </div>
 
       <main className="app-container dashboard-content">
         {feedback && <Alert type={feedback.type} message={feedback.message} />}
 
-        {/* ── EVENTS SECTION ── */}
+        {/*  EVENTS SECTION  */}
         <section id="events" className="dashboard-section">
-          <h3 style={{ margin: "0 0 16px" }}>Events</h3>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+            <h3 style={{ margin: 0, color: "var(--gray-900)", fontSize: "1.2rem" }}>
+              <Calendar size={16} style={{ verticalAlign: "middle", marginRight: 6, color: "#4f46e5" }} />Discover Events
+            </h3>
+            <span style={{ fontSize: "0.8rem", color: "var(--gray-400)", fontWeight: 500 }}>
+              {events.length} event{events.length !== 1 ? "s" : ""} available
+            </span>
+          </div>
 
-          <form onSubmit={handleSearch} style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 200, position: "relative" }}>
-              <input value={searchInput} onChange={e => setSearchInput(e.target.value)}
-                placeholder="🔍  Search events, tags, keywords…"
-                style={{ width: "100%", border: "1.5px solid #cde8f5", borderRadius: 9, padding: "10px 36px 10px 12px", fontSize: "0.92rem", outline: "none" }} />
+          {/* Live search bar */}
+          <div style={{ marginBottom: 14 }}>
+            <div className="search-bar" style={{ marginBottom: 12 }}>
+              <span style={{ padding: "0 0 0 14px", color: "var(--gray-400)", fontSize: "1rem", flexShrink: 0, display: "flex", alignItems: "center" }}><MapPin size={15} /></span>
+              <input
+                value={searchInput}
+                onChange={e => {
+                  setSearchInput(e.target.value);
+                  // Debounced live search
+                  if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+                  searchTimerRef.current = setTimeout(() => {
+                    setSearch(e.target.value);
+                    void fetchEvents(e.target.value, typeFilter);
+                  }, 300);
+                }}
+                placeholder="Search events, tags, locations"
+                style={{ border: 0, background: "transparent", outline: "none", padding: "11px 10px", fontSize: "0.9rem", flex: 1, color: "var(--gray-800)" }}
+              />
               {searchInput && (
                 <button type="button" onClick={handleClearSearch}
-                  style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: 0, cursor: "pointer", color: "#94a3b8", fontSize: "1rem" }}>✕</button>
+                  style={{ padding: "0 14px", background: "none", border: 0, cursor: "pointer", color: "var(--gray-400)", fontSize: "1rem" }}>✕</button>
               )}
             </div>
-            <select value={typeFilter} onChange={e => handleTypeChange(e.target.value)}
-              style={{ border: "1.5px solid #cde8f5", borderRadius: 9, padding: "10px 12px", fontSize: "0.92rem", outline: "none", background: "#fff", minWidth: 150 }}>
-              <option value="">All Categories</option>
-              {["hackathon","tech","seminar","games","movie","other"].map(t => (
-                <option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>
+
+            {/* Filter chips */}
+            <div className="filter-chips">
+              {[
+                { label: "All", value: "" },
+                { label: "Hackathon", value: "hackathon" },
+                { label: "Tech", value: "tech" },
+                { label: "Seminar", value: "seminar" },
+                { label: "Games", value: "games" },
+                { label: "Movie", value: "movie" },
+                { label: "Other", value: "other" },
+              ].map(f => (
+                <button key={f.value} type="button"
+                  className={`filter-chip${typeFilter === f.value ? " active" : ""}`}
+                  onClick={() => handleTypeChange(f.value)}>
+                  {f.label}
+                </button>
               ))}
-            </select>
-            <button type="submit" className="btn btn-gradient" style={{ padding: "10px 20px", whiteSpace: "nowrap" }}>Search</button>
-          </form>
+            </div>
+          </div>
 
           {noResultsMsg && (
             <div style={{ marginBottom: 16 }}>
-              <p style={{ color: "#64748b", fontSize: "0.9rem", marginBottom: similarEvents.length ? 12 : 0 }}>🔎 {noResultsMsg}</p>
-              {similarEvents.length > 0 && <p style={{ fontSize: "0.82rem", color: "#94a3b8", marginBottom: 12 }}>Here are some similar events you might like:</p>}
+            <p style={{ color: "var(--gray-500)", fontSize: "0.9rem", marginBottom: similarEvents.length ? 12 : 0 }}>ℹ️ {noResultsMsg}</p>
+              {similarEvents.length > 0 && <p style={{ fontSize: "0.82rem", color: "var(--gray-400)", marginBottom: 12 }}>Similar events you might like:</p>}
             </div>
           )}
 
+          {/* Featured carousel  show top 3 events */}
+          {!searchInput && !typeFilter && events.length > 0 && !eventsLoading && (
+            <div style={{ marginBottom: 24 }}>
+              <p style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--brand-600)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Featured</p>
+              <EventCarousel
+                events={events.slice(0, 5)}
+                onRegister={(id) => setSelectedEventId(id)}
+              />
+            </div>
+          )}
+
+          {/* Skeleton loading */}
+          {eventsLoading && (
+            <div className="event-grid stagger">
+              {[1,2,3,4,5,6].map(i => <SkeletonCard key={i} />)}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!eventsLoading && (noResultsMsg ? similarEvents : events).length === 0 && (
+            <EmptyState
+              icon="*"
+              title={searchInput ? "No events found" : "No events yet"}
+              description={searchInput ? `No events match "${searchInput}". Try different keywords.` : "Events will appear here once admins post them. Check back soon!"}
+              action={searchInput ? <button type="button" className="btn btn-ghost" onClick={handleClearSearch} style={{ fontSize: "0.875rem" }}>Clear search</button> : undefined}
+            />
+          )}
+
+          {/* Event grid */}
+          {!eventsLoading && (
           <div className="event-grid">
             {(noResultsMsg ? similarEvents : events).map((event) => {
               const myReg = registrationByEventId.get(event._id);
               const isFull = event.maxRegistrations != null && (event.registrationCount ?? 0) >= event.maxRegistrations;
               return (
                 <article key={event._id} className="event-card">
-                  <img
-                    src={event.bannerImage
-                      ? (event.bannerSource === "local" ? `${API_BASE}${event.bannerImage}` : event.bannerImage)
-                      : "https://images.unsplash.com/photo-1503676260728-1c00da094a0b"}
-                    alt={event.title}
-                    style={{ width: "100%", height: 160, objectFit: "cover" }}
-                  />
+                  {/* Image with overlay type badge */}
+                  <div className="event-card-img-wrap">
+                    <img
+                      src={event.bannerImage
+                        ? (event.bannerSource === "local" ? `${API_BASE}${event.bannerImage}` : event.bannerImage)
+                        : "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600"}
+                      alt={event.title}
+                      style={{ width: "100%", height: 175, objectFit: "cover", display: "block" }}
+                      onError={e => {
+                        (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600";
+                      }}
+                    />
+                    {/* Type badge */}
+                    <span style={{ position: "absolute", top: 10, left: 10, background: "rgba(79,70,229,0.88)", color: "#fff", borderRadius: 99, padding: "3px 10px", fontSize: "0.7rem", fontWeight: 700, textTransform: "capitalize", backdropFilter: "blur(4px)" }}>
+                      {event.type}
+                    </span>
+                    {/* Paid badge */}
+                    {event.isPaid && (
+                      <span style={{ position: "absolute", top: 10, right: 10, background: "rgba(5,150,105,0.9)", color: "#fff", borderRadius: 99, padding: "3px 10px", fontSize: "0.7rem", fontWeight: 700, backdropFilter: "blur(4px)" }}>
+                        {event.price}
+                      </span>
+                    )}
+                    {isFull && (
+                      <span style={{ position: "absolute", bottom: 10, right: 10, background: "rgba(124,58,237,0.9)", color: "#fff", borderRadius: 99, padding: "3px 10px", fontSize: "0.7rem", fontWeight: 700 }}>
+                        Full
+                      </span>
+                    )}
+                  </div>
+
                   <div className="event-card-body">
-                    <h4>{event.title}</h4>
+                    {/* Title */}
+                    <h4 style={{ color: "var(--text)", fontSize: "1rem", fontWeight: 700, margin: 0, lineHeight: 1.3 }}>{event.title}</h4>
+
+                    {/* Tags */}
                     {event.tags && event.tags.length > 0 && (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                         {event.tags.map(tag => (
-                          <span key={tag} style={{ background: "#eef2ff", color: "#4f46e5", borderRadius: 99, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 600 }}>#{tag}</span>
+                          <span key={tag} style={{ background: "rgba(108,99,255,0.15)", color: "#4f46e5", borderRadius: 99, padding: "2px 8px", fontSize: "0.7rem", fontWeight: 600 }}>#{tag}</span>
                         ))}
                       </div>
                     )}
-                    <p>{event.description}</p>
-                    <div className="event-meta">
-                      <span>📅 {new Date(event.date).toLocaleDateString()}</span>
-                      <span>📍 {event.location}</span>
+
+                    {/* Description */}
+                    <p style={{ color: "var(--text-2)", fontSize: "0.86rem", lineHeight: 1.5, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{event.description}</p>
+
+                    {/* Meta */}
+                    <div style={{ display: "flex", gap: 12, fontSize: "0.78rem", color: "var(--text-muted)", flexWrap: "wrap" }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 3 }}> <strong style={{ color: "var(--text-2)" }}>{new Date(event.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</strong></span>
+                      <span style={{ display: "flex", alignItems: "center", gap: 3 }}> <strong style={{ color: "var(--text-2)" }}>{event.location}</strong></span>
                     </div>
+
+                    {/* Rating */}
                     {event.avgRating != null && event.avgRating > 0 && (
-                      <div style={{ fontSize: "0.78rem", color: "#FFB703", fontWeight: 600 }}>
-                        {"★".repeat(Math.round(event.avgRating))}{"☆".repeat(5 - Math.round(event.avgRating))}
-                        <span style={{ color: "#94a3b8", fontWeight: 400, marginLeft: 4 }}>{event.avgRating.toFixed(1)} ({event.feedbackCount})</span>
+                      <div style={{ fontSize: "0.78rem", color: "#f59e0b", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                        {Array.from({ length: 5 }, (_, i) => (
+                          <Star key={i} size={12} fill={i < Math.round(event.avgRating!) ? "#f59e0b" : "none"} color="#f59e0b" />
+                        ))}
+                        <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>{event.avgRating!.toFixed(1)} ({event.feedbackCount})</span>
                       </div>
                     )}
+
+                    {/* Capacity bar */}
                     {event.maxRegistrations != null && (
-                      <div style={{ marginTop: 2 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", color: "#94a3b8", marginBottom: 3 }}>
-                          <span>{event.registrationCount ?? 0} registered</span>
-                          <span>max {event.maxRegistrations}</span>
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.73rem", marginBottom: 4 }}>
+                          <span style={{ color: "var(--text-muted)" }}><strong style={{ color: "var(--text-2)" }}>{event.registrationCount ?? 0}</strong> registered</span>
+                          <span style={{ color: isFull ? "#7c3aed" : "#6b7280", fontWeight: 600 }}>{isFull ? "Full" : `${event.maxRegistrations} max`}</span>
                         </div>
-                        <div style={{ height: 5, background: "#e2e8f0", borderRadius: 99, overflow: "hidden" }}>
-                          <div style={{ height: "100%", borderRadius: 99, transition: "width 0.4s ease",
+                        <div style={{ height: 6, background: "rgba(108,99,255,0.12)", borderRadius: 99, overflow: "hidden" }}>
+                          <div style={{
+                            height: "100%", borderRadius: 99, transition: "width 0.5s ease",
                             width: `${Math.min(100, Math.round(((event.registrationCount ?? 0) / event.maxRegistrations) * 100))}%`,
-                            background: isFull ? "#FB8500" : "#219EBC" }} />
+                            background: isFull ? "linear-gradient(90deg,#7c3aed,#a855f7)" : "linear-gradient(90deg,#4f46e5,#818cf8)",
+                          }} />
                         </div>
                         {isFull && !myReg && (
-                          <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "#8b5cf6", fontWeight: 600 }}>
-                            ⏳ Event full — you can join the waitlist
-                          </p>
+                          <p style={{ margin: "4px 0 0", fontSize: "0.73rem", color: "#7c3aed", fontWeight: 600 }}>⚠ Full — join waitlist below</p>
                         )}
                       </div>
                     )}
+
+                    {/* Registration status / action buttons */}
                     {myReg ? (
-                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
                         {myReg.status === "waitlisted" ? (
-                          <span style={{ background: "#f3e8ff", color: "#7c3aed", borderRadius: 8, padding: "6px 12px", fontSize: "0.82rem", fontWeight: 600 }}>
-                            ⏳ Waitlisted #{myReg.waitlistPosition}
+                          <span style={{ background: "rgba(168,85,247,0.15)", color: "var(--secondary)", borderRadius: 8, padding: "5px 11px", fontSize: "0.78rem", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                            <Clock size={12} /> Waitlist #{myReg.waitlistPosition}
                           </span>
+                        ) : myReg.paymentStatus === "pending" ? (
+                          <span style={{ background: "rgba(245,158,11,0.15)", color: "var(--warning)", borderRadius: 8, padding: "5px 11px", fontSize: "0.78rem", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}><Hourglass size={12} /> Payment Pending</span>
+                        ) : myReg.paymentStatus === "rejected" ? (
+                          <span style={{ background: "rgba(239,68,68,0.15)", color: "var(--danger)", borderRadius: 8, padding: "5px 11px", fontSize: "0.78rem", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}><AlertCircle size={12} /> Payment Rejected</span>
                         ) : (
-                          /* Confirmed — show payment badge for paid events */
-                          myReg.paymentStatus === "pending" ? (
-                            <span style={{ background: "#fef3c7", color: "#92400e", borderRadius: 8, padding: "6px 12px", fontSize: "0.82rem", fontWeight: 600 }}>
-                              💳 Payment Pending
-                            </span>
-                          ) : myReg.paymentStatus === "rejected" ? (
-                            <span style={{ background: "#fee2e2", color: "#991b1b", borderRadius: 8, padding: "6px 12px", fontSize: "0.82rem", fontWeight: 600 }}>
-                              ❌ Payment Rejected
-                            </span>
-                          ) : (
-                            <span style={{ background: "#dcfce7", color: "#166534", borderRadius: 8, padding: "6px 12px", fontSize: "0.82rem", fontWeight: 600 }}>
-                              ✓ Registered
-                            </span>
-                          )
+                          <span style={{ background: "rgba(34,197,94,0.15)", color: "var(--success)", borderRadius: 8, padding: "5px 11px", fontSize: "0.78rem", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}><CheckCircle size={12} /> Registered</span>
                         )}
 
-                        {/* Re-submit payment for rejected */}
-                        {myReg.paymentStatus === "rejected" && (
-                          <button
-                            type="button"
-                            onClick={() => setPaymentTarget({ registrationId: myReg._id, event })}
-                            style={{ background: "#4f46e5", color: "#fff", border: 0, borderRadius: 8, padding: "6px 12px", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer" }}
-                          >
-                            💳 Pay Again
+                        {myReg.paymentStatus === "pending" && !myReg.transactionId ? (
+                          <button type="button" onClick={() => setPaymentTarget({ registrationId: myReg._id, event })}
+                            style={{ background: "linear-gradient(135deg,#059669,#10b981)", color: "#fff", border: 0, borderRadius: 8, padding: "5px 11px", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                            <CreditCard size={12} /> Pay Now
                           </button>
-                        )}
-
-                        {/* Pay Now for pending (not yet submitted) */}
-                        {myReg.paymentStatus === "pending" && !myReg.transactionId && (
-                          <button
-                            type="button"
-                            onClick={() => setPaymentTarget({ registrationId: myReg._id, event })}
-                            style={{ background: "#059669", color: "#fff", border: 0, borderRadius: 8, padding: "6px 12px", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer" }}
-                          >
-                            💳 Pay Now
+                        ) : myReg.paymentStatus === "rejected" ? (
+                          <button type="button" onClick={() => setPaymentTarget({ registrationId: myReg._id, event })}
+                            style={{ background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "#fff", border: 0, borderRadius: 8, padding: "5px 11px", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                            <CreditCard size={12} /> Pay Again
                           </button>
-                        )}
+                        ) : null}
 
-                        {/* Payment rejection reason */}
                         {myReg.paymentStatus === "rejected" && myReg.paymentNote && (
-                          <p style={{ width: "100%", margin: "2px 0 0", fontSize: "0.75rem", color: "#991b1b" }}>
-                            Reason: {myReg.paymentNote}
-                          </p>
+                          <p style={{ width: "100%", margin: "2px 0 0", fontSize: "0.73rem", color: "#b91c1c" }}>Reason: {myReg.paymentNote}</p>
                         )}
 
                         {myReg.status !== "waitlisted" && myReg.paymentStatus !== "pending" && (
-                          <button type="button" onClick={() => void handleCancel(event._id)}
-                            disabled={cancellingId === event._id}
-                            style={{ background: "#fee2e2", color: "#991b1b", border: 0, borderRadius: 8, padding: "6px 12px", fontSize: "0.78rem", fontWeight: 600, cursor: "pointer" }}>
-                            {cancellingId === event._id ? "Cancelling…" : "Cancel"}
+                          <button type="button" onClick={() => void handleCancel(event._id)} disabled={cancellingId === event._id}
+                            style={{ background: "var(--surface-2)", color: "#dc2626", border: "1.5px solid #fca5a5", borderRadius: 8, padding: "5px 11px", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer" }}>
+                            {cancellingId === event._id ? "" : "Cancel"}
                           </button>
                         )}
                       </div>
                     ) : (
-                      <button type="button" onClick={() => setSelectedEventId(event._id)} className="btn btn-gradient"
-                        style={{ background: isFull ? "linear-gradient(135deg,#7c3aed,#8b5cf6)" : undefined }}>
-                        {isFull ? "⏳ Join Waitlist" : event.isPaid ? `Register · ₹${event.price}` : "Register"}
+                      <button type="button" onClick={() => setSelectedEventId(event._id)}
+                        style={{
+                          width: "100%", border: 0, borderRadius: 10, padding: "11px", fontWeight: 700, cursor: "pointer", fontSize: "0.9rem", color: "#fff",
+                          background: isFull ? "linear-gradient(135deg,#7c3aed,#a855f7)" : event.isPaid ? "linear-gradient(135deg,#059669,#10b981)" : "linear-gradient(135deg,#4f46e5,#6366f1)",
+                          boxShadow: isFull ? "0 4px 14px rgba(124,58,237,0.35)" : event.isPaid ? "0 4px 14px rgba(5,150,105,0.35)" : "0 4px 14px rgba(79,70,229,0.35)",
+                          transition: "opacity 0.2s, transform 0.2s",
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.9"; (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; (e.currentTarget as HTMLButtonElement).style.transform = ""; }}
+                      >
+                        {isFull ? "Join Waitlist" : event.isPaid ? `Register · ₹${event.price}` : "Register Free"}
                       </button>
                     )}
 
-                    {/* ── Share button — copies link directly ── */}
-                    <button
-                      type="button"
-                      onClick={() => void handleShare(event)}
-                      title="Copy event link"
-                      style={{ background: "#f1f5f9", color: "#475569", border: 0, borderRadius: 8, padding: "6px 10px", fontSize: "0.85rem", cursor: "pointer", lineHeight: 1 }}
+                    {/* Share */}
+                    <button type="button" onClick={() => void handleShare(event)} title="Copy event link"
+                      style={{ background: "rgba(255,255,255,0.06)", color: "var(--text-muted)", border: "1px solid var(--border)", borderRadius: 8, padding: "5px 10px", fontSize: "0.82rem", cursor: "pointer", alignSelf: "flex-start", transition: "background 0.2s" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "#e0e7ff"; (e.currentTarget as HTMLButtonElement).style.color = "#4f46e5"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "#f1f5f9"; (e.currentTarget as HTMLButtonElement).style.color = "#64748b"; }}
                     >
-                      🔗
+                      <Share2 size={13} style={{ verticalAlign: "middle", marginRight: 4 }} /> Share
                     </button>
                   </div>
 
-                  {/* ── Q&A panel ── */}
-                  <div style={{ borderTop: "1px solid #f1f5f9" }}>
+                  {/*  Q&A panel  */}
+                  <div style={{ borderTop: "1px solid var(--border)" }}>
                     <button
                       type="button"
                       onClick={() => toggleQa(event._id)}
-                      style={{ width: "100%", background: "none", border: 0, padding: "10px 14px", cursor: "pointer", fontSize: "0.82rem", color: "#64748b", fontWeight: 600, textAlign: "left", display: "flex", alignItems: "center", gap: 6 }}
+                      style={{ width: "100%", background: "none", border: 0, padding: "10px 14px", cursor: "pointer", fontSize: "0.82rem", color: "var(--text-muted)", fontWeight: 600, textAlign: "left", display: "flex", alignItems: "center", gap: 6 }}
                     >
                       💬 Q&A
                       {comments[event._id]?.length > 0 && (
-                        <span style={{ background: "#eef2ff", color: "#4f46e5", borderRadius: 99, padding: "1px 7px", fontSize: "0.72rem", fontWeight: 700 }}>
+                        <span style={{ background: "rgba(108,99,255,0.15)", color: "#4f46e5", borderRadius: 99, padding: "1px 7px", fontSize: "0.72rem", fontWeight: 700 }}>
                           {comments[event._id].length}
                         </span>
                       )}
@@ -455,13 +584,13 @@ export default function UserDashboardPage() {
                     {qaOpenId === event._id && (
                       <div style={{ padding: "0 14px 14px" }}>
                         {qaLoading === event._id ? (
-                          <p style={{ color: "#94a3b8", fontSize: "0.82rem", margin: "8px 0" }}>Loading…</p>
+                          <p style={{ color: "var(--text-dim)", fontSize: "0.82rem", margin: "8px 0" }}>Loading</p>
                         ) : (
                           <>
                             {/* Comment list */}
                             <div style={{ display: "grid", gap: 10, marginBottom: 12 }}>
                               {(comments[event._id] ?? []).length === 0 && (
-                                <p style={{ color: "#94a3b8", fontSize: "0.82rem", margin: 0 }}>No questions yet. Be the first to ask!</p>
+                                <p style={{ color: "var(--text-dim)", fontSize: "0.82rem", margin: 0 }}>No questions yet. Be the first to ask!</p>
                               )}
                               {(comments[event._id] ?? []).map(c => {
                                 const author = typeof c.userId === "object" ? c.userId : null;
@@ -478,19 +607,19 @@ export default function UserDashboardPage() {
                                               {author?.name ?? "User"}
                                             </span>
                                             {isAdmin && (
-                                              <span style={{ background: "#dcfce7", color: "#166534", borderRadius: 99, padding: "1px 6px", fontSize: "0.68rem", fontWeight: 700 }}>Admin</span>
+                                              <span style={{ background: "rgba(34,197,94,0.15)", color: "var(--success)", borderRadius: 99, padding: "1px 6px", fontSize: "0.68rem", fontWeight: 700 }}>Admin</span>
                                             )}
-                                            <span style={{ color: "#94a3b8", fontSize: "0.72rem" }}>
+                                            <span style={{ color: "var(--text-dim)", fontSize: "0.72rem" }}>
                                               {new Date(c.createdAt).toLocaleDateString()}
                                             </span>
                                           </div>
-                                          <p style={{ margin: 0, fontSize: "0.85rem", color: "#334155", lineHeight: 1.5 }}>{c.text}</p>
+                                          <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-2)", lineHeight: 1.5 }}>{c.text}</p>
                                         </div>
                                         <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                                          {/* Students cannot reply — only the event admin can */}
+                                          {/* Students cannot reply  only the event admin can */}
                                           {isMe && (
                                             <button type="button" onClick={() => void handleDeleteComment(c._id, event._id)}
-                                              style={{ background: "none", border: 0, color: "#ef4444", fontSize: "0.75rem", cursor: "pointer", padding: "2px 4px" }}>✕</button>
+                                              style={{ background: "none", border: 0, color: "#ef4444", fontSize: "0.75rem", cursor: "pointer", padding: "2px 4px" }}></button>
                                           )}
                                         </div>
                                       </div>
@@ -509,14 +638,14 @@ export default function UserDashboardPage() {
                                                 <div>
                                                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
                                                     <span style={{ fontWeight: 700, fontSize: "0.78rem", color: rIsAdmin ? "#166534" : "#334155" }}>{rAuthor?.name ?? "User"}</span>
-                                                    {rIsAdmin && <span style={{ background: "#dcfce7", color: "#166534", borderRadius: 99, padding: "1px 6px", fontSize: "0.68rem", fontWeight: 700 }}>Admin</span>}
-                                                    <span style={{ color: "#94a3b8", fontSize: "0.7rem" }}>{new Date(r.createdAt).toLocaleDateString()}</span>
+                                                    {rIsAdmin && <span style={{ background: "rgba(34,197,94,0.15)", color: "var(--success)", borderRadius: 99, padding: "1px 6px", fontSize: "0.68rem", fontWeight: 700 }}>Admin</span>}
+                                                    <span style={{ color: "var(--text-dim)", fontSize: "0.7rem" }}>{new Date(r.createdAt).toLocaleDateString()}</span>
                                                   </div>
-                                                  <p style={{ margin: 0, fontSize: "0.83rem", color: "#334155", lineHeight: 1.5 }}>{r.text}</p>
+                                                  <p style={{ margin: 0, fontSize: "0.83rem", color: "var(--text-2)", lineHeight: 1.5 }}>{r.text}</p>
                                                 </div>
                                                 {rIsMe && (
                                                   <button type="button" onClick={() => void handleDeleteComment(r._id, event._id)}
-                                                    style={{ background: "none", border: 0, color: "#ef4444", fontSize: "0.75rem", cursor: "pointer", padding: "2px 4px", flexShrink: 0 }}>✕</button>
+                                                    style={{ background: "none", border: 0, color: "#ef4444", fontSize: "0.75rem", cursor: "pointer", padding: "2px 4px", flexShrink: 0 }}></button>
                                                 )}
                                               </div>
                                             </div>
@@ -532,8 +661,8 @@ export default function UserDashboardPage() {
                                           value={replyInput}
                                           onChange={e => setReplyInput(e.target.value)}
                                           onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void handleAddComment(event._id, replyInput, c._id); } }}
-                                          placeholder="Write a reply…"
-                                          style={{ flex: 1, border: "1.5px solid #c7d2fe", borderRadius: 7, padding: "7px 10px", fontSize: "0.82rem", outline: "none" }}
+                                          placeholder="Write a reply"
+                                          style={{ flex: 1, border: "1px solid rgba(108,99,255,0.3)", borderRadius: 7, padding: "7px 10px", fontSize: "0.82rem", outline: "none" }}
                                         />
                                         <button type="button" onClick={() => void handleAddComment(event._id, replyInput, c._id)}
                                           disabled={qaSubmitting || !replyInput.trim()}
@@ -553,8 +682,8 @@ export default function UserDashboardPage() {
                                 value={qaInput}
                                 onChange={e => setQaInput(e.target.value)}
                                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void handleAddComment(event._id, qaInput); } }}
-                                placeholder="Ask a question…"
-                                style={{ flex: 1, border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: "0.85rem", outline: "none" }}
+                                placeholder="Ask a question"
+                                style={{ flex: 1, border: "1px solid var(--border)", borderRadius: 8, padding: "8px 12px", fontSize: "0.85rem", outline: "none" }}
                               />
                               <button type="button" onClick={() => void handleAddComment(event._id, qaInput)}
                                 disabled={qaSubmitting || !qaInput.trim()}
@@ -570,26 +699,27 @@ export default function UserDashboardPage() {
                 </article>
               );
             })}
-            {!noResultsMsg && events.length === 0 && <p className="muted" style={{ gridColumn: "1/-1" }}>No events available right now.</p>}
-            {noResultsMsg && similarEvents.length === 0 && <p className="muted" style={{ gridColumn: "1/-1" }}>No similar events found either.</p>}
           </div>
+          )} {/* end !eventsLoading */}
         </section>
 
-        {/* ── MY PROFILE / REGISTRATIONS SECTION ── */}
+        {/* MY PROFILE / REGISTRATIONS SECTION */}
         <section id="registrations" className="dashboard-section">
-
-          {/* ── Profile header ── */}
           <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
-            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "linear-gradient(135deg,#4f46e5,#7c3aed)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", color: "#fff", fontWeight: 700, flexShrink: 0 }}>
+            <div style={{ width: 60, height: 60, borderRadius: "50%", background: "linear-gradient(135deg,#4f46e5,#7c3aed)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.6rem", color: "#fff", fontWeight: 700, flexShrink: 0, boxShadow: "0 4px 14px rgba(79,70,229,0.4)" }}>
               {user?.collegeName ? user.collegeName.charAt(0).toUpperCase() : "S"}
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: "1.1rem", color: "#1e293b" }}>My Profile</h3>
-              {user?.collegeName && <p style={{ margin: "2px 0 0", fontSize: "0.85rem", color: "#64748b" }}>🏫 {user.collegeName}</p>}
+              <h3 style={{ margin: 0, fontSize: "1.2rem", color: "var(--text)", fontWeight: 700 }}>My Dashboard</h3>
+              {user?.collegeName && (
+                <p style={{ margin: "3px 0 0", fontSize: "0.88rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
+                  <GraduationCap size={14} /> {user.collegeName}
+                </p>
+              )}
             </div>
           </div>
 
-          {/* ── Stats cards ── */}
+          {/*  Stats cards  */}
           {(() => {
             const confirmed = registrations.filter(r => r.status === "confirmed" || !r.status);
             const now = new Date();
@@ -600,28 +730,28 @@ export default function UserDashboardPage() {
 
             return (
               <>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 12, marginBottom: 28 }}>
+                <div className="stat-cards-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 12, marginBottom: 28 }}>
                   {[
-                    { label: "Total Registered", value: confirmed.length, icon: "🎟️", color: "#4f46e5", bg: "#eef2ff" },
-                    { label: "Upcoming",          value: upcoming.length,  icon: "📅", color: "#0891b2", bg: "#e0f2fe" },
-                    { label: "Attended",          value: attended.length,  icon: "✅", color: "#059669", bg: "#dcfce7" },
-                    { label: "On Waitlist",       value: waitlisted.length,icon: "⏳", color: "#7c3aed", bg: "#f3e8ff" },
-                    { label: "Venues Visited",    value: colleges.size,    icon: "📍", color: "#d97706", bg: "#fef3c7" },
+                    { label: "Registered",  value: confirmed.length,  icon: <Ticket size={20} />, color: "var(--primary)" },
+                    { label: "Upcoming",    value: upcoming.length,   icon: <Calendar size={20} />, color: "var(--info)" },
+                    { label: "Attended",    value: attended.length,   icon: <CheckCircle2 size={20} />, color: "var(--success)" },
+                    { label: "Waitlisted",  value: waitlisted.length, icon: <Clock size={20} />, color: "var(--warning)" },
+                    { label: "Venues",      value: colleges.size,     icon: <MapPin size={20} />, color: "var(--danger)" },
                   ].map(s => (
-                    <div key={s.label} style={{ background: s.bg, borderRadius: 12, padding: "14px 16px", textAlign: "center" }}>
-                      <div style={{ fontSize: "1.4rem", marginBottom: 4 }}>{s.icon}</div>
-                      <div style={{ fontSize: "1.5rem", fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.value}</div>
-                      <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 3, fontWeight: 500 }}>{s.label}</div>
+                    <div key={s.label} className="stat-card" style={{ flexDirection: "column", gap: 6, textAlign: "center", padding: "16px 12px", justifyContent: "center" }}>
+                      <div style={{ color: s.color, display: "flex", justifyContent: "center" }}>{s.icon}</div>
+                      <div style={{ fontSize: "1.6rem", fontWeight: 800, color: "var(--text)", lineHeight: 1 }}>{s.value}</div>
+                      <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600 }}>{s.label}</div>
                     </div>
                   ))}
                 </div>
 
-                {/* ── Upcoming events ── */}
+                {/*  Upcoming events  */}
                 {upcoming.length > 0 && (
                   <div style={{ marginBottom: 24 }}>
-                    <h4 style={{ margin: "0 0 12px", color: "#1e293b", fontSize: "0.95rem", display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ background: "#e0f2fe", color: "#0891b2", borderRadius: 99, padding: "2px 10px", fontSize: "0.75rem", fontWeight: 700 }}>UPCOMING</span>
-                      {upcoming.length} event{upcoming.length !== 1 ? "s" : ""}
+                    <h4 style={{ margin: "0 0 12px", color: "var(--text)", fontSize: "1rem", display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ background: "linear-gradient(135deg,#0891b2,#06b6d4)", color: "#fff", borderRadius: 99, padding: "3px 12px", fontSize: "0.72rem", fontWeight: 700 }}>UPCOMING</span>
+                      <span style={{ color: "var(--text-muted)", fontWeight: 500, fontSize: "0.9rem" }}>{upcoming.length} event{upcoming.length !== 1 ? "s" : ""}</span>
                     </h4>
                     <div style={{ display: "grid", gap: 10 }}>
                       {upcoming.map(reg => {
@@ -629,29 +759,32 @@ export default function UserDashboardPage() {
                         if (!ev?._id) return null;
                         const daysUntil = Math.ceil((new Date(ev.date).getTime() - Date.now()) / 86400000);
                         return (
-                          <div key={reg._id} style={{ background: "#fff", border: "1.5px solid #bfdbfe", borderRadius: 12, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
+                          <div key={reg._id} style={{ background: "var(--surface-2)", border: "1px solid rgba(108,99,255,0.3)", borderRadius: 12, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10, boxShadow: "0 2px 8px rgba(79,70,229,0.07)" }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-                                <span style={{ fontWeight: 600, color: "#1e293b", fontSize: "0.95rem" }}>{ev.title}</span>
+                                <span style={{ fontWeight: 700, color: "var(--text)", fontSize: "0.95rem" }}>{ev.title}</span>
                                 {reg.status === "waitlisted" && (
-                                  <span style={{ background: "#f3e8ff", color: "#7c3aed", borderRadius: 99, padding: "1px 8px", fontSize: "0.7rem", fontWeight: 700 }}>Waitlist #{reg.waitlistPosition}</span>
+                                  <span style={{ background: "rgba(168,85,247,0.15)", color: "#7c3aed", borderRadius: 99, padding: "1px 8px", fontSize: "0.68rem", fontWeight: 700 }}>Waitlist #{reg.waitlistPosition}</span>
                                 )}
                               </div>
-                              <div style={{ display: "flex", gap: 14, fontSize: "0.8rem", color: "#64748b", flexWrap: "wrap" }}>
-                                <span>📅 {new Date(ev.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
-                                {ev.time && <span>⏰ {ev.time}</span>}
-                                {ev.location && <span>📍 {ev.location}</span>}
+                              <div style={{ display: "flex", gap: 14, fontSize: "0.78rem", color: "var(--text-muted)", flexWrap: "wrap" }}>
+                                <span> <strong style={{ color: "var(--text-2)" }}>{new Date(ev.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</strong></span>
+                                {ev.time && <span> {ev.time}</span>}
+                                {ev.location && <span> {ev.location}</span>}
                               </div>
                             </div>
                             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-                              <span style={{ background: daysUntil <= 1 ? "#fee2e2" : daysUntil <= 3 ? "#fef3c7" : "#dcfce7", color: daysUntil <= 1 ? "#991b1b" : daysUntil <= 3 ? "#92400e" : "#166534", borderRadius: 99, padding: "3px 10px", fontSize: "0.75rem", fontWeight: 700, whiteSpace: "nowrap" }}>
-                                {daysUntil === 0 ? "Today!" : daysUntil === 1 ? "Tomorrow" : `${daysUntil} days`}
+                              <span style={{
+                                background: daysUntil <= 1 ? "#fee2e2" : daysUntil <= 3 ? "#fef3c7" : "#dcfce7",
+                                color: daysUntil <= 1 ? "#991b1b" : daysUntil <= 3 ? "#92400e" : "#166534",
+                                borderRadius: 99, padding: "3px 10px", fontSize: "0.73rem", fontWeight: 700, whiteSpace: "nowrap"
+                              }}>
+                                {daysUntil === 0 ? "🎯 Today!" : daysUntil === 1 ? "Tomorrow" : `📅 ${daysUntil} days`}
                               </span>
                               {reg.status !== "waitlisted" && (
-                                <button type="button" onClick={() => void handleCancel(ev._id)}
-                                  disabled={cancellingId === ev._id}
-                                  style={{ background: "none", border: "1px solid #fca5a5", color: "#ef4444", borderRadius: 7, padding: "3px 10px", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer" }}>
-                                  {cancellingId === ev._id ? "…" : "Cancel"}
+                                <button type="button" onClick={() => void handleCancel(ev._id)} disabled={cancellingId === ev._id}
+                                  style={{ background: "var(--surface-2)", border: "1px solid #fca5a5", color: "#dc2626", borderRadius: 7, padding: "3px 10px", fontSize: "0.73rem", fontWeight: 600, cursor: "pointer" }}>
+                                  {cancellingId === ev._id ? "" : "Cancel"}
                                 </button>
                               )}
                             </div>
@@ -662,12 +795,12 @@ export default function UserDashboardPage() {
                   </div>
                 )}
 
-                {/* ── Past events ── */}
+                {/*  Past events  */}
                 {attended.length > 0 && (
                   <div>
-                    <h4 style={{ margin: "0 0 12px", color: "#1e293b", fontSize: "0.95rem", display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ background: "#f1f5f9", color: "#475569", borderRadius: 99, padding: "2px 10px", fontSize: "0.75rem", fontWeight: 700 }}>PAST</span>
-                      {attended.length} event{attended.length !== 1 ? "s" : ""}
+                    <h4 style={{ margin: "0 0 12px", color: "var(--text)", fontSize: "1rem", display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ background: "rgba(255,255,255,0.06)", color: "var(--text-2)", borderRadius: 99, padding: "3px 12px", fontSize: "0.72rem", fontWeight: 700 }}>PAST</span>
+                      <span style={{ color: "var(--text-muted)", fontWeight: 500, fontSize: "0.9rem" }}>{attended.length} event{attended.length !== 1 ? "s" : ""}</span>
                     </h4>
                     <div style={{ display: "grid", gap: 10 }}>
                       {attended.map(reg => {
@@ -675,25 +808,27 @@ export default function UserDashboardPage() {
                         if (!ev?._id) return null;
                         const alreadyRated = submittedFeedbacks.has(ev._id);
                         return (
-                          <div key={reg._id} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
+                          <div key={reg._id} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <span style={{ fontWeight: 600, color: "#475569", fontSize: "0.95rem" }}>{ev.title}</span>
-                              <div style={{ display: "flex", gap: 14, fontSize: "0.8rem", color: "#94a3b8", marginTop: 4, flexWrap: "wrap" }}>
-                                <span>📅 {new Date(ev.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
-                                {ev.location && <span>📍 {ev.location}</span>}
+                              <span style={{ fontWeight: 700, color: "var(--text-2)", fontSize: "0.95rem" }}>{ev.title}</span>
+                              <div style={{ display: "flex", gap: 14, fontSize: "0.78rem", color: "var(--text-muted)", marginTop: 4, flexWrap: "wrap" }}>
+                                <span><Calendar size={12} style={{ verticalAlign: "middle", marginRight: 3 }} />{new Date(ev.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                                {ev.location && <span><MapPin size={12} style={{ verticalAlign: "middle", marginRight: 3 }} />{ev.location}</span>}
                               </div>
                               {ev.avgRating != null && ev.avgRating > 0 && (
-                                <div style={{ fontSize: "0.75rem", color: "#FFB703", marginTop: 4 }}>
-                                  {"★".repeat(Math.round(ev.avgRating))}{"☆".repeat(5 - Math.round(ev.avgRating))}
-                                  <span style={{ color: "#94a3b8", marginLeft: 4 }}>{ev.avgRating.toFixed(1)}</span>
+                                <div style={{ fontSize: "0.75rem", color: "#f59e0b", marginTop: 4, display: "flex", alignItems: "center", gap: 2 }}>
+                                  {Array.from({ length: 5 }, (_, i) => (
+                                    <Star key={i} size={11} fill={i < Math.round(ev.avgRating!) ? "#f59e0b" : "none"} color="#f59e0b" />
+                                  ))}
+                                  <span style={{ color: "var(--text-dim)", marginLeft: 4 }}>{ev.avgRating.toFixed(1)}</span>
                                 </div>
                               )}
                             </div>
                             {alreadyRated
-                              ? <span style={{ fontSize: "0.78rem", color: "#10b981", fontWeight: 600, whiteSpace: "nowrap" }}>✓ Rated</span>
+                              ? <span style={{ fontSize: "0.78rem", color: "#059669", fontWeight: 700, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 3 }}><CheckCircle size={13} /> Rated</span>
                               : <button type="button" onClick={() => void openFeedbackModal(ev._id, ev.title)}
-                                  style={{ background: "#FFB703", color: "#023047", border: 0, borderRadius: 8, padding: "6px 12px", fontWeight: 700, cursor: "pointer", fontSize: "0.78rem", whiteSpace: "nowrap" }}>
-                                  ⭐ Rate
+                                  style={{ background: "linear-gradient(135deg,#f59e0b,#fbbf24)", color: "var(--text)", border: 0, borderRadius: 8, padding: "6px 14px", fontWeight: 700, cursor: "pointer", fontSize: "0.78rem", whiteSpace: "nowrap", boxShadow: "0 2px 8px rgba(245,158,11,0.3)" }}>
+                                   Rate Event
                                 </button>
                             }
                           </div>
@@ -704,24 +839,89 @@ export default function UserDashboardPage() {
                 )}
 
                 {registrations.length === 0 && (
-                  <div style={{ textAlign: "center", padding: "40px 0", color: "#94a3b8" }}>
-                    <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>🎟️</div>
-                    <p style={{ margin: 0, fontWeight: 600 }}>No registrations yet</p>
-                    <p style={{ margin: "6px 0 0", fontSize: "0.85rem" }}>Browse events above and register to get started!</p>
+                  <div style={{ textAlign: "center", padding: "48px 0", color: "var(--text-dim)" }}>
+                    <div style={{ fontSize: "3rem", marginBottom: 14 }}></div>
+                    <p style={{ margin: 0, fontWeight: 700, color: "var(--text-2)", fontSize: "1rem" }}>No registrations yet</p>
+                    <p style={{ margin: "6px 0 0", fontSize: "0.88rem", color: "var(--text-dim)" }}>Browse events above and register to get started!</p>
                   </div>
                 )}
               </>
             );
           })()}
         </section>
+
+        {/*  CERTIFICATES SECTION  */}
+        {(() => {
+          const certRegs = registrations.filter(r =>
+            r.attendanceStatus === "present" && (r.eventId as EventItem)?.certificatesEnabled
+          );
+          if (certRegs.length === 0) return null;
+          return (
+            <section className="dashboard-section" style={{ marginTop: 8 }}>
+              <h3 style={{ margin: "0 0 20px", fontSize: "1.1rem", color: "var(--text)", display: "flex", alignItems: "center", gap: 10 }}>
+                <GraduationCap size={20} color="#7c3aed" />
+                My Certificates
+                <span style={{ background: "rgba(124,58,237,0.15)", color: "#7c3aed", borderRadius: 99, padding: "2px 10px", fontSize: "0.75rem", fontWeight: 700, marginLeft: 4 }}>
+                  {certRegs.length} ready
+                </span>
+              </h3>
+              <div style={{ display: "grid", gap: 12 }}>
+                {certRegs.map(reg => {
+                  const ev = reg.eventId as EventItem;
+                  return (
+                    <div key={reg._id} style={{ background: "linear-gradient(135deg,rgba(124,58,237,0.08),rgba(79,70,229,0.05))", border: "1px solid rgba(124,58,237,0.2)", borderRadius: 14, padding: "16px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                      {/* Icon */}
+                      <div style={{ width: 52, height: 52, borderRadius: 14, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 4px 16px rgba(124,58,237,0.35)" }}>
+                        <GraduationCap size={24} color="#fff" />
+                      </div>
+                      {/* Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: 0, fontWeight: 700, color: "var(--text)", fontSize: "0.95rem" }}>{ev?.title ?? "Event"}</p>
+                        <p style={{ margin: "3px 0 0", fontSize: "0.78rem", color: "var(--text-dim)" }}>
+                          {ev?.date ? new Date(ev.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : ""}
+                          {ev?.location ? ` · ${ev.location}` : ""}
+                        </p>
+                        {reg.certificateId && (
+                          <p style={{ margin: "4px 0 0", fontSize: "0.72rem", fontFamily: "monospace", color: "#818cf8", fontWeight: 700 }}>
+                            {reg.certificateId}
+                          </p>
+                        )}
+                      </div>
+                      {/* Badge + Download */}
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}>
+                        <span style={{ background: "rgba(34,197,94,0.15)", color: "#15803d", border: "1px solid rgba(34,197,94,0.3)", borderRadius: 99, padding: "3px 10px", fontSize: "0.72rem", fontWeight: 700 }}>
+                          ✓ Attended
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void (async () => {
+                            try {
+                              const { downloadCertificatePdf } = await import("../services/attendanceService");
+                              await downloadCertificatePdf(reg._id);
+                            } catch (err: any) {
+                              setFeedback({ type: "error", message: err?.message || "Certificate download failed." });
+                            }
+                          })()}
+                          style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", color: "#fff", border: 0, borderRadius: 9, padding: "8px 18px", fontWeight: 700, cursor: "pointer", fontSize: "0.82rem", display: "flex", alignItems: "center", gap: 6, boxShadow: "0 4px 14px rgba(124,58,237,0.35)" }}
+                        >
+                          <Award size={14} /> Download Certificate
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })()}
       </main>
 
-      {/* ── FEEDBACK MODAL ── */}
+      {/*  FEEDBACK MODAL  */}
       {feedbackEventId && (
         <div className="modal-backdrop" onClick={() => setFeedbackEventId(null)}>
           <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
             <h3 style={{ margin: "0 0 4px" }}>Rate this event</h3>
-            <p style={{ margin: "0 0 20px", color: "#64748b", fontSize: "0.88rem" }}>{feedbackEventTitle}</p>
+            <p style={{ margin: "0 0 20px", color: "var(--text-muted)", fontSize: "0.88rem" }}>{feedbackEventTitle}</p>
             <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 20 }}>
               {[1,2,3,4,5].map(n => (
                 <button key={n} type="button"
@@ -729,17 +929,17 @@ export default function UserDashboardPage() {
                   onClick={() => setStarRating(n)}
                   style={{ background: "none", border: 0, cursor: "pointer", fontSize: "2.2rem", lineHeight: 1,
                     color: n <= (starHover || starRating) ? "#FFB703" : "#e2e8f0",
-                    transform: n <= (starHover || starRating) ? "scale(1.15)" : "scale(1)", transition: "all 0.1s" }}>★</button>
+                    transform: n <= (starHover || starRating) ? "scale(1.15)" : "scale(1)", transition: "all 0.1s" }}></button>
               ))}
             </div>
             {starRating > 0 && (
-              <p style={{ textAlign: "center", fontSize: "0.85rem", color: "#64748b", marginBottom: 16 }}>
+              <p style={{ textAlign: "center", fontSize: "0.85rem", color: "var(--text-muted)", marginBottom: 16 }}>
                 {["","Poor","Fair","Good","Very Good","Excellent"][starRating]} ({starRating}/5)
               </p>
             )}
             <textarea value={feedbackComment} onChange={e => setFeedbackComment(e.target.value)}
-              placeholder="Share your experience (optional)…" rows={3}
-              style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 9, padding: "10px 12px", fontSize: "0.9rem", outline: "none", resize: "vertical", marginBottom: 16 }} />
+              placeholder="Share your experience (optional)" rows={3}
+              style={{ width: "100%", border: "1px solid var(--border)", borderRadius: 9, padding: "10px 12px", fontSize: "0.9rem", outline: "none", resize: "vertical", marginBottom: 16 }} />
             <div className="button-row">
               <button type="button" onClick={() => void handleFeedbackSubmit()}
                 disabled={feedbackLoading || starRating === 0} className="btn btn-gradient" style={{ flex: 1 }}>
@@ -751,7 +951,7 @@ export default function UserDashboardPage() {
         </div>
       )}
 
-      {/* ── REGISTER / JOIN WAITLIST MODAL ── */}
+      {/*  REGISTER / JOIN WAITLIST MODAL  */}
       {selectedEventId && (
         <div className="modal-backdrop" onClick={() => setSelectedEventId(null)}>
           <div className="modal-card" onClick={e => e.stopPropagation()}>
@@ -760,27 +960,97 @@ export default function UserDashboardPage() {
               const isFull = ev && ev.maxRegistrations != null && (ev.registrationCount ?? 0) >= ev.maxRegistrations;
               return (
                 <>
-                  <h3>{isFull ? "⏳ Join Waitlist" : "Register for Event"}</h3>
+                  <h3>{isFull ? "Join Waitlist" : "Register for Event"}</h3>
                   {isFull && (
-                    <div style={{ background: "#f3e8ff", borderRadius: 8, padding: "8px 12px", marginBottom: 12, fontSize: "0.85rem", color: "#7c3aed" }}>
+                    <div style={{ background: "rgba(168,85,247,0.15)", borderRadius: 8, padding: "8px 12px", marginBottom: 12, fontSize: "0.85rem", color: "#7c3aed" }}>
                       This event is full. You'll be added to the waitlist and notified automatically if a spot opens.
                     </div>
                   )}
                   {ev?.isPaid && !isFull && (
-                    <div style={{ background: "#fef3c7", borderRadius: 8, padding: "10px 14px", marginBottom: 12, fontSize: "0.85rem", color: "#92400e", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ background: "rgba(245,158,11,0.15)", borderRadius: 8, padding: "10px 14px", marginBottom: 12, fontSize: "0.85rem", color: "var(--warning)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span>💳 This is a <strong>paid event</strong>. After registering you'll be prompted to complete payment.</span>
-                      <span style={{ fontWeight: 800, fontSize: "1rem", color: "#059669", marginLeft: 12, whiteSpace: "nowrap" }}>₹{ev.price}</span>
+                      <span style={{ fontWeight: 800, fontSize: "1rem", color: "#059669", marginLeft: 12, whiteSpace: "nowrap" }}>{ev.price}</span>
                     </div>
                   )}
                   {user?.collegeName && (
-                    <div style={{ background: "#f0f7fb", borderRadius: 8, padding: "8px 12px", marginBottom: 10, fontSize: "0.85rem", color: "#023047" }}>
-                      🏫 Registering as: <strong>{user.collegeName}</strong>
+                    <div style={{ background: "var(--surface)", borderRadius: 8, padding: "8px 12px", marginBottom: 10, fontSize: "0.85rem", color: "var(--text)" }}>
+                       Registering as: <strong>{user.collegeName}</strong>
                     </div>
                   )}
                   <div className="admin-form">
                     <input value={registerForm.name} onChange={e => setRegisterForm(p => ({ ...p, name: e.target.value }))} placeholder="Your name" />
                     <input value={registerForm.collegeId} onChange={e => setRegisterForm(p => ({ ...p, collegeId: e.target.value }))} placeholder="College ID / Roll number" />
-                    <input value={registerForm.department} onChange={e => setRegisterForm(p => ({ ...p, department: e.target.value }))} placeholder="Department (e.g. Computer Science)" />
+                    <select
+                      value={registerForm.department}
+                      onChange={e => setRegisterForm(p => ({ ...p, department: e.target.value }))}
+                      style={{ width: "100%" }}
+                    >
+                      <option value="">— Select Branch / Department —</option>
+                      <optgroup label="Engineering">
+                        <option>Computer Science Engineering (CSE)</option>
+                        <option>Computer Science and Information Technology (CSIT)</option>
+                        <option>Information Science Engineering (ISE)</option>
+                        <option>Artificial Intelligence and Machine Learning (AIML)</option>
+                        <option>Data Science (DS)</option>
+                        <option>Electronics and Communication Engineering (ECE)</option>
+                        <option>Electrical and Electronics Engineering (EEE)</option>
+                        <option>Mechanical Engineering (ME)</option>
+                        <option>Civil Engineering (CE)</option>
+                        <option>Aerospace Engineering</option>
+                        <option>Biotechnology Engineering</option>
+                        <option>Chemical Engineering</option>
+                        <option>Industrial Engineering</option>
+                      </optgroup>
+                      <optgroup label="Science">
+                        <option>Physics</option>
+                        <option>Chemistry</option>
+                        <option>Mathematics</option>
+                        <option>Biology / Life Sciences</option>
+                      </optgroup>
+                      <optgroup label="Management & Commerce">
+                        <option>Business Administration (BBA / MBA)</option>
+                        <option>Commerce (B.Com / M.Com)</option>
+                        <option>Economics</option>
+                        <option>Finance</option>
+                        <option>Marketing</option>
+                        <option>Human Resources (HR)</option>
+                      </optgroup>
+                      <optgroup label="Arts & Humanities">
+                        <option>English Literature</option>
+                        <option>Psychology</option>
+                        <option>Sociology</option>
+                        <option>Political Science</option>
+                        <option>Journalism / Media</option>
+                        <option>Design / Fine Arts</option>
+                      </optgroup>
+                      <optgroup label="Law & Medicine">
+                        <option>Law (LLB / LLM)</option>
+                        <option>Medicine (MBBS / BDS)</option>
+                        <option>Pharmacy</option>
+                        <option>Nursing</option>
+                      </optgroup>
+                      <optgroup label="Professional / Industry">
+                        <option>Software Development</option>
+                        <option>Product Management</option>
+                        <option>Data Analytics</option>
+                        <option>Cybersecurity</option>
+                        <option>DevOps / Cloud</option>
+                        <option>UI/UX Design</option>
+                        <option>Sales & Business Development</option>
+                        <option>Operations</option>
+                        <option>Consulting</option>
+                        <option>Research & Development</option>
+                        <option>Others — Please specify below</option>
+                      </optgroup>
+                    </select>
+                    {registerForm.department === "Others — Please specify below" && (
+                      <input
+                        value={registerForm.customDepartment ?? ""}
+                        onChange={e => setRegisterForm(p => ({ ...p, customDepartment: e.target.value }))}
+                        placeholder="Describe your role or field (e.g. Freelance Designer, HR Manager…)"
+                        style={{ marginTop: 6 }}
+                      />
+                    )}
                     <div className="button-row">
                       <button type="button" className="btn btn-gradient"
                         style={{ background: isFull ? "linear-gradient(135deg,#7c3aed,#8b5cf6)" : undefined }}
@@ -797,7 +1067,7 @@ export default function UserDashboardPage() {
         </div>
       )}
 
-      {/* ── PAYMENT MODAL ── */}
+      {/*  PAYMENT MODAL  */}
       {paymentTarget && (
         <PaymentModal
           registrationId={paymentTarget.registrationId}
@@ -809,10 +1079,12 @@ export default function UserDashboardPage() {
           onSuccess={() => {
             setPaymentTarget(null);
             void loadRegistrations();
-            setFeedback({ type: "success", message: "Payment submitted! Awaiting admin verification." });
+            void fetchEvents();
+            setFeedback({ type: "success", message: "Payment submitted! Admin will verify shortly." });
           }}
         />
       )}
     </div>
   );
 }
+
