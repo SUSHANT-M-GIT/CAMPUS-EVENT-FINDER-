@@ -6,15 +6,9 @@ import { useAuth } from "../context/AuthContext";
 import { verifyEmail, resendOtp } from "../services/authService";
 
 const FORMAT_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-const STUDENT_BLOCKED_DOMAINS = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "live.com", "icloud.com", "protonmail.com"];
 
-function validateEmail(email: string, role: string): string | null {
+function validateEmail(email: string): string | null {
   if (!FORMAT_RE.test(email)) return "Invalid email format";
-  if (role !== "admin") {
-    const domain = email.split("@")[1].toLowerCase();
-    if (STUDENT_BLOCKED_DOMAINS.includes(domain))
-      return "Personal email addresses (Gmail, Yahoo, Outlook) are not allowed. Please use your institutional/college email.";
-  }
   return null;
 }
 
@@ -22,7 +16,7 @@ export default function SignupPage() {
   const { signup } = useAuth();
   const navigate   = useNavigate();
 
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "student", collegeName: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "student", collegeName: "", collegeId: "" });
   const [step, setStep]         = useState<"form" | "otp">("form");
   const [pendingEmail, setPendingEmail] = useState("");
   const [otp, setOtp]           = useState("");
@@ -32,14 +26,14 @@ export default function SignupPage() {
   const [emailError, setEmailError] = useState("");
 
   const handleEmailBlur = () => {
-    if (form.email) setEmailError(validateEmail(form.email, form.role) || "");
+    if (form.email) setEmailError(validateEmail(form.email) || "");
     else setEmailError("");
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setForm(prev => {
-      if (name === "role" && prev.email) setEmailError(validateEmail(prev.email, value) || "");
+      if (name === "role" && prev.email) setEmailError(validateEmail(prev.email) || "");
       return { ...prev, [name]: value };
     });
     if (name === "email") setEmailError("");
@@ -47,7 +41,7 @@ export default function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const err = validateEmail(form.email, form.role);
+    const err = validateEmail(form.email);
     if (err) { setEmailError(err); return; }
     setError(""); setSuccess(""); setLoading(true);
     try {
@@ -122,15 +116,13 @@ export default function SignupPage() {
               <input
                 type="text" name="email" value={form.email}
                 onChange={handleChange} onBlur={handleEmailBlur}
-                placeholder={form.role === "admin" ? "organizer@gmail.com or admin@company.com" : "you@college.edu or you@university.ac.in"}
+                placeholder={form.role === "admin" ? "organizer@gmail.com or admin@company.com" : "you@gmail.com or you@college.edu"}
                 className="input" required
                 style={emailError ? { borderColor: "#ef4444", boxShadow: "0 0 0 3px rgba(239,68,68,0.15)" } : {}}
               />
               {emailError
                 ? <p style={{ margin: "4px 0 0", fontSize: "0.78rem", color: "#ef4444" }}> {emailError}</p>
-                : form.role !== "admin"
-                  ? <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "var(--text-dim)" }}>Personal emails (Gmail, Yahoo, Outlook) are not accepted</p>
-                  : <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "var(--text-dim)" }}>Any valid email accepted for admin accounts</p>
+                : <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "var(--text-dim)" }}>Any valid email accepted — Gmail, college email, etc.</p>
               }
             </div>
             <div>
@@ -140,6 +132,15 @@ export default function SignupPage() {
                 className="input" required />
               <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "var(--text-dim)" }}>Cannot be changed after account creation</p>
             </div>
+            {form.role === "student" && (
+              <div>
+                {lbl("College ID / Roll Number")}
+                <input name="collegeId" value={form.collegeId} onChange={handleChange}
+                  placeholder="e.g. R23EJ125"
+                  className="input" required />
+                <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "var(--text-dim)" }}>Used to verify your identity at events</p>
+              </div>
+            )}
             <div>
               {lbl("Password")}
               <input type="password" name="password" value={form.password} onChange={handleChange}

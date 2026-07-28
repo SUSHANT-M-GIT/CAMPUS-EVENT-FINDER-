@@ -9,6 +9,7 @@ const userSchema = new mongoose.Schema({
   role:        { type: String, enum: ["admin","student"], default: "student" },
 
   collegeName: { type: String, default: "", trim: true },
+  collegeId:   { type: String, default: "", trim: true },
   department:  { type: String, default: "", trim: true },
 
   // Email verification (OTP)

@@ -21,7 +21,11 @@ const handleMulterError = (err, req, res, next) => {
   next();
 };
 
-// Student
+// Student — Razorpay online payment
+router.post("/create-order/:registrationId",   auth, role(["student"]), c.createRazorpayOrder);
+router.post("/verify/:registrationId",         auth, role(["student"]), c.verifyRazorpayPayment);
+
+// Student — manual UPI fallback
 router.post("/submit/:registrationId",         auth, role(["student"]), upload.single("screenshot"), handleMulterError, c.submitPayment);
 router.get ("/my-status/:eventId",             auth, role(["student"]), c.getMyPaymentStatus);
 router.post("/refund/:registrationId",         auth, role(["student"]), c.requestRefund);

@@ -7,8 +7,37 @@ export interface PaymentStatusResponse {
   paymentNote?: string;
 }
 
-/** Student: submit screenshot + transaction ID */
-export async function submitPayment(registrationId: string, payload: { transactionId: string; screenshot: File }) {
+export interface RazorpayOrderResponse {
+  orderId: string;
+  amount: number;
+  currency: string;
+  keyId: string;
+  eventTitle: string;
+  studentName: string;
+  studentEmail: string;
+}
+
+// ── Razorpay online payment ──────────────────────────────────────────────────
+
+export async function createRazorpayOrder(registrationId: string): Promise<RazorpayOrderResponse> {
+  const { data } = await api.post<RazorpayOrderResponse>(`/payment/create-order/${registrationId}`);
+  return data;
+}
+
+export async function verifyRazorpayPayment(
+  registrationId: string,
+  payload: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }
+) {
+  const { data } = await api.post<{ msg: string }>(`/payment/verify/${registrationId}`, payload);
+  return data;
+}
+
+// ── Manual UPI fallback ──────────────────────────────────────────────────────
+
+export async function submitPayment(
+  registrationId: string,
+  payload: { transactionId: string; screenshot: File }
+) {
   const form = new FormData();
   form.append("transactionId", payload.transactionId.trim());
   form.append("screenshot", payload.screenshot);
@@ -17,6 +46,8 @@ export async function submitPayment(registrationId: string, payload: { transacti
   });
   return data;
 }
+
+// ── Shared ───────────────────────────────────────────────────────────────────
 
 export async function getMyPaymentStatus(eventId: string) {
   const { data } = await api.get<PaymentStatusResponse>(`/payment/my-status/${eventId}`);

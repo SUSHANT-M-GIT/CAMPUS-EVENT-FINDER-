@@ -63,17 +63,17 @@ async function sendOtpEmail(email, otp, name) {
 // ── REGISTER ──────────────────────────────────────────────────────────────────
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role, collegeName } = req.body;
+    const { name, email, password, role, collegeName, collegeId } = req.body;
 
     if (!email)                 return res.status(400).json({ msg: "Email is required" });
     if (!FORMAT_RE.test(email)) return res.status(400).json({ msg: "Invalid email format" });
 
-    // Students must use institutional/college email — block personal domains.
-    // Admins/Organizers can use any valid email (Gmail, work, personal, etc.)
-    if (role !== "admin" && isBlockedDomain(email))
-      return res.status(400).json({
-        msg: "Personal email addresses (Gmail, Yahoo, Hotmail, Outlook) are not allowed for students. Please use your institutional/college email.",
-      });
+    // All emails accepted — Gmail, Yahoo, college email, etc.
+    // Students must provide college name + college ID for identity verification.
+    if (role !== "admin") {
+      if (!collegeName?.trim()) return res.status(400).json({ msg: "College / university name is required for students" });
+      if (!req.body.collegeId?.trim()) return res.status(400).json({ msg: "College ID / roll number is required for students" });
+    }
 
     if (!collegeName?.trim()) return res.status(400).json({ msg: "College / organisation name is required" });
 
@@ -91,6 +91,7 @@ exports.register = async (req, res) => {
       u.name = name; u.password = hash;
       u.role = isAdmin ? "admin" : "student";
       u.collegeName = collegeName.trim();
+      if (collegeId) u.collegeId = collegeId.trim();
       u.otp = otp; u.otpExpiry = otpExpiry;
       await u.save();
     } else {
@@ -98,6 +99,7 @@ exports.register = async (req, res) => {
         name, email, password: hash,
         role: isAdmin ? "admin" : "student",
         collegeName: collegeName.trim(),
+        collegeId: collegeId?.trim() || "",
         isVerified: false, otp, otpExpiry,
       }).save();
     }
