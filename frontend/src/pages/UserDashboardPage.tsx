@@ -437,7 +437,11 @@ export default function UserDashboardPage() {
                   <div className="event-card-img-wrap">
                     <img
                       src={event.bannerImage
-                        ? (event.bannerSource === "local" ? `${API_BASE}${event.bannerImage}` : event.bannerImage)
+                        ? (event.bannerImage.startsWith("/uploads")
+                            ? `${API_BASE}${event.bannerImage}`
+                            : event.bannerImage.startsWith("http")
+                              ? event.bannerImage
+                              : `${API_BASE}${event.bannerImage}`)
                         : "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600"}
                       alt={event.title}
                       style={{ width: "100%", height: 175, objectFit: "cover", display: "block" }}

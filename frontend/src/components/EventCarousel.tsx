@@ -24,7 +24,11 @@ export default function EventCarousel({ events, onRegister }: Props) {
     <div className="carousel">
       <div className="carousel-track" style={{ transform: `translateX(-${current * 100}%)` }}>
         {events.map((e) => {
-          const src = e.bannerImage ? (e.bannerSource === "local" ? `${API_BASE}${e.bannerImage}` : e.bannerImage) : "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=900";
+          const src = e.bannerImage
+            ? (e.bannerImage.startsWith("/uploads") || !e.bannerImage.startsWith("http")
+                ? `${API_BASE}${e.bannerImage}`
+                : e.bannerImage)
+            : "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=900";
           return (
             <div key={e._id} className="carousel-slide">
               <img src={src} alt={e.title} style={{ width: "100%", height: 300, objectFit: "cover" }} />
