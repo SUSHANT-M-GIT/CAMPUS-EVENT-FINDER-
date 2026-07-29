@@ -375,6 +375,7 @@ export default function AdminDashboardPage() {
       if (editingId) {
         await updateEvent(editingId, form);
         setFeedback({ type: "success", message: "Event updated." });
+        localStorage.setItem("events_last_updated", String(Date.now()));
       } else {
         await createEvent(form);
         setFeedback({ type: "success", message: "Event created!" });
