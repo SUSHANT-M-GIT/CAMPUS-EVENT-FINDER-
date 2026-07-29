@@ -16,7 +16,7 @@ export default function SignupPage() {
   const { signup } = useAuth();
   const navigate   = useNavigate();
 
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "student", collegeName: "", collegeId: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "student", collegeName: "", collegeId: "", company: "", designation: "" });
   const [step, setStep]         = useState<"form" | "otp">("form");
   const [pendingEmail, setPendingEmail] = useState("");
   const [otp, setOtp]           = useState("");
@@ -126,22 +126,6 @@ export default function SignupPage() {
               }
             </div>
             <div>
-              {lbl(form.role === "admin" ? "College / Organisation name" : "College / University name")}
-              <input name="collegeName" value={form.collegeName} onChange={handleChange}
-                placeholder={form.role === "admin" ? "e.g. Reva University / Tech Club" : "e.g. Reva University"}
-                className="input" required />
-              <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "var(--text-dim)" }}>Cannot be changed after account creation</p>
-            </div>
-            {form.role === "student" && (
-              <div>
-                {lbl("College ID / Roll Number")}
-                <input name="collegeId" value={form.collegeId} onChange={handleChange}
-                  placeholder="e.g. R23EJ125"
-                  className="input" required />
-                <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "var(--text-dim)" }}>Used to verify your identity at events</p>
-              </div>
-            )}
-            <div>
               {lbl("Password")}
               <input type="password" name="password" value={form.password} onChange={handleChange}
                 placeholder="Min. 6 characters" className="input" required minLength={6} autoComplete="new-password" />
@@ -150,9 +134,54 @@ export default function SignupPage() {
               {lbl("I am a")}
               <select name="role" value={form.role} onChange={handleChange} className="input" required>
                 <option value="student">Student</option>
+                <option value="professional">Working Professional / General</option>
                 <option value="admin">Admin / Organizer</option>
               </select>
             </div>
+
+            {/* Student-only fields */}
+            {form.role === "student" && (
+              <>
+                <div>
+                  {lbl("College / University name")}
+                  <input name="collegeName" value={form.collegeName} onChange={handleChange}
+                    placeholder="e.g. Reva University" className="input" required />
+                  <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "var(--text-dim)" }}>Cannot be changed after account creation</p>
+                </div>
+                <div>
+                  {lbl("College ID / Roll Number")}
+                  <input name="collegeId" value={form.collegeId} onChange={handleChange}
+                    placeholder="e.g. R23EJ125" className="input" required />
+                  <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "var(--text-dim)" }}>Used to verify your identity at events</p>
+                </div>
+              </>
+            )}
+
+            {/* Professional-only fields */}
+            {form.role === "professional" && (
+              <>
+                <div>
+                  {lbl("Company / Organisation (optional)")}
+                  <input name="company" value={form.company} onChange={handleChange}
+                    placeholder="e.g. Google, Freelancer, Self-employed" className="input" />
+                </div>
+                <div>
+                  {lbl("Your Role / Designation")}
+                  <input name="designation" value={form.designation} onChange={handleChange}
+                    placeholder="e.g. Software Engineer, Designer, Consultant" className="input" required />
+                </div>
+              </>
+            )}
+
+            {/* Admin-only fields */}
+            {form.role === "admin" && (
+              <div>
+                {lbl("College / Organisation name")}
+                <input name="collegeName" value={form.collegeName} onChange={handleChange}
+                  placeholder="e.g. Reva University / Tech Club" className="input" required />
+                <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "var(--text-dim)" }}>Cannot be changed after account creation</p>
+              </div>
+            )}
             <button type="submit" disabled={loading || !!emailError} className="btn btn-gradient full-width" style={{ marginTop: 4, padding: 13, fontSize: "1rem" }}>
               {loading ? "Sending OTP…" : <>Create Account <ArrowRight size={14} style={{ verticalAlign: "middle", marginLeft: 4 }} /></>}
             </button>

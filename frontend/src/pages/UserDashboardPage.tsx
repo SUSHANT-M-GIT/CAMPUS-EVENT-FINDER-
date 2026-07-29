@@ -28,7 +28,7 @@ export default function UserDashboardPage() {
   const [feedback, setFeedback]           = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [registerForm, setRegisterForm]   = useState({ name: "", collegeId: "", department: "", customDepartment: "" });
+  const [registerForm, setRegisterForm]   = useState({ name: "", collegeId: "", department: "", customDepartment: "", company: "", designation: "" });
   const [cancellingId, setCancellingId]   = useState<string | null>(null);
 
   // Feedback modal state
@@ -109,9 +109,21 @@ export default function UserDashboardPage() {
   };
 
   const handleRegister = async (eventId: string) => {
-    if (!registerForm.name || !registerForm.collegeId || !registerForm.department) {
+    if (!registerForm.name || !registerForm.department) {
       setFeedback({ type: "error", message: "Please fill all registration details." });
       return;
+    }
+    // Students need college ID; professionals need designation
+    if (user?.role === "professional") {
+      if (!registerForm.designation?.trim()) {
+        setFeedback({ type: "error", message: "Please enter your designation/role." });
+        return;
+      }
+    } else {
+      if (!registerForm.collegeId?.trim()) {
+        setFeedback({ type: "error", message: "Please fill all registration details." });
+        return;
+      }
     }
     if (registerForm.department === "Others — Please specify below" && !registerForm.customDepartment.trim()) {
       setFeedback({ type: "error", message: "Please describe your role or field in the text box." });
@@ -132,7 +144,7 @@ export default function UserDashboardPage() {
       await loadRegistrations();
       setTimeout(() => { void fetchEvents(); }, 500);
       setSelectedEventId(null);
-      setRegisterForm({ name: "", collegeId: "", department: "", customDepartment: "" });
+      setRegisterForm({ name: "", collegeId: "", department: "", customDepartment: "", company: "", designation: "" });
 
       // If paid event  open payment modal immediately
       if (response.isPaid && response.registrationId) {
@@ -972,14 +984,36 @@ export default function UserDashboardPage() {
                       <span style={{ fontWeight: 800, fontSize: "1rem", color: "#059669", marginLeft: 12, whiteSpace: "nowrap" }}>{ev.price}</span>
                     </div>
                   )}
-                  {user?.collegeName && (
+                  {(user?.collegeName || user?.company) && (
                     <div style={{ background: "var(--surface)", borderRadius: 8, padding: "8px 12px", marginBottom: 10, fontSize: "0.85rem", color: "var(--text)" }}>
-                       Registering as: <strong>{user.collegeName}</strong>
+                      Registering as: <strong>{user.collegeName || user.company || user.name}</strong>
                     </div>
                   )}
                   <div className="admin-form">
                     <input value={registerForm.name} onChange={e => setRegisterForm(p => ({ ...p, name: e.target.value }))} placeholder="Your name" />
-                    <input value={registerForm.collegeId} onChange={e => setRegisterForm(p => ({ ...p, collegeId: e.target.value }))} placeholder="College ID / Roll number" />
+
+                    {/* Student: College ID | Professional: Company + Designation */}
+                    {user?.role === "professional" ? (
+                      <>
+                        <input
+                          value={registerForm.company}
+                          onChange={e => setRegisterForm(p => ({ ...p, company: e.target.value }))}
+                          placeholder="Company / Organisation (e.g. Google, Freelancer)"
+                        />
+                        <input
+                          value={registerForm.designation}
+                          onChange={e => setRegisterForm(p => ({ ...p, designation: e.target.value }))}
+                          placeholder="Your role / designation (e.g. Software Engineer)"
+                          required
+                        />
+                      </>
+                    ) : (
+                      <input
+                        value={registerForm.collegeId}
+                        onChange={e => setRegisterForm(p => ({ ...p, collegeId: e.target.value }))}
+                        placeholder="College ID / Roll number"
+                      />
+                    )}
                     <select
                       value={registerForm.department}
                       onChange={e => setRegisterForm(p => ({ ...p, department: e.target.value }))}

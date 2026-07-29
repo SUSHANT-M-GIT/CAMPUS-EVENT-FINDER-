@@ -63,21 +63,26 @@ async function sendOtpEmail(email, otp, name) {
 // ── REGISTER ──────────────────────────────────────────────────────────────────
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role, collegeName, collegeId } = req.body;
+    const { name, email, password, role, collegeName, collegeId, company, designation } = req.body;
 
     if (!email)                 return res.status(400).json({ msg: "Email is required" });
     if (!FORMAT_RE.test(email)) return res.status(400).json({ msg: "Invalid email format" });
 
-    // All emails accepted — Gmail, Yahoo, college email, etc.
-    // Students must provide college name + college ID for identity verification.
-    if (role !== "admin") {
+    // Validate required fields per role
+    if (role === "student") {
       if (!collegeName?.trim()) return res.status(400).json({ msg: "College / university name is required for students" });
-      if (!req.body.collegeId?.trim()) return res.status(400).json({ msg: "College ID / roll number is required for students" });
+      if (!collegeId?.trim())   return res.status(400).json({ msg: "College ID / roll number is required for students" });
+    } else if (role === "professional") {
+      // company is optional, but we still need a name
+    } else if (role !== "admin") {
+      // default student check
+      if (!collegeName?.trim()) return res.status(400).json({ msg: "College / university name is required" });
     }
 
-    if (!collegeName?.trim()) return res.status(400).json({ msg: "College / organisation name is required" });
+    if (!collegeName?.trim() && role !== "professional") return res.status(400).json({ msg: "College / organisation name is required" });
 
-    const isAdmin = role === "admin";
+    const isAdmin        = role === "admin";
+    const isProfessional = role === "professional";
 
     let u = await User.findOne({ email: new RegExp(`^${email}$`, "i") });
     if (u && u.isVerified) return res.status(400).json({ msg: "User already exists" });
@@ -87,19 +92,22 @@ exports.register = async (req, res) => {
     const hash      = await bcrypt.hash(password, 10);
 
     if (u) {
-      // Unverified account — refresh with new data
       u.name = name; u.password = hash;
-      u.role = isAdmin ? "admin" : "student";
-      u.collegeName = collegeName.trim();
-      if (collegeId) u.collegeId = collegeId.trim();
+      u.role = isAdmin ? "admin" : isProfessional ? "professional" : "student";
+      u.collegeName  = collegeName?.trim() || "";
+      if (collegeId)   u.collegeId   = collegeId.trim();
+      if (company)     u.company     = company.trim();
+      if (designation) u.designation = designation.trim();
       u.otp = otp; u.otpExpiry = otpExpiry;
       await u.save();
     } else {
       u = await new User({
         name, email, password: hash,
-        role: isAdmin ? "admin" : "student",
-        collegeName: collegeName.trim(),
-        collegeId: collegeId?.trim() || "",
+        role: isAdmin ? "admin" : isProfessional ? "professional" : "student",
+        collegeName:  collegeName?.trim() || "",
+        collegeId:    collegeId?.trim()    || "",
+        company:      company?.trim()      || "",
+        designation:  designation?.trim()  || "",
         isVerified: false, otp, otpExpiry,
       }).save();
     }
@@ -198,7 +206,7 @@ exports.login = async (req, res) => {
     if (!ok) return res.status(400).json({ msg: "Invalid Credentials" });
 
     const token = jwt.sign(
-      { user: { id: u.id, role: u.role, collegeName: u.collegeName || "" } },
+      { user: { id: u.id, role: u.role, collegeName: u.collegeName || "", company: u.company || "", designation: u.designation || "" } },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
@@ -294,7 +302,7 @@ exports.googleAuth = async (req, res) => {
         await u.save();
       }
       const token = jwt.sign(
-        { user: { id: u.id, role: u.role, collegeName: u.collegeName || "" } },
+        { user: { id: u.id, role: u.role, collegeName: u.collegeName || "", company: u.company || "", designation: u.designation || "" } },
         process.env.JWT_SECRET,
         { expiresIn: "1d" }
       );
@@ -324,7 +332,7 @@ exports.googleAuth = async (req, res) => {
     }).save();
 
     const token = jwt.sign(
-      { user: { id: u.id, role: u.role, collegeName: u.collegeName || "" } },
+      { user: { id: u.id, role: u.role, collegeName: u.collegeName || "", company: u.company || "", designation: u.designation || "" } },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );

@@ -9,6 +9,9 @@ interface SignupInput {
   password: string;
   role?: UserRole;
   collegeName: string;
+  collegeId?: string;
+  company?: string;
+  designation?: string;
 }
 
 interface AuthContextValue {
@@ -78,8 +81,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return parsedUser;
   }, []);
 
-  const signup = useCallback(async ({ name, email, password, role, collegeName }: SignupInput) => {
-    const response = await signupRequest({ name, email, password, role, collegeName });
+  const signup = useCallback(async ({ name, email, password, role, collegeName, collegeId, company, designation }: SignupInput) => {
+    const response = await signupRequest({ name, email, password, role, collegeName, collegeId, company, designation });
     return response.msg;
   }, []);
 

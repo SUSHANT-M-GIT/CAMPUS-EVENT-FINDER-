@@ -1,7 +1,7 @@
 import api from "./api";
 
 export interface LoginPayload  { email: string; password: string; }
-export interface SignupPayload { name: string; email: string; password: string; role?: string; collegeName: string; }
+export interface SignupPayload { name: string; email: string; password: string; role?: string; collegeName?: string; collegeId?: string; company?: string; designation?: string; }
 
 export async function login(payload: LoginPayload) {
   const { data } = await api.post<{ token: string }>("/auth/login", payload);

@@ -1,9 +1,12 @@
-export type UserRole = "admin" | "student";
+export type UserRole = "admin" | "student" | "professional";
 
 export interface AuthUser {
   id: string;
   role: UserRole;
+  name?: string;
   collegeName?: string;
+  company?: string;
+  designation?: string;
 }
 
 export interface EventItem {
