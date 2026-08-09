@@ -30,6 +30,7 @@ export default function UserDashboardPage() {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [registerForm, setRegisterForm]   = useState({ name: "", collegeId: "", department: "", customDepartment: "", company: "", designation: "" });
   const [cancellingId, setCancellingId]   = useState<string | null>(null);
+  const [regFilter, setRegFilter]         = useState<"all"|"upcoming"|"attended"|"waitlisted">("all");
 
   // Feedback modal state
   const [feedbackEventId, setFeedbackEventId]       = useState<string | null>(null);
@@ -746,13 +747,22 @@ export default function UserDashboardPage() {
               <>
                 <div className="stat-cards-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 12, marginBottom: 28 }}>
                   {[
-                    { label: "Registered",  value: confirmed.length,  icon: <Ticket size={20} />, color: "var(--primary)" },
-                    { label: "Upcoming",    value: upcoming.length,   icon: <Calendar size={20} />, color: "var(--info)" },
-                    { label: "Attended",    value: attended.length,   icon: <CheckCircle2 size={20} />, color: "var(--success)" },
-                    { label: "Waitlisted",  value: waitlisted.length, icon: <Clock size={20} />, color: "var(--warning)" },
-                    { label: "Venues",      value: colleges.size,     icon: <MapPin size={20} />, color: "var(--danger)" },
+                    { label: "Registered",  value: confirmed.length,  icon: <Ticket size={20} />,       color: "var(--primary)", filter: "all"        },
+                    { label: "Upcoming",    value: upcoming.length,   icon: <Calendar size={20} />,      color: "var(--info)",    filter: "upcoming"   },
+                    { label: "Attended",    value: attended.length,   icon: <CheckCircle2 size={20} />,  color: "var(--success)", filter: "attended"   },
+                    { label: "Waitlisted",  value: waitlisted.length, icon: <Clock size={20} />,         color: "var(--warning)", filter: "waitlisted" },
+                    { label: "Venues",      value: colleges.size,     icon: <MapPin size={20} />,        color: "var(--danger)",  filter: "all"        },
                   ].map(s => (
-                    <div key={s.label} className="stat-card" style={{ flexDirection: "column", gap: 6, textAlign: "center", padding: "16px 12px", justifyContent: "center" }}>
+                    <div key={s.label} className="stat-card"
+                      onClick={() => setRegFilter(s.filter as "all"|"upcoming"|"attended"|"waitlisted")}
+                      style={{
+                        flexDirection: "column", gap: 6, textAlign: "center", padding: "16px 12px",
+                        justifyContent: "center", cursor: "pointer",
+                        border: regFilter === s.filter && s.filter !== "all" ? `2px solid ${s.color}` : "1px solid var(--border)",
+                        transform: regFilter === s.filter && s.filter !== "all" ? "translateY(-2px)" : "none",
+                        transition: "all 0.2s",
+                      }}
+                    >
                       <div style={{ color: s.color, display: "flex", justifyContent: "center" }}>{s.icon}</div>
                       <div style={{ fontSize: "1.6rem", fontWeight: 800, color: "var(--text)", lineHeight: 1 }}>{s.value}</div>
                       <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", fontWeight: 600 }}>{s.label}</div>
@@ -760,8 +770,21 @@ export default function UserDashboardPage() {
                   ))}
                 </div>
 
+                {/* Filter tabs */}
+                {registrations.length > 0 && (
+                  <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+                    {(["all","upcoming","attended","waitlisted"] as const).map(t => (
+                      <button key={t} type="button"
+                        onClick={() => setRegFilter(t)}
+                        className={`filter-chip${regFilter === t ? " active" : ""}`}>
+                        {t.charAt(0).toUpperCase() + t.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 {/*  Upcoming events  */}
-                {upcoming.length > 0 && (
+                {(regFilter === "all" || regFilter === "upcoming") && upcoming.length > 0 && (
                   <div style={{ marginBottom: 24 }}>
                     <h4 style={{ margin: "0 0 12px", color: "var(--text)", fontSize: "1rem", display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ background: "linear-gradient(135deg,#0891b2,#06b6d4)", color: "#fff", borderRadius: 99, padding: "3px 12px", fontSize: "0.72rem", fontWeight: 700 }}>UPCOMING</span>
@@ -809,8 +832,38 @@ export default function UserDashboardPage() {
                   </div>
                 )}
 
+                {/*  Waitlisted  */}
+                {(regFilter === "all" || regFilter === "waitlisted") && waitlisted.length > 0 && (
+                  <div style={{ marginBottom: 24 }}>
+                    <h4 style={{ margin: "0 0 12px", color: "var(--text)", fontSize: "1rem", display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ background: "rgba(168,85,247,0.2)", color: "#7c3aed", borderRadius: 99, padding: "3px 12px", fontSize: "0.72rem", fontWeight: 700 }}>WAITLISTED</span>
+                      <span style={{ color: "var(--text-muted)", fontWeight: 500, fontSize: "0.9rem" }}>{waitlisted.length} event{waitlisted.length !== 1 ? "s" : ""}</span>
+                    </h4>
+                    <div style={{ display: "grid", gap: 10 }}>
+                      {waitlisted.map(reg => {
+                        const ev = reg.eventId as EventItem;
+                        if (!ev?._id) return null;
+                        return (
+                          <div key={reg._id} style={{ background: "rgba(168,85,247,0.05)", border: "1px solid rgba(168,85,247,0.25)", borderRadius: 12, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                            <div>
+                              <span style={{ fontWeight: 700, color: "var(--text)", fontSize: "0.95rem" }}>{ev.title}</span>
+                              <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: 4, display: "flex", gap: 10 }}>
+                                <span><Calendar size={12} style={{ verticalAlign: "middle", marginRight: 3 }} />{new Date(ev.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                                {ev.location && <span><MapPin size={12} style={{ verticalAlign: "middle", marginRight: 3 }} />{ev.location}</span>}
+                              </div>
+                            </div>
+                            <span style={{ background: "rgba(168,85,247,0.15)", color: "#7c3aed", borderRadius: 99, padding: "4px 12px", fontSize: "0.78rem", fontWeight: 700 }}>
+                              Position #{reg.waitlistPosition}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/*  Past events  */}
-                {attended.length > 0 && (
+                {(regFilter === "all" || regFilter === "attended") && attended.length > 0 && (
                   <div>
                     <h4 style={{ margin: "0 0 12px", color: "var(--text)", fontSize: "1rem", display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ background: "rgba(255,255,255,0.06)", color: "var(--text-2)", borderRadius: 99, padding: "3px 12px", fontSize: "0.72rem", fontWeight: 700 }}>PAST</span>
@@ -854,9 +907,27 @@ export default function UserDashboardPage() {
 
                 {registrations.length === 0 && (
                   <div style={{ textAlign: "center", padding: "48px 0", color: "var(--text-dim)" }}>
-                    <div style={{ fontSize: "3rem", marginBottom: 14 }}></div>
+                    <div style={{ fontSize: "3rem", marginBottom: 14 }}>🎫</div>
                     <p style={{ margin: 0, fontWeight: 700, color: "var(--text-2)", fontSize: "1rem" }}>No registrations yet</p>
                     <p style={{ margin: "6px 0 0", fontSize: "0.88rem", color: "var(--text-dim)" }}>Browse events above and register to get started!</p>
+                  </div>
+                )}
+                {registrations.length > 0 && regFilter === "upcoming" && upcoming.length === 0 && (
+                  <div style={{ textAlign: "center", padding: "32px 0", color: "var(--text-dim)" }}>
+                    <Calendar size={36} style={{ marginBottom: 10, opacity: 0.3 }} />
+                    <p style={{ margin: 0, fontWeight: 600 }}>No upcoming events</p>
+                  </div>
+                )}
+                {registrations.length > 0 && regFilter === "attended" && attended.length === 0 && (
+                  <div style={{ textAlign: "center", padding: "32px 0", color: "var(--text-dim)" }}>
+                    <CheckCircle2 size={36} style={{ marginBottom: 10, opacity: 0.3 }} />
+                    <p style={{ margin: 0, fontWeight: 600 }}>No attended events yet</p>
+                  </div>
+                )}
+                {registrations.length > 0 && regFilter === "waitlisted" && waitlisted.length === 0 && (
+                  <div style={{ textAlign: "center", padding: "32px 0", color: "var(--text-dim)" }}>
+                    <Clock size={36} style={{ marginBottom: 10, opacity: 0.3 }} />
+                    <p style={{ margin: 0, fontWeight: 600 }}>Not on any waitlists</p>
                   </div>
                 )}
               </>
