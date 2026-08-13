@@ -1,35 +1,39 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
-const userSchema = new mongoose.Schema({
-  name:        { type: String, required: true, trim: true },
-  email:       { type: String, unique: true, lowercase: true, trim: true },
-  password:    String,
+const userSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    email: { type: String, unique: true, lowercase: true, trim: true },
+    password: String,
 
-  // role: "student" (default), "professional", or "admin"
-  role:        { type: String, enum: ["admin","student","professional"], default: "student" },
+    // role: "student" (default), "professional", or "admin"
+    role: { type: String, enum: ['admin', 'student', 'professional'], default: 'student' },
 
-  collegeName:  { type: String, default: "", trim: true },
-  collegeId:    { type: String, default: "", trim: true },
-  department:   { type: String, default: "", trim: true },
-  // Professional-specific fields
-  company:      { type: String, default: "", trim: true },
-  designation:  { type: String, default: "", trim: true },
+    collegeName: { type: String, default: '', trim: true },
+    collegeId: { type: String, default: '', trim: true },
+    department: { type: String, default: '', trim: true },
+    // Professional-specific fields
+    company: { type: String, default: '', trim: true },
 
-  // Email verification (OTP)
-  isVerified:  { type: Boolean, default: false },
-  otp:         { type: String,  default: null },
-  otpExpiry:   { type: Date,    default: null },
+    // Email verification (OTP)
+    isVerified: { type: Boolean, default: false },
+    otp: { type: String, default: null },
+    otpExpiry: { type: Date, default: null },
+    passwordResetToken: { type: String, default: null },
+    passwordResetExpiry: { type: Date, default: null },
 
-  // Admin verification workflow fields
-  clubName:           { type: String, default: "", trim: true },
-  designation:        { type: String, default: "", trim: true },
-  officialEmail:      { type: String, default: "", trim: true },
-  instagramHandle:    { type: String, default: "", trim: true },
-  verificationStatus: {
-    type: String,
-    enum: ["pending", "approved", "rejected"],
-    default: "pending",
+    // Admin verification workflow fields
+    clubName: { type: String, default: '', trim: true },
+    designation: { type: String, default: '', trim: true },
+    officialEmail: { type: String, default: '', trim: true },
+    instagramHandle: { type: String, default: '', trim: true },
+    verificationStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending',
+    },
   },
-}, { timestamps: true });
+  { timestamps: true }
+);
 
-module.exports = mongoose.model("User", userSchema);
+module.exports = mongoose.model('User', userSchema);

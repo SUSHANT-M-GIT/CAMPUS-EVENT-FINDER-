@@ -1,5 +1,5 @@
-﻿import { Link } from "react-router-dom";
-import type { EventItem } from "../types";
+﻿import { Link } from 'react-router-dom';
+import type { EventItem } from '../types';
 
 interface EventCardProps {
   event: EventItem;

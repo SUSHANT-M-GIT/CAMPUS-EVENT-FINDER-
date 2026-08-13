@@ -1,4 +1,4 @@
-export type UserRole = "admin" | "student" | "professional";
+export type UserRole = 'admin' | 'student' | 'professional';
 
 export interface AuthUser {
   id: string;
@@ -13,7 +13,7 @@ export interface EventItem {
   _id: string;
   title: string;
   description: string;
-  type: "hackathon" | "tech" | "seminar" | "games" | "movie" | "other";
+  type: 'hackathon' | 'tech' | 'seminar' | 'games' | 'movie' | 'other';
   date: string;
   time: string;
   registrationDeadline: string;
@@ -21,23 +21,14 @@ export interface EventItem {
   createdBy?: string;
   maxRegistrations?: number;
   registrationCount?: number;
-  eligibility?: "all" | "own_college";
+  eligibility?: 'all' | 'own_college';
   tags?: string[];
   avgRating?: number;
   feedbackCount?: number;
   bannerImage?: string;
-  bannerSource?: "local" | "gdrive" | "";
+  bannerSource?: 'local' | 'gdrive' | '';
   createdAt?: string;
   updatedAt?: string;
-  // Payment fields
-  isPaid?: boolean;
-  price?: number;
-  upiId?: string;
-  qrImage?: string;
-  // Refund policy
-  refundAllowed?: boolean;
-  refundPercentage?: number;
-  refundCutoffHours?: number;
   // Certificate
   certificatesEnabled?: boolean;
 }
@@ -53,31 +44,22 @@ export interface FeedbackItem {
 
 export interface RegistrationItem {
   _id: string;
-  userId: string | { _id: string; name: string; email: string; };
+  userId: string | { _id: string; name: string; email: string };
   eventId: string | EventItem;
   registeredAt: string;
   name?: string;
   collegeId?: string;
   collegeName?: string;
   department?: string;
-  status?: "confirmed" | "waitlisted";
+  status?: 'confirmed' | 'waitlisted';
   waitlistPosition?: number | null;
-  // Payment fields
-  paymentStatus?: "free" | "pending" | "approved" | "rejected";
-  transactionId?: string;
-  paymentScreenshot?: string;
-  paymentNote?: string;
   // QR Attendance
   attendanceQr?: string;
-  attendanceStatus?: "absent" | "present";
-  // Refund
-  refundStatus?: "none" | "requested" | "approved" | "rejected";
-  refundAmount?: number;
-  refundNote?: string;
+  attendanceStatus?: 'absent' | 'present';
   // Certificate
   certificateId?: string;
   // Cancellation request
-  cancellationStatus?: "none" | "requested" | "approved" | "rejected";
+  cancellationStatus?: 'none' | 'requested' | 'approved' | 'rejected';
   cancellationNote?: string;
   // Unique registration code
   registrationCode?: string;

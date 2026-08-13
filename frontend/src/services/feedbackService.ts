@@ -1,7 +1,10 @@
-import api from "./api";
-import type { FeedbackItem } from "../types";
+import api from './api';
+import type { FeedbackItem } from '../types';
 
-export interface FeedbackPayload { rating: number; comment: string; }
+export interface FeedbackPayload {
+  rating: number;
+  comment: string;
+}
 
 export interface EventFeedbackResponse {
   avgRating: number;

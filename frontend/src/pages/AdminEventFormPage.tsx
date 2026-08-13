@@ -1,23 +1,20 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import Alert from "../components/Alert";
-import { createEvent, getEventById, updateEvent } from "../services/eventService";
-import type { EventPayload } from "../services/eventService";
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import Alert from '../components/Alert';
+import { createEvent, getEventById, updateEvent } from '../services/eventService';
+import type { EventPayload } from '../services/eventService';
 
 const defaultFormData: EventPayload = {
-  title: "",
-  description: "",
-  type: "other",
-  date: "",
-  time: "",
-  registrationDeadline: "",
-  location: "",
+  title: '',
+  description: '',
+  type: 'other',
+  date: '',
+  time: '',
+  registrationDeadline: '',
+  location: '',
   maxRegistrations: 100,
-  eligibility: "all",
+  eligibility: 'all',
   tags: [],
-  isPaid: false,
-  price: 0,
-  upiId: "",
 };
 
 export default function AdminEventFormPage() {
@@ -27,7 +24,9 @@ export default function AdminEventFormPage() {
   const [formData, setFormData] = useState(defaultFormData);
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(isEdit);
-  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
+    null
+  );
 
   useEffect(() => {
     const loadEvent = async () => {
@@ -43,11 +42,11 @@ export default function AdminEventFormPage() {
           registrationDeadline: data.registrationDeadline.slice(0, 16),
           location: data.location,
           maxRegistrations: data.maxRegistrations ?? 100,
-          eligibility: data.eligibility ?? "all",
+          eligibility: data.eligibility ?? 'all',
           tags: data.tags ?? [],
         });
       } catch {
-        setFeedback({ type: "error", message: "Unable to load event." });
+        setFeedback({ type: 'error', message: 'Unable to load event.' });
       } finally {
         setPageLoading(false);
       }
@@ -66,7 +65,7 @@ export default function AdminEventFormPage() {
     //  VALIDATION FIRST
 
     if (!formData.date || !formData.registrationDeadline) {
-      alert(" Please fill all required dates.");
+      alert(' Please fill all required dates.');
       return;
     }
 
@@ -79,22 +78,22 @@ export default function AdminEventFormPage() {
     deadlineDate.setHours(0, 0, 0, 0);
 
     if (isNaN(eventDate.getTime()) || isNaN(deadlineDate.getTime())) {
-      alert(" Invalid date.");
+      alert(' Invalid date.');
       return;
     }
 
     if (eventDate < today) {
-      alert("Event date cannot be in the past");
+      alert('Event date cannot be in the past');
       return;
     }
 
     if (deadlineDate < today) {
-      alert("Registration deadline cannot be in the past");
+      alert('Registration deadline cannot be in the past');
       return;
     }
 
     if (deadlineDate > eventDate) {
-      alert("Registration deadline cannot be after event date");
+      alert('Registration deadline cannot be after event date');
       return;
     }
 
@@ -105,15 +104,15 @@ export default function AdminEventFormPage() {
     try {
       if (isEdit && id) {
         await updateEvent(id, formData);
-        setFeedback({ type: "success", message: "Event updated successfully." });
+        setFeedback({ type: 'success', message: 'Event updated successfully.' });
       } else {
         await createEvent(formData);
-        setFeedback({ type: "success", message: "Event created successfully." });
+        setFeedback({ type: 'success', message: 'Event created successfully.' });
       }
 
-      setTimeout(() => navigate("/admin/events"), 1000);
+      setTimeout(() => navigate('/admin/events'), 1000);
     } catch {
-      setFeedback({ type: "error", message: "Failed to save event." });
+      setFeedback({ type: 'error', message: 'Failed to save event.' });
     } finally {
       setLoading(false);
     }
@@ -127,7 +126,7 @@ export default function AdminEventFormPage() {
     <main className="mx-auto max-w-3xl px-4 py-8">
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h1 className="mb-4 text-2xl font-bold text-slate-900">
-          {isEdit ? "Edit Event" : "Create Event"}
+          {isEdit ? 'Edit Event' : 'Create Event'}
         </h1>
 
         {feedback && <Alert type={feedback.type} message={feedback.message} />}
@@ -183,7 +182,7 @@ export default function AdminEventFormPage() {
               name="date"
               value={formData.date}
               onChange={handleChange}
-              min={new Date().toISOString().split("T")[0]}
+              min={new Date().toISOString().split('T')[0]}
               className="rounded-md border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               required
             />
@@ -215,7 +214,7 @@ export default function AdminEventFormPage() {
             disabled={loading}
             className="rounded-md bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-500 disabled:opacity-70"
           >
-            {loading ? "Saving..." : isEdit ? "Update Event" : "Create Event"}
+            {loading ? 'Saving...' : isEdit ? 'Update Event' : 'Create Event'}
           </button>
         </form>
       </div>

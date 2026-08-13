@@ -1,5 +1,5 @@
-import api from "./api";
-import type { RegistrationItem } from "../types";
+import api from './api';
+import type { RegistrationItem } from '../types';
 
 export interface RegistrationPayload {
   name: string;
@@ -10,10 +10,8 @@ export interface RegistrationPayload {
 
 export interface RegisterResponse {
   msg: string;
-  status: "confirmed" | "waitlisted";
+  status: 'confirmed' | 'waitlisted';
   waitlistPosition?: number | null;
-  paymentStatus?: "free" | "pending" | "approved" | "rejected";
-  isPaid?: boolean;
   registrationId?: string;
   requested?: boolean;
 }
@@ -24,12 +22,14 @@ export async function registerForEvent(eventId: string, payload?: RegistrationPa
 }
 
 export async function cancelRegistration(eventId: string) {
-  const { data } = await api.delete<{ msg: string; requested?: boolean }>(`/registrations/${eventId}`);
+  const { data } = await api.delete<{ msg: string; requested?: boolean }>(
+    `/registrations/${eventId}`
+  );
   return data;
 }
 
 export async function getMyRegistrations() {
-  const { data } = await api.get<RegistrationItem[]>("/my-registrations");
+  const { data } = await api.get<RegistrationItem[]>('/my-registrations');
   return data;
 }
 
@@ -38,9 +38,18 @@ export async function getEventRegistrations(eventId: string) {
   return data;
 }
 
+export async function regenerateRegistrationQr(registrationId: string) {
+  const { data } = await api.post<{
+    success: boolean;
+    attendanceQr?: string;
+    registrationCode?: string;
+  }>(`/registrations/${registrationId}/regenerate-qr`);
+  return data;
+}
+
 // Admin: cancellation management
 export async function getPendingCancellations() {
-  const { data } = await api.get<any[]>("/cancellations/pending");
+  const { data } = await api.get<RegistrationItem[]>('/cancellations/pending');
   return data;
 }
 
@@ -50,6 +59,8 @@ export async function approveCancellation(registrationId: string) {
 }
 
 export async function rejectCancellation(registrationId: string, reason?: string) {
-  const { data } = await api.put<{ msg: string }>(`/cancellations/${registrationId}/reject`, { reason: reason ?? "" });
+  const { data } = await api.put<{ msg: string }>(`/cancellations/${registrationId}/reject`, {
+    reason: reason ?? '',
+  });
   return data;
 }

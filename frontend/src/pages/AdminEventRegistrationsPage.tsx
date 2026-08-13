@@ -1,25 +1,25 @@
-﻿import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import LoadingSpinner from "../components/LoadingSpinner";
-import { getEventRegistrations } from "../services/registrationService";
-import type { RegistrationItem } from "../types";
+﻿import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import LoadingSpinner from '../components/LoadingSpinner';
+import { getEventRegistrations } from '../services/registrationService';
+import type { RegistrationItem } from '../types';
 
 export default function AdminEventRegistrationsPage() {
   const { id } = useParams();
   const [registrations, setRegistrations] = useState<RegistrationItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const loadData = async () => {
       if (!id) return;
       setLoading(true);
-      setError("");
+      setError('');
       try {
         const data = await getEventRegistrations(id);
         setRegistrations(data);
       } catch {
-        setError("Unable to fetch event registrations.");
+        setError('Unable to fetch event registrations.');
       } finally {
         setLoading(false);
       }
@@ -48,12 +48,14 @@ export default function AdminEventRegistrationsPage() {
             </thead>
             <tbody>
               {registrations.map((registration) => {
-                const user = typeof registration.userId === "string" ? null : registration.userId;
+                const user = typeof registration.userId === 'string' ? null : registration.userId;
                 return (
                   <tr key={registration._id} className="border-t border-slate-200">
-                    <td className="px-4 py-3">{user?.name ?? "Unknown"}</td>
-                    <td className="px-4 py-3">{user?.email ?? "-"}</td>
-                    <td className="px-4 py-3">{new Date(registration.registeredAt).toLocaleString()}</td>
+                    <td className="px-4 py-3">{user?.name ?? 'Unknown'}</td>
+                    <td className="px-4 py-3">{user?.email ?? '-'}</td>
+                    <td className="px-4 py-3">
+                      {new Date(registration.registeredAt).toLocaleString()}
+                    </td>
                   </tr>
                 );
               })}

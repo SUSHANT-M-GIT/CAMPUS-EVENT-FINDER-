@@ -1,5 +1,5 @@
-﻿import { Link, NavLink, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+﻿import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export default function Navbar() {
   const { isAuthenticated, user, logout } = useAuth();
@@ -7,13 +7,13 @@ export default function Navbar() {
 
   const handleLogout = () => {
     logout();
-    navigate("/login");
+    navigate('/login');
   };
 
   const navClass = ({ isActive }: { isActive: boolean }) =>
-    `text-sm font-medium ${isActive ? "text-indigo-600" : "text-slate-600 hover:text-slate-900"}`;
+    `text-sm font-medium ${isActive ? 'text-indigo-600' : 'text-slate-600 hover:text-slate-900'}`;
 
-  const homePath = user?.role === "admin" ? "/admin/events" : "/events";
+  const homePath = user?.role === 'admin' ? '/admin/events' : '/events';
 
   return (
     <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
@@ -23,7 +23,7 @@ export default function Navbar() {
         </Link>
 
         <div className="flex items-center gap-4">
-          {isAuthenticated && user?.role === "student" && (
+          {isAuthenticated && user?.role === 'student' && (
             <>
               <NavLink to="/events" className={navClass}>
                 Events
@@ -34,7 +34,7 @@ export default function Navbar() {
             </>
           )}
 
-          {isAuthenticated && user?.role === "admin" && (
+          {isAuthenticated && user?.role === 'admin' && (
             <>
               <NavLink to="/admin/events" className={navClass}>
                 Manage Events

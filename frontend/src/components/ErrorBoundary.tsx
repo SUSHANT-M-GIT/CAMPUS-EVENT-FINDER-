@@ -1,8 +1,12 @@
-import { Component } from "react";
-import type { ReactNode } from "react";
+import { Component } from 'react';
+import type { ReactNode } from 'react';
 
-interface Props { children: ReactNode; }
-interface State { error: Error | null; }
+interface Props {
+  children: ReactNode;
+}
+interface State {
+  error: Error | null;
+}
 
 export default class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null };
@@ -12,18 +16,30 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error("[ErrorBoundary] Caught:", error.message, info.componentStack);
+    console.error('[ErrorBoundary] Caught:', error.message, info.componentStack);
   }
 
   render() {
     if (this.state.error) {
       return (
-        <div style={{ padding: "40px", textAlign: "center", fontFamily: "Arial, sans-serif" }}>
-          <h2 style={{ color: "#dc2626" }}>Something went wrong</h2>
-          <p style={{ color: "var(--text-muted)", marginBottom: "16px" }}>{this.state.error.message}</p>
+        <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'Arial, sans-serif' }}>
+          <h2 style={{ color: '#dc2626' }}>Something went wrong</h2>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>
+            {this.state.error.message}
+          </p>
           <button
-            style={{ padding: "10px 20px", background: "#4f46e5", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer" }}
-            onClick={() => { this.setState({ error: null }); window.location.href = "/login"; }}
+            style={{
+              padding: '10px 20px',
+              background: '#4f46e5',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+            }}
+            onClick={() => {
+              this.setState({ error: null });
+              window.location.href = '/login';
+            }}
           >
             Back to Login
           </button>

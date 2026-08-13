@@ -1,5 +1,5 @@
-import api from "./api";
-import type { CommentItem } from "../types";
+import api from './api';
+import type { CommentItem } from '../types';
 
 export async function getComments(eventId: string) {
   const { data } = await api.get<CommentItem[]>(`/comments/${eventId}`);

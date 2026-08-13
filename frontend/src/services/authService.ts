@@ -1,25 +1,61 @@
-import api from "./api";
+import api from './api';
 
-export interface LoginPayload  { email: string; password: string; }
-export interface SignupPayload { name: string; email: string; password: string; role?: string; collegeName?: string; collegeId?: string; company?: string; designation?: string; }
+export interface LoginPayload {
+  email: string;
+  password: string;
+}
+export interface SignupPayload {
+  name: string;
+  email: string;
+  password: string;
+  role?: string;
+  collegeName?: string;
+  collegeId?: string;
+  company?: string;
+  designation?: string;
+}
 
 export async function login(payload: LoginPayload) {
-  const { data } = await api.post<{ token: string }>("/auth/login", payload);
+  const { data } = await api.post<{ token: string }>('/auth/login', payload);
   return data;
 }
 
 export async function signup(payload: SignupPayload) {
-  const { data } = await api.post<{ success: boolean; msg: string; email: string }>("/auth/register", payload);
+  const { data } = await api.post<{ success: boolean; msg: string; email: string }>(
+    '/auth/register',
+    payload
+  );
   return data;
 }
 
 export async function verifyEmail(email: string, otp: string) {
-  const { data } = await api.post<{ msg: string }>("/auth/verify-email", { email, otp });
+  const { data } = await api.post<{ msg: string }>('/auth/verify-email', { email, otp });
   return data;
 }
 
 export async function resendOtp(email: string) {
-  const { data } = await api.post<{ success: boolean; msg: string }>("/auth/resend-otp", { email });
+  const { data } = await api.post<{ success: boolean; msg: string }>('/auth/resend-otp', { email });
+  return data;
+}
+
+export async function forgotPassword(email: string) {
+  const { data } = await api.post<{ success: boolean; msg: string }>('/auth/forgot-password', {
+    email,
+  });
+  return data;
+}
+
+export interface ResetPasswordPayload {
+  email: string;
+  token: string;
+  password: string;
+}
+
+export async function resetPassword(payload: ResetPasswordPayload) {
+  const { data } = await api.post<{ success: boolean; msg: string }>(
+    '/auth/reset-password',
+    payload
+  );
   return data;
 }
 
@@ -39,6 +75,6 @@ export interface GoogleAuthResponse {
 }
 
 export async function googleAuth(payload: GoogleAuthPayload) {
-  const { data } = await api.post<GoogleAuthResponse>("/auth/google", payload);
+  const { data } = await api.post<GoogleAuthResponse>('/auth/google', payload);
   return data;
 }

@@ -1,37 +1,37 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
-import EventCard from "../components/EventCard";
-import LoadingSpinner from "../components/LoadingSpinner";
-import { getEvents } from "../services/eventService";
-import type { EventItem } from "../types";
+﻿import { useCallback, useEffect, useMemo, useState } from 'react';
+import EventCard from '../components/EventCard';
+import LoadingSpinner from '../components/LoadingSpinner';
+import { getEvents } from '../services/eventService';
+import type { EventItem } from '../types';
 
-type SortOption = "deadlineAsc" | "dateAsc" | "dateDesc";
+type SortOption = 'deadlineAsc' | 'dateAsc' | 'dateDesc';
 
 export default function EventsPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
-  const [search, setSearch] = useState("");
-  const [type, setType] = useState("");
-  const [sortBy, setSortBy] = useState<SortOption>("deadlineAsc");
+  const [search, setSearch] = useState('');
+  const [type, setType] = useState('');
+  const [sortBy, setSortBy] = useState<SortOption>('deadlineAsc');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
 
   const fetchEvents = useCallback(
     async (showLoader = true) => {
       if (showLoader) {
         setLoading(true);
       }
-      setError("");
+      setError('');
       try {
         const data = await getEvents({ search, type: type || undefined });
         setEvents(data);
       } catch {
-        setError("Unable to load events.");
+        setError('Unable to load events.');
       } finally {
         if (showLoader) {
           setLoading(false);
         }
       }
     },
-    [search, type],
+    [search, type]
   );
 
   useEffect(() => {
@@ -51,9 +51,9 @@ export default function EventsPage() {
 
   const sortedEvents = useMemo(() => {
     const copy = [...events];
-    if (sortBy === "dateAsc") {
+    if (sortBy === 'dateAsc') {
       copy.sort((a, b) => +new Date(a.date) - +new Date(b.date));
-    } else if (sortBy === "dateDesc") {
+    } else if (sortBy === 'dateDesc') {
       copy.sort((a, b) => +new Date(b.date) - +new Date(a.date));
     } else {
       copy.sort((a, b) => +new Date(a.registrationDeadline) - +new Date(b.registrationDeadline));

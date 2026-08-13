@@ -5,7 +5,7 @@
   action?: React.ReactNode;
 }
 
-export default function EmptyState({ icon = "", title, description, action }: EmptyStateProps) {
+export default function EmptyState({ icon = '', title, description, action }: EmptyStateProps) {
   return (
     <div className="empty-state anim-fade-in">
       <div className="empty-state-icon">{icon}</div>

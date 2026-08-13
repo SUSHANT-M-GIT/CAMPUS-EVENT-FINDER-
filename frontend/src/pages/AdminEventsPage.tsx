@@ -1,14 +1,16 @@
-﻿import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import Alert from "../components/Alert";
-import LoadingSpinner from "../components/LoadingSpinner";
-import { deleteEvent, getEvents } from "../services/eventService";
-import type { EventItem } from "../types";
+﻿import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import Alert from '../components/Alert';
+import LoadingSpinner from '../components/LoadingSpinner';
+import { deleteEvent, getEvents } from '../services/eventService';
+import type { EventItem } from '../types';
 
 export default function AdminEventsPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
+    null
+  );
 
   const loadEvents = async () => {
     setLoading(true);
@@ -16,7 +18,7 @@ export default function AdminEventsPage() {
       const data = await getEvents();
       setEvents(data);
     } catch {
-      setFeedback({ type: "error", message: "Unable to fetch events." });
+      setFeedback({ type: 'error', message: 'Unable to fetch events.' });
     } finally {
       setLoading(false);
     }
@@ -27,15 +29,15 @@ export default function AdminEventsPage() {
   }, []);
 
   const handleDelete = async (id: string) => {
-    const confirmed = window.confirm("Delete this event?");
+    const confirmed = window.confirm('Delete this event?');
     if (!confirmed) return;
 
     try {
       await deleteEvent(id);
-      setFeedback({ type: "success", message: "Event deleted successfully." });
+      setFeedback({ type: 'success', message: 'Event deleted successfully.' });
       setEvents((prev) => prev.filter((event) => event._id !== id));
     } catch {
-      setFeedback({ type: "error", message: "Delete failed." });
+      setFeedback({ type: 'error', message: 'Delete failed.' });
     }
   };
 
@@ -43,7 +45,10 @@ export default function AdminEventsPage() {
     <main className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-900">Admin Event Management</h1>
-        <Link to="/admin/events/new" className="rounded-md bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-500">
+        <Link
+          to="/admin/events/new"
+          className="rounded-md bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-500"
+        >
           Create Event
         </Link>
       </div>
