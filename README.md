@@ -31,7 +31,8 @@ A full-stack campus event platform built with Node.js, Express, MongoDB, React, 
 
 ## Project structure
 
-Campus-Event-Finder
+Campus-Event-Finder/
+│
 ├── backend/
 │   ├── config/
 │   ├── controllers/
@@ -44,18 +45,17 @@ Campus-Event-Finder
 │   ├── uploads/
 │   ├── .env
 │   ├── package.json
-│   ├── server.js
-│  
+│   └── server.js
+│
 ├── frontend/
 │   ├── src/
 │   ├── public/
 │   ├── package.json
-│   ├── vite.config.ts
-│   └── 
+│   └── vite.config.ts
+│
 ├── README.md
 ├── QR_TEST_GUIDE.md
-└── package.json (if present in root)
-```
+└── package.json
 
 ## Prerequisites
 
