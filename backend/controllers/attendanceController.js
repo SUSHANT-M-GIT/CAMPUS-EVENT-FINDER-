@@ -37,10 +37,13 @@ exports.scanAttendance = async (req, res) => {
     if (eventId && regEventId !== eventId.toString())
       return res.status(400).json({ msg: 'QR code does not belong to this event' });
 
-    // Verify admin owns this event
+    // Verify user is an authorized admin or event organizer
     const event = reg.eventId;
-    if (event?.createdBy?.toString() !== req.user.id)
-      return res.status(403).json({ msg: 'You are not the organizer of this event' });
+    const isOwner = event?.createdBy && event.createdBy.toString() === req.user.id;
+    const isAdmin = req.user && (req.user.role === 'admin' || isOwner);
+
+    if (!isAdmin)
+      return res.status(403).json({ msg: 'You are not authorized to scan attendance for this event' });
 
     if (reg.attendanceStatus === 'present')
       return res
@@ -75,7 +78,10 @@ exports.getAttendance = async (req, res) => {
   try {
     const event = await Event.findById(req.params.eventId).lean();
     if (!event) return res.status(404).json({ msg: 'Event not found' });
-    if (event.createdBy?.toString() !== req.user.id)
+    
+    const isOwner = event.createdBy && event.createdBy.toString() === req.user.id;
+    const isAdmin = req.user && (req.user.role === 'admin' || isOwner);
+    if (!isAdmin)
       return res.status(403).json({ msg: 'Access denied' });
 
     const regs = await Registration.find({
@@ -106,7 +112,10 @@ exports.enableCertificates = async (req, res) => {
   try {
     const event = await Event.findById(req.params.eventId);
     if (!event) return res.status(404).json({ msg: 'Event not found' });
-    if (event.createdBy?.toString() !== req.user.id)
+
+    const isOwner = event.createdBy && event.createdBy.toString() === req.user.id;
+    const isAdmin = req.user && (req.user.role === 'admin' || isOwner);
+    if (!isAdmin)
       return res.status(403).json({ msg: 'Access denied' });
 
     event.certificatesEnabled = true;

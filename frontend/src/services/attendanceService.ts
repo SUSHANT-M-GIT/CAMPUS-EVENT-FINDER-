@@ -53,19 +53,10 @@ export async function enableCertificates(eventId: string) {
 
 /** Utility: download certificate as PDF blob */
 export async function downloadCertificatePdf(registrationId: string): Promise<void> {
-  const token = localStorage.getItem('token') ?? '';
-  const response = await fetch(
-    `http://127.0.0.1:5000/api/attendance/certificate/${registrationId}`,
-    {
-      headers: { Authorization: `Bearer ${token}` },
-    }
-  );
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({ msg: 'Certificate download failed' }));
-    throw new Error(err.msg || 'Certificate download failed');
-  }
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
+  const response = await api.get(`/attendance/certificate/${registrationId}`, {
+    responseType: 'blob',
+  });
+  const url = URL.createObjectURL(response.data);
   const a = document.createElement('a');
   a.href = url;
   a.download = `certificate-${registrationId}.pdf`;
