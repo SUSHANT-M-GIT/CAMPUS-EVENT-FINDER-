@@ -29,7 +29,10 @@ const userSchema = new mongoose.Schema(
     ownerLoginOtp: { type: String, default: null },
     ownerLoginOtpExpiry: { type: Date, default: null },
 
-    // Admin verification workflow fields
+    // Contact / Phone
+    phone: { type: String, default: '', trim: true },
+
+    // Admin verification & 1-click email approval workflow fields
     clubName: { type: String, default: '', trim: true },
     designation: { type: String, default: '', trim: true },
     officialEmail: { type: String, default: '', trim: true },
@@ -39,6 +42,13 @@ const userSchema = new mongoose.Schema(
       enum: ['pending', 'approved', 'rejected'],
       default: 'pending',
     },
+    organizerApprovalStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending',
+    },
+    organizerApprovalTokenHash: { type: String, default: null },
+    organizerApprovalTokenExpiry: { type: Date, default: null },
   },
   { timestamps: true }
 );

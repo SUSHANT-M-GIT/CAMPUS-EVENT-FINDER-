@@ -15,6 +15,7 @@ interface SignupFormData {
   collegeId: string;
   company: string;
   designation: string;
+  phone: string;
 }
 
 const FORMAT_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -37,6 +38,7 @@ export default function SignupPage() {
     collegeId: '',
     company: '',
     designation: '',
+    phone: '',
   });
   const [step, setStep] = useState<'form' | 'otp'>('form');
   const [pendingEmail, setPendingEmail] = useState('');
@@ -325,20 +327,47 @@ export default function SignupPage() {
 
             {/* Admin-only fields */}
             {form.role === 'admin' && (
-              <div>
-                {lbl('College / Organisation name')}
-                <input
-                  name="collegeName"
-                  value={form.collegeName}
-                  onChange={handleChange}
-                  placeholder="e.g. Reva University / Tech Club"
-                  className="input"
-                  required
-                />
-                <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                  Cannot be changed after account creation
-                </p>
-              </div>
+              <>
+                <div>
+                  {lbl('College / Organisation name *')}
+                  <input
+                    name="collegeName"
+                    value={form.collegeName}
+                    onChange={handleChange}
+                    placeholder="e.g. Reva University / Coding Club"
+                    className="input"
+                    required
+                  />
+                  <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                    Your official club, department, or college name
+                  </p>
+                </div>
+                <div>
+                  {lbl('Phone Number / Contact Number *')}
+                  <input
+                    name="phone"
+                    type="tel"
+                    value={form.phone}
+                    onChange={handleChange}
+                    placeholder="e.g. +91 98765 43210"
+                    className="input"
+                    required
+                  />
+                  <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                    Required for organizer verification &amp; approval
+                  </p>
+                </div>
+                <div>
+                  {lbl('Your Role / Designation')}
+                  <input
+                    name="designation"
+                    value={form.designation}
+                    onChange={handleChange}
+                    placeholder="e.g. Club President, Event Lead, Faculty"
+                    className="input"
+                  />
+                </div>
+              </>
             )}
             <button
               type="submit"

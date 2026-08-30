@@ -32,6 +32,7 @@ describe('Owner email protection', () => {
         password: 'secret123',
         role: 'admin',
         collegeName: 'Campus',
+        phone: '+91 9876543210',
       },
     };
 

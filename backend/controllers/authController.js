@@ -3,7 +3,12 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
-const { sendEmail } = require('../services/emailService');
+const {
+  sendEmail,
+  sendOrganizerApprovalRequestEmail,
+  sendOrganizerApprovedNotificationEmail,
+  sendOrganizerRejectedNotificationEmail,
+} = require('../services/emailService');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -85,10 +90,77 @@ async function sendPasswordResetEmail(email, token, name) {
   });
 }
 
+// ── 1-Click Organizer Approval Helper ─────────────────────────────────────────
+
+async function createAndSendOrganizerApprovalRequest(u, req) {
+  try {
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+    u.organizerApprovalTokenHash = tokenHash;
+    u.organizerApprovalTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    u.verificationStatus = 'pending';
+    u.organizerApprovalStatus = 'pending';
+    await u.save();
+
+    const baseUrl = (process.env.APP_URL || (req ? `${req.protocol}://${req.get('host')}` : 'http://localhost:5000')).replace(/\/$/, '');
+    const approveUrl = `${baseUrl}/api/auth/organizer-approval/approve/${rawToken}`;
+    const rejectUrl = `${baseUrl}/api/auth/organizer-approval/reject/${rawToken}`;
+    const ownerEmail = process.env.PLATFORM_OWNER_EMAIL || process.env.EMAIL_USER;
+
+    if (ownerEmail) {
+      await sendOrganizerApprovalRequestEmail({
+        ownerEmail,
+        organizer: u,
+        approveUrl,
+        rejectUrl,
+      });
+      console.log(`[Approval] Sent 1-click organizer approval request to platform owner (${ownerEmail}) for: ${u.email}`);
+    } else {
+      console.warn('[Approval] PLATFORM_OWNER_EMAIL / EMAIL_USER not configured. Skipping approval email.');
+    }
+  } catch (err) {
+    console.error('[Approval] Failed to send organizer approval email:', err.message);
+  }
+}
+
+function renderApprovalHtml({ title, heading, message, type }) {
+  const icon = type === 'success' ? '✅' : type === 'warn' ? '⚠️' : '❌';
+  const color = type === 'success' ? '#10b981' : type === 'warn' ? '#f59e0b' : '#ef4444';
+  const appUrl = process.env.APP_URL || 'http://localhost:5173';
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title} — Campus Event Finder</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #e2e8f0; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 16px; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 36px 32px; max-width: 480px; width: 100%; text-align: center; box-shadow: 0 12px 36px rgba(0,0,0,0.4); }
+    .icon { font-size: 3rem; margin-bottom: 16px; }
+    h1 { margin: 0 0 12px; font-size: 1.5rem; color: #f8fafc; }
+    p { margin: 0 0 24px; color: #94a3b8; font-size: 1rem; line-height: 1.6; }
+    .btn { display: inline-block; background: ${color}; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 0.95rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">${icon}</div>
+    <h1>${heading}</h1>
+    <p>${message}</p>
+    <a href="${appUrl}" class="btn">Return to Campus Event Finder</a>
+  </div>
+</body>
+</html>
+  `;
+}
+
 // ── REGISTER ──────────────────────────────────────────────────────────────────
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role, collegeName, collegeId, company, designation } = req.body;
+    const { name, email, password, role, collegeName, collegeId, company, designation, phone } = req.body;
     const normalizedEmail = normalizeEmail(email);
 
     if (!email) return res.status(400).json({ msg: 'Email is required' });
@@ -105,8 +177,13 @@ exports.register = async (req, res) => {
       if (!collegeId?.trim())
         return res.status(400).json({ msg: 'College ID / roll number is required for students' });
     } else if (role === 'professional') {
-      // company is optional, but we still need a name
-    } else if (role !== 'admin') {
+      // company is optional, but we still need a designation
+    } else if (role === 'admin') {
+      if (!collegeName?.trim())
+        return res.status(400).json({ msg: 'College / organisation name is required' });
+      if (!phone?.trim())
+        return res.status(400).json({ msg: 'Phone number is required for Admin / Organizer accounts' });
+    } else {
       // default student check
       if (!collegeName?.trim())
         return res.status(400).json({ msg: 'College / university name is required' });
@@ -132,9 +209,11 @@ exports.register = async (req, res) => {
       if (collegeId) u.collegeId = collegeId.trim();
       if (company) u.company = company.trim();
       if (designation) u.designation = designation.trim();
+      if (phone) u.phone = phone.trim();
       if (isAdmin) {
         u.clubName = collegeName?.trim() || u.clubName || '';
         u.verificationStatus = 'pending';
+        u.organizerApprovalStatus = 'pending';
       }
       u.otp = otp;
       u.otpExpiry = otpExpiry;
@@ -149,8 +228,10 @@ exports.register = async (req, res) => {
         collegeId: collegeId?.trim() || '',
         company: company?.trim() || '',
         designation: designation?.trim() || '',
+        phone: phone?.trim() || '',
         clubName: isAdmin ? collegeName?.trim() || '' : '',
         verificationStatus: 'pending',
+        organizerApprovalStatus: 'pending',
         accountStatus: 'active',
         isVerified: false,
         otp,
@@ -200,6 +281,14 @@ exports.verifyEmail = async (req, res) => {
     u.otp = null;
     u.otpExpiry = null;
     await u.save();
+
+    if (u.role === 'admin') {
+      await createAndSendOrganizerApprovalRequest(u, req);
+      return res.json({
+        msg: 'Email verified successfully! Your organizer account has been created and is waiting for approval by the platform owner.',
+        pendingApproval: true,
+      });
+    }
 
     res.json({ msg: 'Email verified successfully! You can now log in.' });
   } catch (e) {
@@ -329,10 +418,11 @@ exports.login = async (req, res) => {
     const ok = await bcrypt.compare(password, u.password);
     if (!ok) return res.status(400).json({ msg: 'Invalid Credentials' });
 
-    if (u.role === 'admin' && u.verificationStatus !== 'approved') {
-      return res.status(403).json({
-        msg: `Admin Verification: ${u.verificationStatus === 'rejected' ? 'Rejected' : 'Pending'}. Await admin approval.`,
-      });
+    if (u.role === 'admin' && (u.verificationStatus !== 'approved' || u.organizerApprovalStatus === 'rejected')) {
+      const msg = (u.verificationStatus === 'rejected' || u.organizerApprovalStatus === 'rejected')
+        ? 'Your organizer request was not approved.'
+        : 'Your organizer account is waiting for approval.';
+      return res.status(403).json({ msg });
     }
 
     const token = jwt.sign(
@@ -358,7 +448,7 @@ exports.login = async (req, res) => {
 // ── REQUEST ADMIN ACCESS ──────────────────────────────────────────────────────
 exports.requestAdmin = async (req, res) => {
   try {
-    const { clubName, designation, officialEmail, instagramHandle } = req.body;
+    const { clubName, designation, officialEmail, instagramHandle, phone } = req.body;
 
     if (!clubName?.trim()) return res.status(400).json({ msg: 'Club name is required' });
     if (!designation?.trim()) return res.status(400).json({ msg: 'Designation is required' });
@@ -375,9 +465,13 @@ exports.requestAdmin = async (req, res) => {
     u.clubName = clubName.trim();
     u.designation = designation.trim();
     u.officialEmail = officialEmail.trim();
+    if (phone) u.phone = phone.trim();
     u.instagramHandle = instagramHandle?.trim() || '';
     u.verificationStatus = 'pending';
+    u.organizerApprovalStatus = 'pending';
     await u.save();
+
+    await createAndSendOrganizerApprovalRequest(u, req);
 
     res.json({ msg: 'Admin access request submitted. You will be notified once reviewed.' });
   } catch (e) {
@@ -388,11 +482,10 @@ exports.requestAdmin = async (req, res) => {
 
 // ── GOOGLE OAUTH ──────────────────────────────────────────────────────────────
 // POST /api/auth/google
-// Body: { idToken, role, collegeName, collegeId, company, designation }
-// idToken may be a Google ID token OR an access token from useGoogleLogin
+// Body: { idToken, role, collegeName, collegeId, company, designation, phone }
 exports.googleAuth = async (req, res) => {
   try {
-    const { idToken, role, collegeName, collegeId, company, designation } = req.body;
+    const { idToken, role, collegeName, collegeId, company, designation, phone } = req.body;
     if (!idToken) return res.status(400).json({ msg: 'Google token is required' });
 
     const googleClientId = process.env.GOOGLE_CLIENT_ID;
@@ -407,7 +500,7 @@ exports.googleAuth = async (req, res) => {
     let googleName = 'User';
 
     // Try ID token verification first (credential flow)
-    // If that fails, try access token via userinfo endpoint (implicit/auth-code flow)
+    // If that fails, try access token via userinfo endpoint
     try {
       const client = new OAuth2Client(googleClientId);
       const ticket = await client.verifyIdToken({
@@ -419,7 +512,6 @@ exports.googleAuth = async (req, res) => {
       googleName = payload.name || 'User';
       console.log('[Google OAuth] Verified via ID token:', googleEmail);
     } catch {
-      // Fall back to access token — fetch user info from Google
       console.log('[Google OAuth] ID token verification failed, trying access token userinfo...');
       try {
         const infoRes = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo`, {
@@ -443,18 +535,17 @@ exports.googleAuth = async (req, res) => {
     let u = await User.findOne({ email: new RegExp(`^${googleEmail}$`, 'i') });
 
     if (u) {
-      // Existing user — verify account status
       if (u.accountStatus === 'suspended' || u.accountStatus === 'deactivated') {
         return res.status(403).json({ msg: `Account is ${u.accountStatus}. Contact support.` });
       }
 
-      if (u.role === 'admin' && u.verificationStatus !== 'approved') {
-        return res.status(403).json({
-          msg: `Admin Verification: ${u.verificationStatus === 'rejected' ? 'Rejected' : 'Pending'}. Await admin approval.`,
-        });
+      if (u.role === 'admin' && (u.verificationStatus !== 'approved' || u.organizerApprovalStatus === 'rejected')) {
+        const msg = (u.verificationStatus === 'rejected' || u.organizerApprovalStatus === 'rejected')
+          ? 'Your organizer request was not approved.'
+          : 'Your organizer account is waiting for approval.';
+        return res.status(403).json({ msg });
       }
 
-      // Existing user — auto-verify email if not verified yet
       if (!u.isVerified) {
         u.isVerified = true;
         await u.save();
@@ -525,6 +616,17 @@ exports.googleAuth = async (req, res) => {
           msg: 'Please provide your College or Organization Name.',
         });
       }
+      if (!phone?.trim()) {
+        return res.status(200).json({
+          needsProfileCompletion: true,
+          isNewUser: true,
+          googleEmail,
+          googleName,
+          role: 'admin',
+          provider: 'google',
+          msg: 'Please provide your Phone / Contact Number.',
+        });
+      }
     }
 
     const isAdmin = role === 'admin';
@@ -540,11 +642,22 @@ exports.googleAuth = async (req, res) => {
       collegeId: role === 'student' ? collegeId.trim() : '',
       company: isProfessional ? (company?.trim() || '') : '',
       designation: isProfessional ? designation.trim() : (isAdmin ? (designation?.trim() || 'Event Organizer') : ''),
+      phone: phone?.trim() || '',
       clubName: isAdmin ? collegeName.trim() : '',
-      verificationStatus: 'approved',
+      verificationStatus: isAdmin ? 'pending' : 'approved',
+      organizerApprovalStatus: isAdmin ? 'pending' : 'approved',
       accountStatus: 'active',
       isVerified: true,
     }).save();
+
+    if (isAdmin) {
+      await createAndSendOrganizerApprovalRequest(u, req);
+      return res.json({
+        isNewUser: true,
+        pendingApproval: true,
+        msg: 'Your organizer account has been created and is waiting for approval by the platform owner.',
+      });
+    }
 
     const token = jwt.sign(
       {
@@ -569,10 +682,10 @@ exports.googleAuth = async (req, res) => {
 
 // ── MICROSOFT OAUTH ───────────────────────────────────────────────────────────
 // POST /api/auth/microsoft
-// Body: { accessToken, idToken, role, collegeName, collegeId, company, designation }
+// Body: { accessToken, idToken, role, collegeName, collegeId, company, designation, phone }
 exports.microsoftAuth = async (req, res) => {
   try {
-    const { accessToken, idToken, role, collegeName, collegeId, company, designation } = req.body;
+    const { accessToken, idToken, role, collegeName, collegeId, company, designation, phone } = req.body;
     if (!accessToken && !idToken) {
       return res.status(400).json({ msg: 'Microsoft authentication token is required.' });
     }
@@ -620,18 +733,17 @@ exports.microsoftAuth = async (req, res) => {
     let u = await User.findOne({ email: new RegExp(`^${msEmail}$`, 'i') });
 
     if (u) {
-      // Existing user — verify account status
       if (u.accountStatus === 'suspended' || u.accountStatus === 'deactivated') {
         return res.status(403).json({ msg: `Account is ${u.accountStatus}. Contact support.` });
       }
 
-      if (u.role === 'admin' && u.verificationStatus !== 'approved') {
-        return res.status(403).json({
-          msg: `Admin Verification: ${u.verificationStatus === 'rejected' ? 'Rejected' : 'Pending'}. Await admin approval.`,
-        });
+      if (u.role === 'admin' && (u.verificationStatus !== 'approved' || u.organizerApprovalStatus === 'rejected')) {
+        const msg = (u.verificationStatus === 'rejected' || u.organizerApprovalStatus === 'rejected')
+          ? 'Your organizer request was not approved.'
+          : 'Your organizer account is waiting for approval.';
+        return res.status(403).json({ msg });
       }
 
-      // Existing user — auto-verify email if not verified yet
       if (!u.isVerified) {
         u.isVerified = true;
         await u.save();
@@ -702,6 +814,17 @@ exports.microsoftAuth = async (req, res) => {
           msg: 'Please provide your College or Organization Name.',
         });
       }
+      if (!phone?.trim()) {
+        return res.status(200).json({
+          needsProfileCompletion: true,
+          isNewUser: true,
+          msEmail,
+          msName,
+          role: 'admin',
+          provider: 'microsoft',
+          msg: 'Please provide your Phone / Contact Number.',
+        });
+      }
     }
 
     const isAdmin = role === 'admin';
@@ -717,11 +840,22 @@ exports.microsoftAuth = async (req, res) => {
       collegeId: role === 'student' ? collegeId.trim() : '',
       company: isProfessional ? (company?.trim() || '') : '',
       designation: isProfessional ? designation.trim() : (isAdmin ? (designation?.trim() || 'Event Organizer') : ''),
+      phone: phone?.trim() || '',
       clubName: isAdmin ? collegeName.trim() : '',
-      verificationStatus: 'approved',
+      verificationStatus: isAdmin ? 'pending' : 'approved',
+      organizerApprovalStatus: isAdmin ? 'pending' : 'approved',
       accountStatus: 'active',
       isVerified: true,
     }).save();
+
+    if (isAdmin) {
+      await createAndSendOrganizerApprovalRequest(u, req);
+      return res.json({
+        isNewUser: true,
+        pendingApproval: true,
+        msg: 'Your organizer account has been created and is waiting for approval by the platform owner.',
+      });
+    }
 
     const token = jwt.sign(
       {
@@ -741,6 +875,132 @@ exports.microsoftAuth = async (req, res) => {
   } catch (e) {
     console.error('microsoftAuth Error:', e);
     res.status(500).json({ msg: e.message || 'Microsoft sign-in failed' });
+  }
+};
+
+// ── 1-CLICK ORGANIZER APPROVAL ENDPOINTS ──────────────────────────────────────
+exports.handleOrganizerApproval = async (req, res) => {
+  try {
+    const { token } = req.params;
+    if (!token) {
+      return res.status(400).send(renderApprovalHtml({
+        title: 'Invalid Link',
+        heading: 'Invalid Approval Link',
+        message: 'The approval link is missing or corrupted.',
+        type: 'error',
+      }));
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const u = await User.findOne({ organizerApprovalTokenHash: tokenHash });
+
+    if (!u) {
+      return res.status(400).send(renderApprovalHtml({
+        title: 'Link Used or Invalid',
+        heading: 'Link Already Used or Invalid',
+        message: 'This approval link has already been used or does not exist.',
+        type: 'warn',
+      }));
+    }
+
+    if (u.organizerApprovalTokenExpiry && u.organizerApprovalTokenExpiry < new Date()) {
+      return res.status(400).send(renderApprovalHtml({
+        title: 'Link Expired',
+        heading: 'Approval Link Expired',
+        message: 'This 24-hour approval link has expired. The organizer should submit a new request.',
+        type: 'warn',
+      }));
+    }
+
+    if (u.verificationStatus === 'approved' && u.organizerApprovalStatus === 'approved') {
+      return res.send(renderApprovalHtml({
+        title: 'Already Approved',
+        heading: 'Organizer Already Approved',
+        message: `${u.name} (${u.clubName || u.collegeName || 'Club'}) is already an approved Event Organizer.`,
+        type: 'success',
+      }));
+    }
+
+    u.verificationStatus = 'approved';
+    u.organizerApprovalStatus = 'approved';
+    u.organizerApprovalTokenHash = null;
+    u.organizerApprovalTokenExpiry = null;
+    await u.save();
+
+    await sendOrganizerApprovedNotificationEmail(u);
+
+    return res.send(renderApprovalHtml({
+      title: 'Organizer Approved',
+      heading: '✅ Organizer Approved!',
+      message: `<strong>${u.name}</strong> from <strong>${u.clubName || u.collegeName || 'their institution'}</strong> has been successfully approved as an Event Organizer. A notification email has been sent to them.`,
+      type: 'success',
+    }));
+  } catch (err) {
+    console.error('handleOrganizerApproval Error:', err);
+    return res.status(500).send(renderApprovalHtml({
+      title: 'Server Error',
+      heading: 'Approval Failed',
+      message: 'A server error occurred while processing the approval.',
+      type: 'error',
+    }));
+  }
+};
+
+exports.handleOrganizerRejection = async (req, res) => {
+  try {
+    const { token } = req.params;
+    if (!token) {
+      return res.status(400).send(renderApprovalHtml({
+        title: 'Invalid Link',
+        heading: 'Invalid Link',
+        message: 'The rejection link is missing or corrupted.',
+        type: 'error',
+      }));
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const u = await User.findOne({ organizerApprovalTokenHash: tokenHash });
+
+    if (!u) {
+      return res.status(400).send(renderApprovalHtml({
+        title: 'Link Used or Invalid',
+        heading: 'Link Already Used or Invalid',
+        message: 'This link has already been used or does not exist.',
+        type: 'warn',
+      }));
+    }
+
+    if (u.organizerApprovalTokenExpiry && u.organizerApprovalTokenExpiry < new Date()) {
+      return res.status(400).send(renderApprovalHtml({
+        title: 'Link Expired',
+        heading: 'Link Expired',
+        message: 'This link has expired.',
+        type: 'warn',
+      }));
+    }
+
+    u.verificationStatus = 'rejected';
+    u.organizerApprovalStatus = 'rejected';
+    u.organizerApprovalTokenHash = null;
+    u.organizerApprovalTokenExpiry = null;
+    await u.save();
+
+    await sendOrganizerRejectedNotificationEmail(u);
+
+    return res.send(renderApprovalHtml({
+      title: 'Organizer Request Rejected',
+      heading: '❌ Organizer Request Rejected',
+      message: `The request for <strong>${u.name}</strong> has been rejected. A notification update has been sent to them.`,
+      type: 'error',
+    }));
+  } catch (err) {
+    console.error('handleOrganizerRejection Error:', err);
+    return res.status(500).send(renderApprovalHtml({
+      title: 'Server Error',
+      heading: 'Rejection Failed',
+      message: 'A server error occurred while processing the request.',
+      type: 'error',
+    }));
   }
 };
 
@@ -787,7 +1047,7 @@ exports.getCurrentUser = async (req, res) => {
     if (!userId) return res.status(400).json({ msg: 'User ID is required' });
 
     const u = await User.findById(userId).select(
-      '-password -otp -otpExpiry -passwordResetToken -passwordResetExpiry'
+      '-password -otp -otpExpiry -passwordResetToken -passwordResetExpiry -organizerApprovalTokenHash -organizerApprovalTokenExpiry'
     );
     if (!u) return res.status(404).json({ msg: 'User not found' });
 
@@ -801,11 +1061,13 @@ exports.getCurrentUser = async (req, res) => {
       department: u.department || '',
       company: u.company || '',
       designation: u.designation || '',
+      phone: u.phone || '',
       isVerified: u.isVerified,
       clubName: u.clubName || '',
       officialEmail: u.officialEmail || '',
       instagramHandle: u.instagramHandle || '',
       verificationStatus: u.verificationStatus,
+      organizerApprovalStatus: u.organizerApprovalStatus || u.verificationStatus,
       accountStatus: u.accountStatus,
       createdAt: u.createdAt,
       updatedAt: u.updatedAt,
@@ -815,3 +1077,4 @@ exports.getCurrentUser = async (req, res) => {
     res.status(500).json({ msg: e.message || 'error' });
   }
 };
+

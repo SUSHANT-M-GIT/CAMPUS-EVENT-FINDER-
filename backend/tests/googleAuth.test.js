@@ -163,7 +163,7 @@ describe('Google Authentication Controller', () => {
     expect(mockSave).toHaveBeenCalled();
   });
 
-  it('successfully creates a new Admin/Organizer account with provided organization info', async () => {
+  it('successfully creates a new Admin/Organizer account with provided organization info and sets pending approval', async () => {
     mockVerifyIdToken.mockResolvedValue({
       getPayload: () => ({
         email: 'organizer@example.com',
@@ -178,6 +178,7 @@ describe('Google Authentication Controller', () => {
         idToken: 'valid-google-id-token',
         role: 'admin',
         collegeName: 'State Tech Club',
+        phone: '+91 9876543210',
       },
     };
     const res = createMockRes();
@@ -185,7 +186,7 @@ describe('Google Authentication Controller', () => {
     await controller.googleAuth(req, res);
 
     expect(res.statusCode).toBe(200);
-    expect(res.result).toHaveProperty('token');
+    expect(res.result.pendingApproval).toBe(true);
     expect(res.result.isNewUser).toBe(true);
     expect(mockSave).toHaveBeenCalled();
   });

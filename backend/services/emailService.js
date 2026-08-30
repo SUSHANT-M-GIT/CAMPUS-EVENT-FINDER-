@@ -379,6 +379,143 @@ async function sendEventCancellationEmail(to, event, reason) {
   });
 }
 
+async function sendOrganizerApprovalRequestEmail({
+  ownerEmail,
+  organizer,
+  approveUrl,
+  rejectUrl,
+}) {
+  const subject = `🔔 New Organizer Request: ${organizer.name} - ${organizer.clubName || organizer.collegeName || 'Campus Club'}`;
+  const html = `
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:#ffffff;">
+  <div style="background:linear-gradient(135deg,#023047,#1e3a5f);padding:24px;color:#ffffff;text-align:center;">
+    <h2 style="margin:0;font-size:1.4rem;">New Organizer Request</h2>
+    <p style="margin:6px 0 0;font-size:0.9rem;opacity:0.85;">Campus Event Finder &amp; Manager</p>
+  </div>
+  <div style="padding:28px 24px;">
+    <p style="font-size:1rem;color:#1e293b;margin:0 0 16px;">
+      A new user has registered as an <strong>Admin / Organizer</strong> and is requesting access to publish and manage campus events.
+    </p>
+
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:18px;margin-bottom:24px;">
+      <h3 style="margin:0 0 12px;font-size:1rem;color:#0f172a;border-bottom:1px solid #e2e8f0;padding-bottom:8px;">Applicant Details</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:0.92rem;">
+        <tr>
+          <td style="padding:6px 0;color:#64748b;width:140px;font-weight:600;">Full Name:</td>
+          <td style="padding:6px 0;color:#0f172a;font-weight:700;">${organizer.name}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;color:#64748b;font-weight:600;">Email:</td>
+          <td style="padding:6px 0;color:#0f172a;"><a href="mailto:${organizer.email}" style="color:#4f46e5;text-decoration:none;">${organizer.email}</a></td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;color:#64748b;font-weight:600;">Phone Number:</td>
+          <td style="padding:6px 0;color:#0f172a;font-weight:600;">${organizer.phone || 'N/A'}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;color:#64748b;font-weight:600;">Institution / College:</td>
+          <td style="padding:6px 0;color:#0f172a;">${organizer.collegeName || 'N/A'}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;color:#64748b;font-weight:600;">Club / Organization:</td>
+          <td style="padding:6px 0;color:#0f172a;font-weight:600;">${organizer.clubName || organizer.collegeName || 'N/A'}</td>
+        </tr>
+        <tr>
+          <td style="padding:6px 0;color:#64748b;font-weight:600;">Designation / Role:</td>
+          <td style="padding:6px 0;color:#0f172a;">${organizer.designation || 'Event Organizer'}</td>
+        </tr>
+      </table>
+    </div>
+
+    <p style="font-size:0.9rem;color:#475569;margin-bottom:20px;text-align:center;">
+      Click one of the secure 1-click buttons below to approve or reject this organizer:
+    </p>
+
+    <!-- 1-Click Action Buttons -->
+    <table style="width:100%;margin:20px 0;">
+      <tr>
+        <td style="text-align:center;padding:8px;">
+          <a href="${approveUrl}" style="background:#10b981;color:#ffffff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;display:inline-block;box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+            ✅ APPROVE ORGANIZER
+          </a>
+        </td>
+        <td style="text-align:center;padding:8px;">
+          <a href="${rejectUrl}" style="background:#ef4444;color:#ffffff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.95rem;display:inline-block;box-shadow:0 4px 12px rgba(239,68,68,0.3);">
+            ❌ REJECT
+          </a>
+        </td>
+      </tr>
+    </table>
+
+    <p style="font-size:0.78rem;color:#94a3b8;margin-top:24px;text-align:center;">
+      This is a secure, single-use link that expires in 24 hours. No dashboard login is required to approve/reject.
+    </p>
+  </div>
+</div>`;
+
+  await sendEmail({ to: ownerEmail, subject, html });
+}
+
+async function sendOrganizerApprovedNotificationEmail(organizer) {
+  const subject = '🎉 Your Organizer Account Has Been Approved!';
+  const html = `
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:#ffffff;">
+  <div style="background:linear-gradient(135deg,#10b981,#059669);padding:24px;color:#ffffff;text-align:center;">
+    <h2 style="margin:0;font-size:1.4rem;">Account Approved!</h2>
+    <p style="margin:6px 0 0;font-size:0.9rem;opacity:0.9;">Welcome to Campus Event Finder</p>
+  </div>
+  <div style="padding:28px 24px;">
+    <p style="font-size:1.05rem;color:#1e293b;">Hi <strong>${organizer.name}</strong>,</p>
+    <p style="font-size:0.95rem;color:#334155;line-height:1.6;">
+      Congratulations! Your <strong>Admin / Organizer</strong> account for <strong>${organizer.clubName || organizer.collegeName || 'your organization'}</strong> has been reviewed and <strong>approved</strong> by the platform administrator.
+    </p>
+    <p style="font-size:0.95rem;color:#334155;line-height:1.6;">
+      You now have full access to:
+    </p>
+    <ul style="color:#475569;font-size:0.9rem;line-height:1.7;">
+      <li>Publishing and managing campus events</li>
+      <li>Live QR Attendance scanning &amp; verification</li>
+      <li>Participant check-ins and registration tracking</li>
+      <li>Automatic certificate generation</li>
+    </ul>
+    <p style="margin-top:24px;text-align:center;">
+      <a href="${process.env.APP_URL || 'http://localhost:5173'}/login" style="background:#4f46e5;color:#ffffff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block;">
+        Log In to Admin Dashboard
+      </a>
+    </p>
+    <p style="color:#94a3b8;font-size:0.8rem;margin-top:32px;text-align:center;">Campus Event Finder &amp; Manager</p>
+  </div>
+</div>`;
+
+  await sendEmail({ to: organizer.email, subject, html });
+}
+
+async function sendOrganizerRejectedNotificationEmail(organizer) {
+  const subject = 'Organizer Account Request Update';
+  const html = `
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:#ffffff;">
+  <div style="background:#64748b;padding:24px;color:#ffffff;text-align:center;">
+    <h2 style="margin:0;font-size:1.4rem;">Organizer Request Update</h2>
+    <p style="margin:6px 0 0;font-size:0.9rem;opacity:0.9;">Campus Event Finder &amp; Manager</p>
+  </div>
+  <div style="padding:28px 24px;">
+    <p style="font-size:1.05rem;color:#1e293b;">Hi <strong>${organizer.name}</strong>,</p>
+    <p style="font-size:0.95rem;color:#334155;line-height:1.6;">
+      Thank you for your interest in organizing events on Campus Event Finder.
+    </p>
+    <p style="font-size:0.95rem;color:#334155;line-height:1.6;">
+      Your request to register an <strong>Admin / Organizer</strong> account for <strong>${organizer.clubName || organizer.collegeName || 'your organization'}</strong> was not approved at this time.
+    </p>
+    <p style="font-size:0.9rem;color:#64748b;line-height:1.6;">
+      If you believe this decision was made in error or if you need to provide additional club verification credentials, please contact the campus administrator.
+    </p>
+    <p style="color:#94a3b8;font-size:0.8rem;margin-top:32px;text-align:center;">Campus Event Finder &amp; Manager</p>
+  </div>
+</div>`;
+
+  await sendEmail({ to: organizer.email, subject, html });
+}
+
 module.exports = {
   sendEmail,
   sendConfirmationEmail,
@@ -389,4 +526,8 @@ module.exports = {
   sendWaitlistConfirmEmail,
   sendWaitlistPromotedEmail,
   sendEventCancellationEmail,
+  sendOrganizerApprovalRequestEmail,
+  sendOrganizerApprovedNotificationEmail,
+  sendOrganizerRejectedNotificationEmail,
 };
+

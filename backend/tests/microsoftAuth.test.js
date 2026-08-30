@@ -166,7 +166,7 @@ describe('Microsoft Authentication Controller', () => {
     expect(mockSave).toHaveBeenCalled();
   });
 
-  it('successfully creates a new Admin/Organizer account with Microsoft credentials', async () => {
+  it('successfully creates a new Admin/Organizer account with Microsoft credentials and sets pending approval', async () => {
     global.fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -183,6 +183,7 @@ describe('Microsoft Authentication Controller', () => {
         accessToken: 'valid-ms-access-token',
         role: 'admin',
         collegeName: 'State Tech Club',
+        phone: '+91 9876543210',
       },
     };
     const res = createMockRes();
@@ -190,7 +191,7 @@ describe('Microsoft Authentication Controller', () => {
     await controller.microsoftAuth(req, res);
 
     expect(res.statusCode).toBe(200);
-    expect(res.result).toHaveProperty('token');
+    expect(res.result.pendingApproval).toBe(true);
     expect(res.result.isNewUser).toBe(true);
     expect(mockSave).toHaveBeenCalled();
   });

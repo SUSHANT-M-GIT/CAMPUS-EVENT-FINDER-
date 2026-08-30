@@ -14,6 +14,7 @@ export interface SignupPayload {
   collegeId?: string;
   company?: string;
   designation?: string;
+  phone?: string;
 }
 
 export async function login(payload: LoginPayload) {
@@ -30,7 +31,7 @@ export async function signup(payload: SignupPayload) {
 }
 
 export async function verifyEmail(email: string, otp: string) {
-  const { data } = await api.post<{ msg: string }>('/auth/verify-email', { email, otp });
+  const { data } = await api.post<{ msg: string; pendingApproval?: boolean }>('/auth/verify-email', { email, otp });
   return data;
 }
 
@@ -77,6 +78,7 @@ export interface GoogleAuthPayload {
   collegeId?: string;
   company?: string;
   designation?: string;
+  phone?: string;
 }
 
 export interface GoogleAuthResponse {
@@ -84,10 +86,11 @@ export interface GoogleAuthResponse {
   isNewUser?: boolean;
   needsProfileCompletion?: boolean;
   needsCollegeName?: boolean;
+  pendingApproval?: boolean;
   msg?: string;
   googleEmail?: string;
   googleName?: string;
-  role?: 'student' | 'professional';
+  role?: 'student' | 'professional' | 'admin';
 }
 
 export async function googleAuth(payload: GoogleAuthPayload) {
@@ -103,16 +106,18 @@ export interface MicrosoftAuthPayload {
   collegeId?: string;
   company?: string;
   designation?: string;
+  phone?: string;
 }
 
 export interface MicrosoftAuthResponse {
   token?: string;
   isNewUser?: boolean;
   needsProfileCompletion?: boolean;
+  pendingApproval?: boolean;
   msg?: string;
   msEmail?: string;
   msName?: string;
-  role?: 'student' | 'professional';
+  role?: 'student' | 'professional' | 'admin';
   provider?: string;
 }
 

@@ -38,6 +38,7 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
   const [collegeId, setCollegeId] = useState('');
   const [company, setCompany] = useState('');
   const [designation, setDesignation] = useState('');
+  const [phone, setPhone] = useState('');
 
   // MSAL client instance reference
   const msalInstanceRef = useRef<PublicClientApplication | null>(null);
@@ -230,6 +231,10 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
         setModalError('College / Organisation name is required for event organizers.');
         return;
       }
+      if (!phone.trim()) {
+        setModalError('Phone number is required for event organizers.');
+        return;
+      }
     }
 
     setLoading(true);
@@ -243,6 +248,7 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
           collegeId: role === 'student' ? collegeId.trim() : '',
           company: role === 'professional' ? company.trim() : '',
           designation: role === 'professional' ? designation.trim() : (role === 'admin' ? (designation.trim() || 'Event Organizer') : ''),
+          phone: role === 'admin' ? phone.trim() : '',
         });
       } else {
         res = await microsoftAuth({
@@ -253,7 +259,15 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
           collegeId: role === 'student' ? collegeId.trim() : '',
           company: role === 'professional' ? company.trim() : '',
           designation: role === 'professional' ? designation.trim() : (role === 'admin' ? (designation.trim() || 'Event Organizer') : ''),
+          phone: role === 'admin' ? phone.trim() : '',
         });
+      }
+
+      if (res.pendingApproval) {
+        setShowProfileModal(false);
+        alert(res.msg || 'Your organizer account has been created and is waiting for approval by the platform owner.');
+        navigate('/login', { replace: true });
+        return;
       }
 
       if (res.token) {
@@ -656,6 +670,31 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
                     />
                     <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
                       Used as your event organizing club / institution name
+                    </p>
+                  </div>
+
+                  <div>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        color: 'var(--text-2)',
+                        marginBottom: 6,
+                      }}
+                    >
+                      Phone Number / Contact Number <span style={{ color: '#ef4444' }}>*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      className="input"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="e.g. +91 98765 43210"
+                      required
+                    />
+                    <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                      Required for organizer verification &amp; approval
                     </p>
                   </div>
 
