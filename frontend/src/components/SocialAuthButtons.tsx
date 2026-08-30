@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GoogleLogin, type CredentialResponse } from '@react-oauth/google';
+import { useGoogleLogin } from '@react-oauth/google';
 import { PublicClientApplication, type Configuration } from '@azure/msal-browser';
 import { CheckCircle, X, GraduationCap, Briefcase } from 'lucide-react';
 import { googleAuth, microsoftAuth } from '../services/authService';
@@ -42,50 +42,83 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
   // MSAL client instance reference
   const msalInstanceRef = useRef<PublicClientApplication | null>(null);
 
-  // ── GOOGLE SIGN-IN HANDLER ───────────────────────────────────────────────────
-  const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
-    const idToken = credentialResponse.credential;
-    if (!idToken) {
-      if (onError) onError('Google did not return a valid authentication credential.');
-      return;
-    }
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+  const isGoogleConfigured = Boolean(
+    googleClientId &&
+      googleClientId !== 'your_google_client_id_here.apps.googleusercontent.com' &&
+      !googleClientId.includes('your_google_client_id_here')
+  );
 
-    setGoogleIdToken(idToken);
-    setActiveProvider('google');
-    setLoading(true);
-
-    try {
-      const res = await googleAuth({ idToken });
-
-      if (res.token) {
-        const user = await loginWithToken(res.token);
-        if (onSuccess) onSuccess();
-        navigate(user?.role === 'admin' ? '/admin' : '/user', { replace: true });
+  // ── GOOGLE SIGN-IN HANDLER VIA USE_GOOGLE_LOGIN ─────────────────────────────
+  const triggerGoogleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      const token = tokenResponse.access_token;
+      if (!token) {
+        if (onError) onError('Google did not return an access token.');
+        setLoading(false);
         return;
       }
 
-      if (res.needsProfileCompletion) {
-        setUserMeta({
-          email: res.googleEmail || '',
-          name: res.googleName || 'User',
-          provider: 'google',
-        });
-        setRole(res.role === 'professional' ? 'professional' : 'student');
-        setShowProfileModal(true);
+      setGoogleIdToken(token);
+      setActiveProvider('google');
+      setLoading(true);
+
+      try {
+        const res = await googleAuth({ idToken: token });
+
+        if (res.token) {
+          const user = await loginWithToken(res.token);
+          if (onSuccess) onSuccess();
+          navigate(user?.role === 'admin' ? '/admin' : '/user', { replace: true });
+          return;
+        }
+
+        if (res.needsProfileCompletion) {
+          setUserMeta({
+            email: res.googleEmail || '',
+            name: res.googleName || 'User',
+            provider: 'google',
+          });
+          setRole(res.role === 'professional' ? 'professional' : 'student');
+          setShowProfileModal(true);
+        }
+      } catch (error: unknown) {
+        const err = error as {
+          response?: { data?: { msg?: string } };
+          message?: string;
+        };
+        const errorMsg =
+          err.response?.data?.msg ||
+          (err.message === 'Network Error'
+            ? 'Backend is unreachable. Please check if the server is running.'
+            : err.message || 'Google sign-in failed. Please try again.');
+        if (onError) onError(errorMsg);
+      } finally {
+        setLoading(false);
       }
-    } catch (error: unknown) {
-      const err = error as {
-        response?: { data?: { msg?: string } };
-        message?: string;
-      };
-      const errorMsg =
-        err.response?.data?.msg ||
-        (err.message === 'Network Error'
-          ? 'Backend is unreachable. Please check if the server is running.'
-          : err.message || 'Google sign-in failed. Please try again.');
-      if (onError) onError(errorMsg);
-    } finally {
+    },
+    onError: () => {
       setLoading(false);
+      if (onError) onError('Google Sign-In was cancelled or encountered an error.');
+    },
+  });
+
+  const handleGoogleClick = () => {
+    if (!isGoogleConfigured) {
+      if (onError) {
+        onError(
+          'Google OAuth Client ID is not configured yet. Please set VITE_GOOGLE_CLIENT_ID in your environment variables.'
+        );
+      }
+      return;
+    }
+    setLoading(true);
+    setActiveProvider('google');
+    try {
+      triggerGoogleLogin();
+    } catch {
+      setLoading(false);
+      if (onError) onError('Could not initialize Google Sign-In.');
     }
   };
 
@@ -243,27 +276,60 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
         {/* Google Sign In Button */}
-        <div
+        <button
+          type="button"
+          onClick={handleGoogleClick}
+          disabled={loading}
           style={{
             width: '100%',
+            height: '40px',
+            borderRadius: '4px',
+            backgroundColor: '#ffffff',
+            border: '1px solid #dadce0',
+            color: '#3c4043',
+            fontSize: '14px',
+            fontWeight: 500,
+            fontFamily: 'Roboto, arial, sans-serif',
             display: 'flex',
+            alignItems: 'center',
             justifyContent: 'center',
+            gap: '12px',
+            cursor: loading ? 'not-allowed' : 'pointer',
             opacity: loading && activeProvider === 'google' ? 0.7 : 1,
-            pointerEvents: loading ? 'none' : 'auto',
+            transition: 'background-color 0.2s, box-shadow 0.2s',
+            boxShadow: '0 1px 2px rgba(60,64,67,0.1)',
+            padding: '0 12px',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#f8f9fa';
+            e.currentTarget.style.boxShadow = '0 1px 3px rgba(60,64,67,0.2)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#ffffff';
+            e.currentTarget.style.boxShadow = '0 1px 2px rgba(60,64,67,0.1)';
           }}
         >
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={() => {
-              if (onError) onError('Google Sign-In was cancelled or failed.');
-            }}
-            theme="outline"
-            size="large"
-            text="continue_with"
-            shape="rectangular"
-            width="100%"
-          />
-        </div>
+          {/* Official Google G Logo SVG */}
+          <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.616z"
+              fill="#4285F4"
+            />
+            <path
+              d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"
+              fill="#34A853"
+            />
+            <path
+              d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.173 0 7.548 0 9s.348 2.827.957 4.039l3.007-2.332z"
+              fill="#FBBC05"
+            />
+            <path
+              d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"
+              fill="#EA4335"
+            />
+          </svg>
+          <span>Continue with Google</span>
+        </button>
 
         {/* Microsoft Sign In Button */}
         <button
@@ -300,7 +366,7 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
           }}
         >
           {/* Microsoft 4-color Logo SVG */}
-          <svg width="20" height="20" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+          <svg width="18" height="18" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
             <rect x="1" y="1" width="9" height="9" fill="#f25022" />
             <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
             <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />

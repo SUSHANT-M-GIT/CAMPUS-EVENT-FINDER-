@@ -395,15 +395,24 @@ exports.googleAuth = async (req, res) => {
     const { idToken, role, collegeName, collegeId, company, designation } = req.body;
     if (!idToken) return res.status(400).json({ msg: 'Google token is required' });
 
+    const googleClientId = process.env.GOOGLE_CLIENT_ID;
+    if (!googleClientId || googleClientId === 'your_google_client_id_here.apps.googleusercontent.com') {
+      console.error('[Google OAuth] Server GOOGLE_CLIENT_ID is missing or unconfigured.');
+      return res.status(500).json({
+        msg: 'Google OAuth is not configured on the server. Please set GOOGLE_CLIENT_ID in the environment variables.',
+      });
+    }
+
     let googleEmail = '';
     let googleName = 'User';
 
     // Try ID token verification first (credential flow)
     // If that fails, try access token via userinfo endpoint (implicit/auth-code flow)
     try {
-      const ticket = await googleClient.verifyIdToken({
+      const client = new OAuth2Client(googleClientId);
+      const ticket = await client.verifyIdToken({
         idToken,
-        audience: process.env.GOOGLE_CLIENT_ID,
+        audience: googleClientId,
       });
       const payload = ticket.getPayload();
       googleEmail = (payload.email || '').toLowerCase().trim();
@@ -423,7 +432,7 @@ exports.googleAuth = async (req, res) => {
         console.log('[Google OAuth] Verified via access token:', googleEmail);
       } catch (err2) {
         console.error('[Google OAuth] Both token methods failed:', err2.message);
-        return res.status(401).json({ msg: 'Invalid Google token. Please try signing in again.' });
+        return res.status(401).json({ msg: 'Invalid or expired Google token. Please try signing in again.' });
       }
     }
 
