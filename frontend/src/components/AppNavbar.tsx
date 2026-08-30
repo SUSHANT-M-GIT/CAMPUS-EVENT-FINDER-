@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom';
-import { Zap, Sun, Moon } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { Zap, Sun, Moon, User } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import { useTheme } from '../context/ThemeContext';
 
@@ -9,6 +9,7 @@ interface NavbarLink {
   to?: string;
   onClick?: () => void;
 }
+
 interface AppNavbarProps {
   links: NavbarLink[];
   showBell?: boolean;
@@ -23,40 +24,63 @@ export default function AppNavbar({
   userInitial,
 }: AppNavbarProps) {
   const { toggleTheme, isDark } = useTheme();
+  const location = useLocation();
 
   return (
-    <header className="dashboard-navbar">
-      <div className="app-container dashboard-nav-inner">
-        {/* Brand */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+    <header className="dashboard-navbar" style={{ position: 'sticky', top: 0, zIndex: 50 }}>
+      <div className="app-container dashboard-nav-inner" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px' }}>
+        {/* Brand Link */}
+        <Link
+          to="/"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            textDecoration: 'none',
+            color: 'inherit',
+          }}
+        >
           <div
             style={{
-              width: 34,
-              height: 34,
-              borderRadius: 9,
-              background: 'linear-gradient(135deg,#6C63FF,#A855F7)',
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              background: 'linear-gradient(135deg, #6C63FF, #A855F7)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
               boxShadow: '0 0 16px rgba(108,99,255,0.45)',
+              transition: 'transform 0.2s ease',
             }}
+            onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.05)')}
+            onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
           >
-            <Zap size={16} color="#fff" fill="#fff" />
+            <Zap size={18} color="#fff" fill="#fff" />
           </div>
-          <h2 className="brand">CampusEvents</h2>
-        </div>
+          <span className="brand" style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.025em' }}>
+            CampusEvents
+          </span>
+        </Link>
 
-        {/* Nav links */}
+        {/* Nav links & actions */}
         <nav
           className="dashboard-nav-links"
-          style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+          style={{ display: 'flex', alignItems: 'center', gap: 8 }}
         >
           {links.map((link) => {
-            const style: React.CSSProperties = {};
+            const isActive = link.to ? location.pathname === link.to : false;
+            const activeStyle: React.CSSProperties = isActive
+              ? {
+                  backgroundColor: 'rgba(108, 99, 255, 0.15)',
+                  color: '#6C63FF',
+                  fontWeight: 600,
+                }
+              : {};
+
             if (link.to)
               return (
-                <Link key={link.label} to={link.to} style={style}>
+                <Link key={link.label} to={link.to} style={activeStyle}>
                   {link.label}
                 </Link>
               );
@@ -73,41 +97,84 @@ export default function AppNavbar({
             );
           })}
 
-          {/* Dark mode toggle */}
+          {/* Dark / Light mode toggle */}
           <button
             type="button"
             onClick={toggleTheme}
             className="theme-toggle"
             aria-label="Toggle theme"
+            style={{
+              width: 36,
+              height: 36,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '8px',
+              border: '1px solid var(--border)',
+              background: 'var(--card-bg)',
+              color: 'var(--text)',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
           >
-            {isDark ? <Sun size={16} /> : <Moon size={16} />}
+            {isDark ? <Sun size={17} /> : <Moon size={17} />}
           </button>
 
-          {/* Bell */}
+          {/* Notification Bell */}
           {showBell && <NotificationBell />}
 
-          {/* Avatar */}
-          {userInitial && (
-            <div
-              title={userName}
+          {/* User Profile Avatar Link */}
+          {userInitial ? (
+            <Link
+              to="/profile"
+              title={userName ? `${userName} (View Profile)` : 'View Profile'}
               style={{
-                width: 34,
-                height: 34,
+                textDecoration: 'none',
+                width: 36,
+                height: 36,
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg,#6C63FF,#A855F7)',
+                background: 'linear-gradient(135deg, #6C63FF, #A855F7)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#fff',
                 fontWeight: 700,
-                fontSize: '0.85rem',
-                cursor: 'default',
+                fontSize: '0.9rem',
                 flexShrink: 0,
-                boxShadow: '0 0 12px rgba(108,99,255,0.4)',
+                boxShadow: '0 0 12px rgba(108,99,255,0.35)',
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                border: location.pathname === '/profile' ? '2px solid #fff' : '2px solid transparent',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.08)';
+                e.currentTarget.style.boxShadow = '0 0 18px rgba(108,99,255,0.6)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = '0 0 12px rgba(108,99,255,0.35)';
               }}
             >
               {userInitial}
-            </div>
+            </Link>
+          ) : (
+            <Link
+              to="/profile"
+              title="View Profile"
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: '50%',
+                background: 'var(--card-bg)',
+                border: '1px solid var(--border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text)',
+                textDecoration: 'none',
+              }}
+            >
+              <User size={18} />
+            </Link>
           )}
         </nav>
       </div>

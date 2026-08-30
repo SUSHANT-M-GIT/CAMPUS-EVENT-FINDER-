@@ -30,6 +30,7 @@
     "vite": "^8.0.1"
   },
   "dependencies": {
+    "@azure/msal-browser": "^5.20.0",
     "@fontsource/dm-sans": "^5.2.8",
     "@fontsource/space-grotesk": "^5.2.10",
     "@react-oauth/google": "^0.13.5",

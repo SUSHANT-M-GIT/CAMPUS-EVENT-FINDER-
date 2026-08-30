@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Zap, ArrowLeft } from 'lucide-react';
+import { Zap, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import Alert from '../components/Alert';
+import SocialAuthButtons from '../components/SocialAuthButtons';
 import { useAuth } from '../context/AuthContext';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -9,6 +10,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -96,6 +98,26 @@ export default function LoginPage() {
 
         {error && <Alert type="error" message={error} />}
 
+        <div style={{ margin: '18px 0 14px' }}>
+          <SocialAuthButtons onError={(msg) => setError(msg)} />
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            margin: '18px 0',
+            color: 'var(--text-dim)',
+            fontSize: '0.8rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+          }}
+        >
+          <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border)' }} />
+          <span style={{ padding: '0 12px' }}>or sign in with email</span>
+          <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border)' }} />
+        </div>
+
         <form onSubmit={handleSubmit} className="auth-form">
           <div>
             <label
@@ -136,26 +158,52 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label
-              style={{
-                display: 'block',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                color: 'var(--text-2)',
-                marginBottom: '6px',
-              }}
-            >
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder=""
-              className="input"
-              required
-              autoComplete="current-password"
-            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <label
+                style={{
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  color: 'var(--text-2)',
+                }}
+              >
+                Password
+              </label>
+              <Link to="/forgot-password" style={{ color: '#6C63FF', fontSize: '0.8rem', fontWeight: 500, textDecoration: 'none' }}>
+                Forgot password?
+              </Link>
+            </div>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="input"
+                required
+                autoComplete="current-password"
+                style={{ paddingRight: '40px' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           <button
@@ -178,13 +226,8 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="auth-footnote">
+        <p className="auth-footnote" style={{ marginTop: '16px' }}>
           Don't have an account? <Link to="/signup">Create one free</Link>
-        </p>
-        <p className="auth-footnote" style={{ marginTop: '8px' }}>
-          <Link to="/forgot-password" style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>
-            Forgot password?
-          </Link>
         </p>
         <p className="auth-footnote" style={{ marginTop: '8px' }}>
           <Link to="/" style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>

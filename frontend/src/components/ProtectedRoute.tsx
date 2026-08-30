@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 interface ProtectedRouteProps {
-  role: 'admin' | 'student' | 'professional';
+  role: 'admin' | 'student' | 'professional' | 'authenticated';
   children: ReactNode;
 }
 
@@ -14,6 +14,8 @@ export default function ProtectedRoute({ role, children }: ProtectedRouteProps) 
 
   // professionals share the student dashboard
   const effectiveRole = user.role === 'professional' ? 'student' : user.role;
+  if (role === 'authenticated') return <>{children}</>;
+
   const requiredRole = role === 'professional' ? 'student' : role;
 
   if (effectiveRole !== requiredRole) {

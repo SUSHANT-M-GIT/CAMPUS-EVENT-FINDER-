@@ -4,9 +4,20 @@ export interface AuthUser {
   id: string;
   role: UserRole;
   name?: string;
+  email?: string;
   collegeName?: string;
+  collegeId?: string;
+  department?: string;
   company?: string;
   designation?: string;
+  isVerified?: boolean;
+  clubName?: string;
+  officialEmail?: string;
+  instagramHandle?: string;
+  verificationStatus?: 'pending' | 'approved' | 'rejected';
+  accountStatus?: 'active' | 'flagged' | 'suspended' | 'deactivated';
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface EventItem {

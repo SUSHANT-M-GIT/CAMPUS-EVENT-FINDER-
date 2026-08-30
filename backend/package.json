@@ -7,6 +7,7 @@
     "dev": "nodemon server.js",
     "test": "jest",
     "test:registration": "node testRegistrationController.js",
+    "migrate:project-owner": "node scripts/normalizeProjectOwner.js",
     "lint": "eslint .",
     "format": "prettier --write ."
   },

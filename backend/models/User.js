@@ -8,6 +8,11 @@ const userSchema = new mongoose.Schema(
 
     // role: "student" (default), "professional", or "admin"
     role: { type: String, enum: ['admin', 'student', 'professional'], default: 'student' },
+    accountStatus: {
+      type: String,
+      enum: ['active', 'flagged', 'suspended', 'deactivated'],
+      default: 'active',
+    },
 
     collegeName: { type: String, default: '', trim: true },
     collegeId: { type: String, default: '', trim: true },
@@ -21,6 +26,8 @@ const userSchema = new mongoose.Schema(
     otpExpiry: { type: Date, default: null },
     passwordResetToken: { type: String, default: null },
     passwordResetExpiry: { type: Date, default: null },
+    ownerLoginOtp: { type: String, default: null },
+    ownerLoginOtpExpiry: { type: Date, default: null },
 
     // Admin verification workflow fields
     clubName: { type: String, default: '', trim: true },

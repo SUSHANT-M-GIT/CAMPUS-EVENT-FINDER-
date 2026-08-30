@@ -389,6 +389,7 @@ export default function UserDashboardPage() {
         links={[
           { label: 'Events', href: '#events' },
           { label: 'My Registrations', href: '#registrations' },
+          { label: 'Profile', to: '/profile' },
           { label: 'Logout', onClick: handleLogout },
         ]}
         showBell

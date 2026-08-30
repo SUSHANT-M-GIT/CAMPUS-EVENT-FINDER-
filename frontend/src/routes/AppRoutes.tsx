@@ -8,6 +8,7 @@ import NotFoundPage from '../pages/NotFoundPage';
 import ResetPasswordPage from '../pages/ResetPasswordPage';
 import SignupPage from '../pages/SignupPage';
 import UserDashboardPage from '../pages/UserDashboardPage';
+import UserProfilePage from '../pages/UserProfilePage';
 
 export default function AppRoutes() {
   return (
@@ -23,6 +24,15 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute role="student">
             <UserDashboardPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute role="authenticated">
+            <UserProfilePage />
           </ProtectedRoute>
         }
       />

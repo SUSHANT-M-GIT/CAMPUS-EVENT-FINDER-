@@ -16,6 +16,7 @@ import {
   CalendarDays,
   Users,
   CheckCircle2,
+  User,
 } from 'lucide-react';
 import {
   BarChart,
@@ -314,9 +315,7 @@ export default function AdminDashboardPage() {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'create' | 'events' | 'attendance'>(
-    'overview'
-  );
+  const [activeTab, setActiveTab] = useState<'overview' | 'create' | 'events' | 'attendance'>('overview');
   const [events, setEvents] = useState<EventItem[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [regCounts, setRegCounts] = useState<Record<string, number>>({});
@@ -645,6 +644,16 @@ export default function AdminDashboardPage() {
 
         {/* Bottom actions */}
         <div style={{ display: 'flex', gap: 8, padding: '0 4px' }}>
+          <button
+            onClick={() => navigate('/profile')}
+            className="theme-toggle"
+            title="View profile"
+            aria-label="View profile"
+            style={{ flex: 'none' }}
+            type="button"
+          >
+            <User size={16} />
+          </button>
           <button
             onClick={toggleTheme}
             className="theme-toggle"

@@ -9,6 +9,11 @@ router.post('/resend-otp', c.resendOtp);
 router.post('/forgot-password', c.forgotPassword);
 router.post('/reset-password', c.resetPassword);
 router.post('/google', c.googleAuth);
+router.post('/microsoft', c.microsoftAuth);
+
+// Authenticated routes
+router.get('/me', auth, c.getCurrentUser);
+router.post('/change-password', auth, c.changePassword);
 
 // Authenticated users can request admin access
 router.post('/request-admin', auth, c.requestAdmin);

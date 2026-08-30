@@ -11,6 +11,10 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const FORMAT_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
+function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
 // ── OTP helpers ───────────────────────────────────────────────────────────────
 
 function generateOtp() {
@@ -85,9 +89,14 @@ async function sendPasswordResetEmail(email, token, name) {
 exports.register = async (req, res) => {
   try {
     const { name, email, password, role, collegeName, collegeId, company, designation } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
     if (!email) return res.status(400).json({ msg: 'Email is required' });
     if (!FORMAT_RE.test(email)) return res.status(400).json({ msg: 'Invalid email format' });
+
+    if (role && !['student', 'professional', 'admin'].includes(role)) {
+      return res.status(400).json({ msg: 'Invalid account role.' });
+    }
 
     // Validate required fields per role
     if (role === 'student') {
@@ -108,7 +117,6 @@ exports.register = async (req, res) => {
 
     const isAdmin = role === 'admin';
     const isProfessional = role === 'professional';
-
     let u = await User.findOne({ email: new RegExp(`^${email}$`, 'i') });
     if (u && u.isVerified) return res.status(400).json({ msg: 'User already exists' });
 
@@ -124,6 +132,10 @@ exports.register = async (req, res) => {
       if (collegeId) u.collegeId = collegeId.trim();
       if (company) u.company = company.trim();
       if (designation) u.designation = designation.trim();
+      if (isAdmin) {
+        u.clubName = collegeName?.trim() || u.clubName || '';
+        u.verificationStatus = 'pending';
+      }
       u.otp = otp;
       u.otpExpiry = otpExpiry;
       await u.save();
@@ -137,6 +149,9 @@ exports.register = async (req, res) => {
         collegeId: collegeId?.trim() || '',
         company: company?.trim() || '',
         designation: designation?.trim() || '',
+        clubName: isAdmin ? collegeName?.trim() || '' : '',
+        verificationStatus: 'pending',
+        accountStatus: 'active',
         isVerified: false,
         otp,
         otpExpiry,
@@ -307,8 +322,18 @@ exports.login = async (req, res) => {
         needsVerification: true,
       });
 
+    if (u.accountStatus === 'suspended' || u.accountStatus === 'deactivated') {
+      return res.status(403).json({ msg: `Account is ${u.accountStatus}. Contact support.` });
+    }
+
     const ok = await bcrypt.compare(password, u.password);
     if (!ok) return res.status(400).json({ msg: 'Invalid Credentials' });
+
+    if (u.role === 'admin' && u.verificationStatus !== 'approved') {
+      return res.status(403).json({
+        msg: `Admin Verification: ${u.verificationStatus === 'rejected' ? 'Rejected' : 'Pending'}. Await admin approval.`,
+      });
+    }
 
     const token = jwt.sign(
       {
@@ -363,11 +388,11 @@ exports.requestAdmin = async (req, res) => {
 
 // ── GOOGLE OAUTH ──────────────────────────────────────────────────────────────
 // POST /api/auth/google
-// Body: { idToken, collegeName, role }
+// Body: { idToken, role, collegeName, collegeId, company, designation }
 // idToken may be a Google ID token OR an access token from useGoogleLogin
 exports.googleAuth = async (req, res) => {
   try {
-    const { idToken, collegeName, role } = req.body;
+    const { idToken, role, collegeName, collegeId, company, designation } = req.body;
     if (!idToken) return res.status(400).json({ msg: 'Google token is required' });
 
     let googleEmail = '';
@@ -386,7 +411,7 @@ exports.googleAuth = async (req, res) => {
       console.log('[Google OAuth] Verified via ID token:', googleEmail);
     } catch {
       // Fall back to access token — fetch user info from Google
-      console.log('[Google OAuth] ID token failed, trying access token userinfo...');
+      console.log('[Google OAuth] ID token verification failed, trying access token userinfo...');
       try {
         const infoRes = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo`, {
           headers: { Authorization: `Bearer ${idToken}` },
@@ -405,15 +430,27 @@ exports.googleAuth = async (req, res) => {
     if (!googleEmail)
       return res.status(400).json({ msg: 'Could not retrieve email from Google account' });
 
-    // Check if user already exists
+    // Check if user already exists (Account Linking)
     let u = await User.findOne({ email: new RegExp(`^${googleEmail}$`, 'i') });
 
     if (u) {
-      // Existing user — log in directly (Google is trusted, no OTP needed)
+      // Existing user — verify account status
+      if (u.accountStatus === 'suspended' || u.accountStatus === 'deactivated') {
+        return res.status(403).json({ msg: `Account is ${u.accountStatus}. Contact support.` });
+      }
+
+      if (u.role === 'admin' && u.verificationStatus !== 'approved') {
+        return res.status(403).json({
+          msg: `Admin Verification: ${u.verificationStatus === 'rejected' ? 'Rejected' : 'Pending'}. Await admin approval.`,
+        });
+      }
+
+      // Existing user — auto-verify email if not verified yet
       if (!u.isVerified) {
         u.isVerified = true;
         await u.save();
       }
+
       const token = jwt.sign(
         {
           user: {
@@ -430,25 +467,45 @@ exports.googleAuth = async (req, res) => {
       return res.json({ token, isNewUser: false });
     }
 
-    // New user — need collegeName before account creation
-    if (!collegeName?.trim()) {
-      return res.status(202).json({
-        needsCollegeName: true,
-        msg: 'Please provide your college/organisation name to complete sign-up.',
-        googleEmail,
-        googleName,
-      });
+    // New user — Google sign-in cannot create Admin accounts directly (must be student or professional)
+    const userRole = role === 'professional' ? 'professional' : 'student';
+
+    // Validate required profile information for new user
+    if (userRole === 'student') {
+      if (!collegeName?.trim() || !collegeId?.trim()) {
+        return res.status(200).json({
+          needsProfileCompletion: true,
+          isNewUser: true,
+          googleEmail,
+          googleName,
+          role: 'student',
+          msg: 'Please complete your student profile details (College Name & College ID).',
+        });
+      }
+    } else if (userRole === 'professional') {
+      if (!designation?.trim()) {
+        return res.status(200).json({
+          needsProfileCompletion: true,
+          isNewUser: true,
+          googleEmail,
+          googleName,
+          role: 'professional',
+          msg: 'Please complete your professional profile details (Designation).',
+        });
+      }
     }
 
-    const assignedRole = role === 'admin' ? 'admin' : 'student';
-
-    // Create account — Google-verified, no password, no OTP needed
+    // Create new account — Google-verified
     u = await new User({
       name: googleName,
       email: googleEmail,
       password: '',
-      role: assignedRole,
-      collegeName: collegeName.trim(),
+      role: userRole,
+      collegeName: userRole === 'student' ? collegeName.trim() : (collegeName?.trim() || ''),
+      collegeId: userRole === 'student' ? collegeId.trim() : '',
+      company: userRole === 'professional' ? (company?.trim() || '') : '',
+      designation: userRole === 'professional' ? designation.trim() : '',
+      accountStatus: 'active',
       isVerified: true,
     }).save();
 
@@ -470,5 +527,228 @@ exports.googleAuth = async (req, res) => {
   } catch (e) {
     console.error('googleAuth Error:', e);
     res.status(500).json({ msg: e.message || 'Google sign-in failed' });
+  }
+};
+
+// ── MICROSOFT OAUTH ───────────────────────────────────────────────────────────
+// POST /api/auth/microsoft
+// Body: { accessToken, idToken, role, collegeName, collegeId, company, designation }
+exports.microsoftAuth = async (req, res) => {
+  try {
+    const { accessToken, idToken, role, collegeName, collegeId, company, designation } = req.body;
+    if (!accessToken && !idToken) {
+      return res.status(400).json({ msg: 'Microsoft authentication token is required.' });
+    }
+
+    let msEmail = '';
+    let msName = 'User';
+
+    // Verify token with Microsoft Graph /me
+    if (accessToken) {
+      try {
+        const graphRes = await fetch('https://graph.microsoft.com/v1.0/me', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (graphRes.ok) {
+          const profile = await graphRes.json();
+          msEmail = (profile.mail || profile.userPrincipalName || '').toLowerCase().trim();
+          msName = profile.displayName || profile.givenName || 'User';
+          console.log('[Microsoft OAuth] Verified via Graph API:', msEmail);
+        }
+      } catch (graphErr) {
+        console.error('[Microsoft OAuth] Graph API verification error:', graphErr.message);
+      }
+    }
+
+    // Fallback: decode/verify idToken if accessToken was not passed or failed
+    if (!msEmail && idToken) {
+      try {
+        const parts = idToken.split('.');
+        if (parts.length === 3) {
+          const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+          msEmail = (payload.email || payload.preferred_username || payload.upn || '').toLowerCase().trim();
+          msName = payload.name || 'User';
+          console.log('[Microsoft OAuth] Extracted from ID token:', msEmail);
+        }
+      } catch (tokenErr) {
+        console.error('[Microsoft OAuth] ID token parse error:', tokenErr.message);
+      }
+    }
+
+    if (!msEmail) {
+      return res.status(401).json({ msg: 'Invalid or expired Microsoft token. Please try signing in again.' });
+    }
+
+    // Check if user already exists (Account Linking)
+    let u = await User.findOne({ email: new RegExp(`^${msEmail}$`, 'i') });
+
+    if (u) {
+      // Existing user — verify account status
+      if (u.accountStatus === 'suspended' || u.accountStatus === 'deactivated') {
+        return res.status(403).json({ msg: `Account is ${u.accountStatus}. Contact support.` });
+      }
+
+      if (u.role === 'admin' && u.verificationStatus !== 'approved') {
+        return res.status(403).json({
+          msg: `Admin Verification: ${u.verificationStatus === 'rejected' ? 'Rejected' : 'Pending'}. Await admin approval.`,
+        });
+      }
+
+      // Existing user — auto-verify email if not verified yet
+      if (!u.isVerified) {
+        u.isVerified = true;
+        await u.save();
+      }
+
+      const token = jwt.sign(
+        {
+          user: {
+            id: u.id,
+            role: u.role,
+            collegeName: u.collegeName || '',
+            company: u.company || '',
+            designation: u.designation || '',
+          },
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: '1d' }
+      );
+      return res.json({ token, isNewUser: false });
+    }
+
+    // New user — OAuth cannot self-assign Admin role
+    const userRole = role === 'professional' ? 'professional' : 'student';
+
+    // Validate required profile fields for new users
+    if (userRole === 'student') {
+      if (!collegeName?.trim() || !collegeId?.trim()) {
+        return res.status(200).json({
+          needsProfileCompletion: true,
+          isNewUser: true,
+          msEmail,
+          msName,
+          role: 'student',
+          provider: 'microsoft',
+          msg: 'Please complete your student profile details (College Name & College ID).',
+        });
+      }
+    } else if (userRole === 'professional') {
+      if (!designation?.trim()) {
+        return res.status(200).json({
+          needsProfileCompletion: true,
+          isNewUser: true,
+          msEmail,
+          msName,
+          role: 'professional',
+          provider: 'microsoft',
+          msg: 'Please complete your professional profile details (Designation).',
+        });
+      }
+    }
+
+    // Create new account — Microsoft verified
+    u = await new User({
+      name: msName,
+      email: msEmail,
+      password: '',
+      role: userRole,
+      collegeName: userRole === 'student' ? collegeName.trim() : (collegeName?.trim() || ''),
+      collegeId: userRole === 'student' ? collegeId.trim() : '',
+      company: userRole === 'professional' ? (company?.trim() || '') : '',
+      designation: userRole === 'professional' ? designation.trim() : '',
+      accountStatus: 'active',
+      isVerified: true,
+    }).save();
+
+    const token = jwt.sign(
+      {
+        user: {
+          id: u.id,
+          role: u.role,
+          collegeName: u.collegeName || '',
+          company: u.company || '',
+          designation: u.designation || '',
+        },
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '1d' }
+    );
+
+    res.json({ token, isNewUser: true });
+  } catch (e) {
+    console.error('microsoftAuth Error:', e);
+    res.status(500).json({ msg: e.message || 'Microsoft sign-in failed' });
+  }
+};
+
+// ── GET CURRENT USER PROFILE ──────────────────────────────────────────────────
+// Requires authentication
+// Returns full user profile data (excluding sensitive fields)
+exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ msg: 'Current password and new password are required.' });
+    }
+
+    if (String(newPassword).length < 6) {
+      return res.status(400).json({ msg: 'New password must be at least 6 characters long.' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ msg: 'User not found.' });
+
+    const isMatch = await bcrypt.compare(String(currentPassword), user.password || '');
+    if (!isMatch) {
+      return res.status(400).json({ msg: 'Current password is incorrect.' });
+    }
+
+    if (String(currentPassword) === String(newPassword)) {
+      return res.status(400).json({ msg: 'New password must be different from the current password.' });
+    }
+
+    user.password = await bcrypt.hash(String(newPassword), 10);
+    await user.save();
+
+    res.json({ success: true, msg: 'Password updated successfully.' });
+  } catch (error) {
+    console.error('changePassword Error:', error);
+    res.status(500).json({ msg: error.message || 'Unable to update password.' });
+  }
+};
+
+exports.getCurrentUser = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    if (!userId) return res.status(400).json({ msg: 'User ID is required' });
+
+    const u = await User.findById(userId).select(
+      '-password -otp -otpExpiry -passwordResetToken -passwordResetExpiry'
+    );
+    if (!u) return res.status(404).json({ msg: 'User not found' });
+
+    res.json({
+      id: u._id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      collegeName: u.collegeName || '',
+      collegeId: u.collegeId || '',
+      department: u.department || '',
+      company: u.company || '',
+      designation: u.designation || '',
+      isVerified: u.isVerified,
+      clubName: u.clubName || '',
+      officialEmail: u.officialEmail || '',
+      instagramHandle: u.instagramHandle || '',
+      verificationStatus: u.verificationStatus,
+      accountStatus: u.accountStatus,
+      createdAt: u.createdAt,
+      updatedAt: u.updatedAt,
+    });
+  } catch (e) {
+    console.error('getCurrentUser Error:', e);
+    res.status(500).json({ msg: e.message || 'error' });
   }
 };

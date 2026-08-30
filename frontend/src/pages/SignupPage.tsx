@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Zap, ArrowRight, ArrowLeft, CheckCircle } from 'lucide-react';
 import Alert from '../components/Alert';
+import SocialAuthButtons from '../components/SocialAuthButtons';
 import { useAuth } from '../context/AuthContext';
 import { verifyEmail, resendOtp } from '../services/authService';
 
@@ -167,7 +168,28 @@ export default function SignupPage() {
 
         {/*  STEP 1: Registration form  */}
         {step === 'form' && (
-          <form onSubmit={handleSubmit} className="auth-form">
+          <>
+            <div style={{ margin: '14px 0 14px' }}>
+              <SocialAuthButtons onError={(msg) => setError(msg)} />
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                margin: '18px 0',
+                color: 'var(--text-dim)',
+                fontSize: '0.8rem',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+              }}
+            >
+              <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border)' }} />
+              <span style={{ padding: '0 12px' }}>or register with email</span>
+              <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border)' }} />
+            </div>
+
+            <form onSubmit={handleSubmit} className="auth-form">
             <div>
               {lbl('Full name')}
               <input
@@ -334,7 +356,8 @@ export default function SignupPage() {
               )}
             </button>
           </form>
-        )}
+        </>
+      )}
 
         {/*  STEP 2: OTP verification  */}
         {step === 'otp' && (

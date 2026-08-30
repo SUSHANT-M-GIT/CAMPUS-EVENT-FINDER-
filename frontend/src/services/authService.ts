@@ -1,4 +1,5 @@
 import api from './api';
+import type { AuthUser } from '../types';
 
 export interface LoginPayload {
   email: string;
@@ -16,7 +17,7 @@ export interface SignupPayload {
 }
 
 export async function login(payload: LoginPayload) {
-  const { data } = await api.post<{ token: string }>('/auth/login', payload);
+  const { data } = await api.post<{ token?: string }>('/auth/login', payload);
   return data;
 }
 
@@ -59,22 +60,68 @@ export async function resetPassword(payload: ResetPasswordPayload) {
   return data;
 }
 
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export async function changePassword(payload: ChangePasswordPayload) {
+  const { data } = await api.post<{ success: boolean; msg: string }>('/auth/change-password', payload);
+  return data;
+}
+
 export interface GoogleAuthPayload {
   idToken: string;
+  role?: 'student' | 'professional' | 'admin';
   collegeName?: string;
-  role?: string;
+  collegeId?: string;
+  company?: string;
+  designation?: string;
 }
 
 export interface GoogleAuthResponse {
   token?: string;
   isNewUser?: boolean;
+  needsProfileCompletion?: boolean;
   needsCollegeName?: boolean;
   msg?: string;
   googleEmail?: string;
   googleName?: string;
+  role?: 'student' | 'professional';
 }
 
 export async function googleAuth(payload: GoogleAuthPayload) {
   const { data } = await api.post<GoogleAuthResponse>('/auth/google', payload);
+  return data;
+}
+
+export interface MicrosoftAuthPayload {
+  accessToken?: string;
+  idToken?: string;
+  role?: 'student' | 'professional' | 'admin';
+  collegeName?: string;
+  collegeId?: string;
+  company?: string;
+  designation?: string;
+}
+
+export interface MicrosoftAuthResponse {
+  token?: string;
+  isNewUser?: boolean;
+  needsProfileCompletion?: boolean;
+  msg?: string;
+  msEmail?: string;
+  msName?: string;
+  role?: 'student' | 'professional';
+  provider?: string;
+}
+
+export async function microsoftAuth(payload: MicrosoftAuthPayload) {
+  const { data } = await api.post<MicrosoftAuthResponse>('/auth/microsoft', payload);
+  return data;
+}
+
+export async function fetchCurrentUser() {
+  const { data } = await api.get<AuthUser>('/auth/me');
   return data;
 }

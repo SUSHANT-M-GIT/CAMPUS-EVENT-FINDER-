@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { login as loginRequest, signup as signupRequest } from '../services/authService';
+import { login as loginRequest, signup as signupRequest, fetchCurrentUser } from '../services/authService';
 import type { AuthUser, UserRole } from '../types';
 
 interface SignupInput {
@@ -19,7 +19,7 @@ interface AuthContextValue {
   token: string | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<AuthUser | null>;
-  loginWithToken: (token: string) => AuthUser | null;
+  loginWithToken: (token: string) => Promise<AuthUser | null>;
   signup: (input: SignupInput) => Promise<string>;
   logout: () => void;
 }
@@ -55,29 +55,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return storedToken ? parseJwt(storedToken) : null;
   });
 
-  const login = useCallback(async (email: string, password: string) => {
-    const response = await loginRequest({ email, password });
-    const parsedUser = parseJwt(response.token);
-    localStorage.setItem('token', response.token);
-    if (parsedUser) {
-      localStorage.setItem('user', JSON.stringify(parsedUser));
+  // Fetch and update full user profile from server
+  const refreshUserProfile = useCallback(async () => {
+    try {
+      const fullProfile = await fetchCurrentUser();
+      localStorage.setItem('user', JSON.stringify(fullProfile));
+      setUser(fullProfile);
+      return fullProfile;
+    } catch (error) {
+      console.error('Failed to fetch user profile:', error);
+      return null;
     }
-    setToken(response.token);
-    setUser(parsedUser);
-    return parsedUser;
   }, []);
 
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const response = await loginRequest({ email, password });
+      if (!response.token) return null;
+      const parsedUser = parseJwt(response.token);
+      localStorage.setItem('token', response.token);
+      if (parsedUser) {
+        localStorage.setItem('user', JSON.stringify(parsedUser));
+      }
+      setToken(response.token);
+      setUser(parsedUser);
+
+      // Fetch full profile after successful login
+      if (parsedUser) {
+        const fullProfile = await refreshUserProfile();
+        return fullProfile;
+      }
+      return parsedUser;
+    },
+    [refreshUserProfile]
+  );
+
   // Used by Google OAuth  receives a JWT directly from the backend
-  const loginWithToken = useCallback((jwtToken: string) => {
-    const parsedUser = parseJwt(jwtToken);
-    localStorage.setItem('token', jwtToken);
-    if (parsedUser) {
-      localStorage.setItem('user', JSON.stringify(parsedUser));
-    }
-    setToken(jwtToken);
-    setUser(parsedUser);
-    return parsedUser;
-  }, []);
+  const loginWithToken = useCallback(
+    async (jwtToken: string) => {
+      const parsedUser = parseJwt(jwtToken);
+      localStorage.setItem('token', jwtToken);
+      if (parsedUser) {
+        localStorage.setItem('user', JSON.stringify(parsedUser));
+      }
+      setToken(jwtToken);
+      setUser(parsedUser);
+
+      // Fetch full profile after successful token login
+      if (parsedUser) {
+        const fullProfile = await refreshUserProfile();
+        return fullProfile;
+      }
+      return parsedUser;
+    },
+    [refreshUserProfile]
+  );
 
   const signup = useCallback(
     async ({
