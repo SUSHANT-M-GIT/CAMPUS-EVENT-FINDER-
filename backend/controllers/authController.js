@@ -103,9 +103,9 @@ async function createAndSendOrganizerApprovalRequest(u, req) {
     u.organizerApprovalStatus = 'pending';
     await u.save();
 
-    const baseUrl = (process.env.APP_URL || (req ? `${req.protocol}://${req.get('host')}` : 'http://localhost:5000')).replace(/\/$/, '');
-    const approveUrl = `${baseUrl}/api/auth/organizer-approval/approve/${rawToken}`;
-    const rejectUrl = `${baseUrl}/api/auth/organizer-approval/reject/${rawToken}`;
+    const baseUrl = (process.env.APP_URL || (req ? `${req.protocol}://${req.get('host')}` : 'http://localhost:5173')).replace(/\/$/, '');
+    const approveUrl = `${baseUrl}/organizer-approval/approve/${rawToken}`;
+    const rejectUrl = `${baseUrl}/organizer-approval/reject/${rawToken}`;
     const ownerEmail = process.env.PLATFORM_OWNER_EMAIL || process.env.EMAIL_USER;
 
     if (ownerEmail) {
@@ -880,9 +880,16 @@ exports.microsoftAuth = async (req, res) => {
 
 // ── 1-CLICK ORGANIZER APPROVAL ENDPOINTS ──────────────────────────────────────
 exports.handleOrganizerApproval = async (req, res) => {
+  const wantsJson = Boolean(
+    req?.headers?.accept?.includes('application/json') ||
+    req?.query?.format === 'json' ||
+    req?.xhr
+  );
+
   try {
-    const { token } = req.params;
+    const { token } = req.params || {};
     if (!token) {
+      if (wantsJson) return res.status(400).json({ success: false, msg: 'The approval link is missing or corrupted.' });
       return res.status(400).send(renderApprovalHtml({
         title: 'Invalid Link',
         heading: 'Invalid Approval Link',
@@ -895,6 +902,7 @@ exports.handleOrganizerApproval = async (req, res) => {
     const u = await User.findOne({ organizerApprovalTokenHash: tokenHash });
 
     if (!u) {
+      if (wantsJson) return res.status(400).json({ success: false, msg: 'This approval link has already been used or does not exist.' });
       return res.status(400).send(renderApprovalHtml({
         title: 'Link Used or Invalid',
         heading: 'Link Already Used or Invalid',
@@ -904,6 +912,7 @@ exports.handleOrganizerApproval = async (req, res) => {
     }
 
     if (u.organizerApprovalTokenExpiry && u.organizerApprovalTokenExpiry < new Date()) {
+      if (wantsJson) return res.status(400).json({ success: false, msg: 'This 24-hour approval link has expired. The organizer should submit a new request.' });
       return res.status(400).send(renderApprovalHtml({
         title: 'Link Expired',
         heading: 'Approval Link Expired',
@@ -913,6 +922,7 @@ exports.handleOrganizerApproval = async (req, res) => {
     }
 
     if (u.verificationStatus === 'approved' && u.organizerApprovalStatus === 'approved') {
+      if (wantsJson) return res.json({ success: true, msg: `${u.name} (${u.clubName || u.collegeName || 'Club'}) is already an approved Event Organizer.` });
       return res.send(renderApprovalHtml({
         title: 'Already Approved',
         heading: 'Organizer Already Approved',
@@ -929,6 +939,13 @@ exports.handleOrganizerApproval = async (req, res) => {
 
     await sendOrganizerApprovedNotificationEmail(u);
 
+    if (wantsJson) {
+      return res.json({
+        success: true,
+        msg: `${u.name} from ${u.clubName || u.collegeName || 'their institution'} has been successfully approved as an Event Organizer. A notification email has been sent to them.`,
+      });
+    }
+
     return res.send(renderApprovalHtml({
       title: 'Organizer Approved',
       heading: '✅ Organizer Approved!',
@@ -937,6 +954,7 @@ exports.handleOrganizerApproval = async (req, res) => {
     }));
   } catch (err) {
     console.error('handleOrganizerApproval Error:', err);
+    if (wantsJson) return res.status(500).json({ success: false, msg: 'A server error occurred while processing the approval.' });
     return res.status(500).send(renderApprovalHtml({
       title: 'Server Error',
       heading: 'Approval Failed',
@@ -947,9 +965,16 @@ exports.handleOrganizerApproval = async (req, res) => {
 };
 
 exports.handleOrganizerRejection = async (req, res) => {
+  const wantsJson = Boolean(
+    req?.headers?.accept?.includes('application/json') ||
+    req?.query?.format === 'json' ||
+    req?.xhr
+  );
+
   try {
-    const { token } = req.params;
+    const { token } = req.params || {};
     if (!token) {
+      if (wantsJson) return res.status(400).json({ success: false, msg: 'The rejection link is missing or corrupted.' });
       return res.status(400).send(renderApprovalHtml({
         title: 'Invalid Link',
         heading: 'Invalid Link',
@@ -962,6 +987,7 @@ exports.handleOrganizerRejection = async (req, res) => {
     const u = await User.findOne({ organizerApprovalTokenHash: tokenHash });
 
     if (!u) {
+      if (wantsJson) return res.status(400).json({ success: false, msg: 'This link has already been used or does not exist.' });
       return res.status(400).send(renderApprovalHtml({
         title: 'Link Used or Invalid',
         heading: 'Link Already Used or Invalid',
@@ -971,6 +997,7 @@ exports.handleOrganizerRejection = async (req, res) => {
     }
 
     if (u.organizerApprovalTokenExpiry && u.organizerApprovalTokenExpiry < new Date()) {
+      if (wantsJson) return res.status(400).json({ success: false, msg: 'This link has expired.' });
       return res.status(400).send(renderApprovalHtml({
         title: 'Link Expired',
         heading: 'Link Expired',
@@ -987,6 +1014,13 @@ exports.handleOrganizerRejection = async (req, res) => {
 
     await sendOrganizerRejectedNotificationEmail(u);
 
+    if (wantsJson) {
+      return res.json({
+        success: true,
+        msg: `The request for ${u.name} has been rejected. A notification update has been sent to them.`,
+      });
+    }
+
     return res.send(renderApprovalHtml({
       title: 'Organizer Request Rejected',
       heading: '❌ Organizer Request Rejected',
@@ -995,6 +1029,7 @@ exports.handleOrganizerRejection = async (req, res) => {
     }));
   } catch (err) {
     console.error('handleOrganizerRejection Error:', err);
+    if (wantsJson) return res.status(500).json({ success: false, msg: 'A server error occurred while processing the request.' });
     return res.status(500).send(renderApprovalHtml({
       title: 'Server Error',
       heading: 'Rejection Failed',

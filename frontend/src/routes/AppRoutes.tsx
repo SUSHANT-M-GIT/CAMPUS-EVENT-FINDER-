@@ -9,6 +9,7 @@ import ResetPasswordPage from '../pages/ResetPasswordPage';
 import SignupPage from '../pages/SignupPage';
 import UserDashboardPage from '../pages/UserDashboardPage';
 import UserProfilePage from '../pages/UserProfilePage';
+import OrganizerApprovalPage from '../pages/OrganizerApprovalPage';
 
 export default function AppRoutes() {
   return (
@@ -18,6 +19,8 @@ export default function AppRoutes() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      <Route path="/organizer-approval/:action/:token" element={<OrganizerApprovalPage />} />
+      <Route path="/api/auth/organizer-approval/:action/:token" element={<OrganizerApprovalPage />} />
 
       <Route
         path="/user"
