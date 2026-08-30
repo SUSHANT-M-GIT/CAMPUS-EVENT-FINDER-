@@ -7,6 +7,7 @@ const PDFDocument = require('pdfkit');
 const Registration = require('../models/Registration');
 const Event = require('../models/Event');
 const User = require('../models/User');
+const { normalizeRole } = require('../middleware/role');
 
 // ── SCAN QR (admin marks student present) ────────────────────────────────────
 // POST /api/attendance/scan
@@ -40,7 +41,7 @@ exports.scanAttendance = async (req, res) => {
     // Verify user is an authorized admin or event organizer
     const event = reg.eventId;
     const isOwner = event?.createdBy && event.createdBy.toString() === req.user.id;
-    const isAdmin = req.user && (req.user.role === 'admin' || isOwner);
+    const isAdmin = req.user && (normalizeRole(req.user.role) === 'admin' || isOwner);
 
     if (!isAdmin)
       return res.status(403).json({ msg: 'You are not authorized to scan attendance for this event' });
@@ -80,7 +81,7 @@ exports.getAttendance = async (req, res) => {
     if (!event) return res.status(404).json({ msg: 'Event not found' });
     
     const isOwner = event.createdBy && event.createdBy.toString() === req.user.id;
-    const isAdmin = req.user && (req.user.role === 'admin' || isOwner);
+    const isAdmin = req.user && (normalizeRole(req.user.role) === 'admin' || isOwner);
     if (!isAdmin)
       return res.status(403).json({ msg: 'Access denied' });
 
@@ -114,7 +115,7 @@ exports.enableCertificates = async (req, res) => {
     if (!event) return res.status(404).json({ msg: 'Event not found' });
 
     const isOwner = event.createdBy && event.createdBy.toString() === req.user.id;
-    const isAdmin = req.user && (req.user.role === 'admin' || isOwner);
+    const isAdmin = req.user && (normalizeRole(req.user.role) === 'admin' || isOwner);
     if (!isAdmin)
       return res.status(403).json({ msg: 'Access denied' });
 
