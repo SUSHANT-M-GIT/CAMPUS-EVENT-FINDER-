@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGoogleLogin } from '@react-oauth/google';
 import { PublicClientApplication, type Configuration } from '@azure/msal-browser';
-import { CheckCircle, X, GraduationCap, Briefcase } from 'lucide-react';
+import { CheckCircle, X, GraduationCap, Briefcase, Shield } from 'lucide-react';
 import { googleAuth, microsoftAuth } from '../services/authService';
 import { useAuth } from '../context/AuthContext';
 import Alert from './Alert';
@@ -33,7 +33,7 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
     provider: 'google' | 'microsoft';
   }>({ email: '', name: '', provider: 'google' });
 
-  const [role, setRole] = useState<'student' | 'professional'>('student');
+  const [role, setRole] = useState<'student' | 'professional' | 'admin'>('student');
   const [collegeName, setCollegeName] = useState('');
   const [collegeId, setCollegeId] = useState('');
   const [company, setCompany] = useState('');
@@ -225,6 +225,11 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
         setModalError('Your designation / role is required.');
         return;
       }
+    } else if (role === 'admin') {
+      if (!collegeName.trim()) {
+        setModalError('College / Organisation name is required for event organizers.');
+        return;
+      }
     }
 
     setLoading(true);
@@ -234,20 +239,20 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
         res = await googleAuth({
           idToken: googleIdToken,
           role,
-          collegeName: role === 'student' ? collegeName.trim() : '',
+          collegeName: role === 'student' || role === 'admin' ? collegeName.trim() : '',
           collegeId: role === 'student' ? collegeId.trim() : '',
           company: role === 'professional' ? company.trim() : '',
-          designation: role === 'professional' ? designation.trim() : '',
+          designation: role === 'professional' ? designation.trim() : (role === 'admin' ? (designation.trim() || 'Event Organizer') : ''),
         });
       } else {
         res = await microsoftAuth({
           accessToken: msTokens.accessToken,
           idToken: msTokens.idToken,
           role,
-          collegeName: role === 'student' ? collegeName.trim() : '',
+          collegeName: role === 'student' || role === 'admin' ? collegeName.trim() : '',
           collegeId: role === 'student' ? collegeId.trim() : '',
           company: role === 'professional' ? company.trim() : '',
-          designation: role === 'professional' ? designation.trim() : '',
+          designation: role === 'professional' ? designation.trim() : (role === 'admin' ? (designation.trim() || 'Event Organizer') : ''),
         });
       }
 
@@ -397,7 +402,7 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
               border: '1px solid var(--border)',
               borderRadius: 'var(--r-xl, 18px)',
               padding: '28px',
-              maxWidth: '460px',
+              maxWidth: '480px',
               width: '100%',
               boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
               position: 'relative',
@@ -462,48 +467,72 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
                 >
                   I am registering as:
                 </label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
                   <button
                     type="button"
                     onClick={() => setRole('student')}
                     style={{
-                      padding: '10px 12px',
+                      padding: '10px 6px',
                       borderRadius: '8px',
                       border: role === 'student' ? '2px solid #6366f1' : '1px solid var(--border)',
                       backgroundColor: role === 'student' ? 'rgba(99, 102, 241, 0.12)' : 'var(--card-bg)',
                       color: role === 'student' ? '#6366f1' : 'var(--text-2)',
                       fontWeight: 600,
-                      fontSize: '0.85rem',
+                      fontSize: '0.8rem',
                       display: 'flex',
+                      flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '6px',
+                      gap: '4px',
                       cursor: 'pointer',
                       transition: 'all 0.15s ease',
                     }}
                   >
-                    <GraduationCap size={16} /> Student
+                    <GraduationCap size={18} /> Student
                   </button>
                   <button
                     type="button"
                     onClick={() => setRole('professional')}
                     style={{
-                      padding: '10px 12px',
+                      padding: '10px 6px',
                       borderRadius: '8px',
                       border: role === 'professional' ? '2px solid #6366f1' : '1px solid var(--border)',
                       backgroundColor: role === 'professional' ? 'rgba(99, 102, 241, 0.12)' : 'var(--card-bg)',
                       color: role === 'professional' ? '#6366f1' : 'var(--text-2)',
                       fontWeight: 600,
-                      fontSize: '0.85rem',
+                      fontSize: '0.8rem',
                       display: 'flex',
+                      flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '6px',
+                      gap: '4px',
                       cursor: 'pointer',
                       transition: 'all 0.15s ease',
                     }}
                   >
-                    <Briefcase size={16} /> Professional
+                    <Briefcase size={18} /> Professional
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRole('admin')}
+                    style={{
+                      padding: '10px 6px',
+                      borderRadius: '8px',
+                      border: role === 'admin' ? '2px solid #6366f1' : '1px solid var(--border)',
+                      backgroundColor: role === 'admin' ? 'rgba(99, 102, 241, 0.12)' : 'var(--card-bg)',
+                      color: role === 'admin' ? '#6366f1' : 'var(--text-2)',
+                      fontWeight: 600,
+                      fontSize: '0.8rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <Shield size={18} /> Organizer / Admin
                   </button>
                 </div>
               </div>
@@ -598,6 +627,56 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
                       value={company}
                       onChange={(e) => setCompany(e.target.value)}
                       placeholder="e.g. Google, Freelancer"
+                    />
+                  </div>
+                </>
+              )}
+
+              {role === 'admin' && (
+                <>
+                  <div>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        color: 'var(--text-2)',
+                        marginBottom: 6,
+                      }}
+                    >
+                      College / Organisation Name <span style={{ color: '#ef4444' }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={collegeName}
+                      onChange={(e) => setCollegeName(e.target.value)}
+                      placeholder="e.g. Reva University / Tech Club"
+                      required
+                    />
+                    <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                      Used as your event organizing club / institution name
+                    </p>
+                  </div>
+
+                  <div>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        color: 'var(--text-2)',
+                        marginBottom: 6,
+                      }}
+                    >
+                      Your Designation / Role (optional)
+                    </label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={designation}
+                      onChange={(e) => setDesignation(e.target.value)}
+                      placeholder="e.g. Event Lead, Club President"
                     />
                   </div>
                 </>

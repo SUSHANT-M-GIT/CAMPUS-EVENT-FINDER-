@@ -133,7 +133,7 @@ describe('Microsoft Authentication Controller', () => {
     expect(res.statusCode).toBe(200);
     expect(res.result.needsProfileCompletion).toBe(true);
     expect(res.result.msEmail).toBe('newstudent@college.edu');
-    expect(res.result.role).toBe('student');
+    expect(res.result.provider).toBe('microsoft');
   });
 
   it('successfully creates a new Student account with provided Microsoft credentials & college info', async () => {
@@ -166,13 +166,13 @@ describe('Microsoft Authentication Controller', () => {
     expect(mockSave).toHaveBeenCalled();
   });
 
-  it('prevents automatic elevation to Admin role via Microsoft signup and enforces standard student role', async () => {
+  it('successfully creates a new Admin/Organizer account with Microsoft credentials', async () => {
     global.fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        id: 'ms-user-id-999',
-        displayName: 'Admin Impersonator',
-        mail: 'impersonator@college.edu',
+        id: 'ms-user-id-admin',
+        displayName: 'Admin User',
+        mail: 'admin@organization.org',
       }),
     });
 
@@ -181,9 +181,8 @@ describe('Microsoft Authentication Controller', () => {
     const req = {
       body: {
         accessToken: 'valid-ms-access-token',
-        role: 'admin', // Attempting to self-assign admin
-        collegeName: 'State College of Technology',
-        collegeId: 'SCT2026',
+        role: 'admin',
+        collegeName: 'State Tech Club',
       },
     };
     const res = createMockRes();
@@ -192,5 +191,7 @@ describe('Microsoft Authentication Controller', () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.result).toHaveProperty('token');
+    expect(res.result.isNewUser).toBe(true);
+    expect(mockSave).toHaveBeenCalled();
   });
 });

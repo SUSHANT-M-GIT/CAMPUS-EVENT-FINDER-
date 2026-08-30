@@ -163,11 +163,11 @@ describe('Google Authentication Controller', () => {
     expect(mockSave).toHaveBeenCalled();
   });
 
-  it('prevents automatic creation of Admin role via Google signup and enforces standard role', async () => {
+  it('successfully creates a new Admin/Organizer account with provided organization info', async () => {
     mockVerifyIdToken.mockResolvedValue({
       getPayload: () => ({
-        email: 'attacker@example.com',
-        name: 'Fake Admin',
+        email: 'organizer@example.com',
+        name: 'Jane Organizer',
       }),
     });
 
@@ -176,9 +176,8 @@ describe('Google Authentication Controller', () => {
     const req = {
       body: {
         idToken: 'valid-google-id-token',
-        role: 'admin', // Attempting to self-assign admin
-        collegeName: 'State College',
-        collegeId: 'SC12345',
+        role: 'admin',
+        collegeName: 'State Tech Club',
       },
     };
     const res = createMockRes();
@@ -187,5 +186,35 @@ describe('Google Authentication Controller', () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.result).toHaveProperty('token');
+    expect(res.result.isNewUser).toBe(true);
+    expect(mockSave).toHaveBeenCalled();
+  });
+
+  it('successfully creates a new Professional account with provided designation', async () => {
+    mockVerifyIdToken.mockResolvedValue({
+      getPayload: () => ({
+        email: 'pro@example.com',
+        name: 'Pro Worker',
+      }),
+    });
+
+    mockUserModel.findOne.mockResolvedValue(null);
+
+    const req = {
+      body: {
+        idToken: 'valid-google-id-token',
+        role: 'professional',
+        designation: 'Senior Developer',
+        company: 'Google',
+      },
+    };
+    const res = createMockRes();
+
+    await controller.googleAuth(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.result).toHaveProperty('token');
+    expect(res.result.isNewUser).toBe(true);
+    expect(mockSave).toHaveBeenCalled();
   });
 });

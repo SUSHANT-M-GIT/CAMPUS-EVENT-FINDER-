@@ -476,11 +476,20 @@ exports.googleAuth = async (req, res) => {
       return res.json({ token, isNewUser: false });
     }
 
-    // New user — Google sign-in cannot create Admin accounts directly (must be student or professional)
-    const userRole = role === 'professional' ? 'professional' : 'student';
+    // New user — Profile completion check
+    if (!role || !['student', 'professional', 'admin'].includes(role)) {
+      return res.status(200).json({
+        needsProfileCompletion: true,
+        isNewUser: true,
+        googleEmail,
+        googleName,
+        provider: 'google',
+        msg: 'Please complete your profile to finish registration.',
+      });
+    }
 
-    // Validate required profile information for new user
-    if (userRole === 'student') {
+    // Validate required profile information per selected role
+    if (role === 'student') {
       if (!collegeName?.trim() || !collegeId?.trim()) {
         return res.status(200).json({
           needsProfileCompletion: true,
@@ -488,10 +497,11 @@ exports.googleAuth = async (req, res) => {
           googleEmail,
           googleName,
           role: 'student',
-          msg: 'Please complete your student profile details (College Name & College ID).',
+          provider: 'google',
+          msg: 'Please provide both College Name and College ID.',
         });
       }
-    } else if (userRole === 'professional') {
+    } else if (role === 'professional') {
       if (!designation?.trim()) {
         return res.status(200).json({
           needsProfileCompletion: true,
@@ -499,21 +509,39 @@ exports.googleAuth = async (req, res) => {
           googleEmail,
           googleName,
           role: 'professional',
-          msg: 'Please complete your professional profile details (Designation).',
+          provider: 'google',
+          msg: 'Please provide your Designation / Role.',
+        });
+      }
+    } else if (role === 'admin') {
+      if (!collegeName?.trim()) {
+        return res.status(200).json({
+          needsProfileCompletion: true,
+          isNewUser: true,
+          googleEmail,
+          googleName,
+          role: 'admin',
+          provider: 'google',
+          msg: 'Please provide your College or Organization Name.',
         });
       }
     }
+
+    const isAdmin = role === 'admin';
+    const isProfessional = role === 'professional';
 
     // Create new account — Google-verified
     u = await new User({
       name: googleName,
       email: googleEmail,
       password: '',
-      role: userRole,
-      collegeName: userRole === 'student' ? collegeName.trim() : (collegeName?.trim() || ''),
-      collegeId: userRole === 'student' ? collegeId.trim() : '',
-      company: userRole === 'professional' ? (company?.trim() || '') : '',
-      designation: userRole === 'professional' ? designation.trim() : '',
+      role: isAdmin ? 'admin' : isProfessional ? 'professional' : 'student',
+      collegeName: collegeName?.trim() || '',
+      collegeId: role === 'student' ? collegeId.trim() : '',
+      company: isProfessional ? (company?.trim() || '') : '',
+      designation: isProfessional ? designation.trim() : (isAdmin ? (designation?.trim() || 'Event Organizer') : ''),
+      clubName: isAdmin ? collegeName.trim() : '',
+      verificationStatus: 'approved',
       accountStatus: 'active',
       isVerified: true,
     }).save();
@@ -559,17 +587,17 @@ exports.microsoftAuth = async (req, res) => {
           headers: { Authorization: `Bearer ${accessToken}` },
         });
         if (graphRes.ok) {
-          const profile = await graphRes.json();
-          msEmail = (profile.mail || profile.userPrincipalName || '').toLowerCase().trim();
-          msName = profile.displayName || profile.givenName || 'User';
+          const data = await graphRes.json();
+          msEmail = (data.mail || data.userPrincipalName || '').toLowerCase().trim();
+          msName = data.displayName || 'User';
           console.log('[Microsoft OAuth] Verified via Graph API:', msEmail);
         }
-      } catch (graphErr) {
-        console.error('[Microsoft OAuth] Graph API verification error:', graphErr.message);
+      } catch (err) {
+        console.error('[Microsoft OAuth] Graph API error:', err.message);
       }
     }
 
-    // Fallback: decode/verify idToken if accessToken was not passed or failed
+    // Fallback: parse ID token if Graph API failed or returned no email
     if (!msEmail && idToken) {
       try {
         const parts = idToken.split('.');
@@ -625,11 +653,20 @@ exports.microsoftAuth = async (req, res) => {
       return res.json({ token, isNewUser: false });
     }
 
-    // New user — OAuth cannot self-assign Admin role
-    const userRole = role === 'professional' ? 'professional' : 'student';
+    // New user — Profile completion check
+    if (!role || !['student', 'professional', 'admin'].includes(role)) {
+      return res.status(200).json({
+        needsProfileCompletion: true,
+        isNewUser: true,
+        msEmail,
+        msName,
+        provider: 'microsoft',
+        msg: 'Please complete your profile to finish registration.',
+      });
+    }
 
     // Validate required profile fields for new users
-    if (userRole === 'student') {
+    if (role === 'student') {
       if (!collegeName?.trim() || !collegeId?.trim()) {
         return res.status(200).json({
           needsProfileCompletion: true,
@@ -638,10 +675,10 @@ exports.microsoftAuth = async (req, res) => {
           msName,
           role: 'student',
           provider: 'microsoft',
-          msg: 'Please complete your student profile details (College Name & College ID).',
+          msg: 'Please provide both College Name and College ID.',
         });
       }
-    } else if (userRole === 'professional') {
+    } else if (role === 'professional') {
       if (!designation?.trim()) {
         return res.status(200).json({
           needsProfileCompletion: true,
@@ -650,21 +687,38 @@ exports.microsoftAuth = async (req, res) => {
           msName,
           role: 'professional',
           provider: 'microsoft',
-          msg: 'Please complete your professional profile details (Designation).',
+          msg: 'Please provide your Designation / Role.',
+        });
+      }
+    } else if (role === 'admin') {
+      if (!collegeName?.trim()) {
+        return res.status(200).json({
+          needsProfileCompletion: true,
+          isNewUser: true,
+          msEmail,
+          msName,
+          role: 'admin',
+          provider: 'microsoft',
+          msg: 'Please provide your College or Organization Name.',
         });
       }
     }
+
+    const isAdmin = role === 'admin';
+    const isProfessional = role === 'professional';
 
     // Create new account — Microsoft verified
     u = await new User({
       name: msName,
       email: msEmail,
       password: '',
-      role: userRole,
-      collegeName: userRole === 'student' ? collegeName.trim() : (collegeName?.trim() || ''),
-      collegeId: userRole === 'student' ? collegeId.trim() : '',
-      company: userRole === 'professional' ? (company?.trim() || '') : '',
-      designation: userRole === 'professional' ? designation.trim() : '',
+      role: isAdmin ? 'admin' : isProfessional ? 'professional' : 'student',
+      collegeName: collegeName?.trim() || '',
+      collegeId: role === 'student' ? collegeId.trim() : '',
+      company: isProfessional ? (company?.trim() || '') : '',
+      designation: isProfessional ? designation.trim() : (isAdmin ? (designation?.trim() || 'Event Organizer') : ''),
+      clubName: isAdmin ? collegeName.trim() : '',
+      verificationStatus: 'approved',
       accountStatus: 'active',
       isVerified: true,
     }).save();
