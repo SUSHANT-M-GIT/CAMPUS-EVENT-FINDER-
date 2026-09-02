@@ -20,13 +20,13 @@ function makeRegCode() {
 
 /** Generate a QR PNG, store it as base64 on the registration doc, and also try to save a file. */
 function getBackendBaseUrl() {
-  // BACKEND_URL should be the deployed backend (e.g. https://campus-event-finder-r2j3.onrender.com)
-  // APP_URL is the frontend — do NOT use it for QR file serving
-  return (
-    process.env.BACKEND_URL ||
-    process.env.RENDER_EXTERNAL_URL ||  // Render injects this automatically
-    `http://localhost:${process.env.PORT || 5000}`
-  ).replace(/\/$/, '');
+  // BACKEND_URL: manually set on Railway/Render to the public backend URL
+  // RAILWAY_PUBLIC_DOMAIN: auto-injected by Railway (hostname only, no protocol)
+  // RENDER_EXTERNAL_URL: auto-injected by Render (full URL)
+  if (process.env.BACKEND_URL) return process.env.BACKEND_URL.replace(/\/$/, '');
+  if (process.env.RAILWAY_PUBLIC_DOMAIN) return `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+  if (process.env.RENDER_EXTERNAL_URL) return process.env.RENDER_EXTERNAL_URL.replace(/\/$/, '');
+  return `http://localhost:${process.env.PORT || 5000}`;
 }
 
 function buildQrPayload(registration, context = {}) {
@@ -235,7 +235,8 @@ exports.registerEvent = async (req, res) => {
   } catch (e) {
     if (e.code === 11000)
       return res.status(400).json({ msg: 'You are already registered for this event.' });
-    res.status(500).send('error');
+    console.error('[Registration] Error:', e.message);
+    res.status(500).json({ msg: e.message || 'Registration failed. Please try again.' });
   }
 };
 

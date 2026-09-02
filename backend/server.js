@@ -69,10 +69,15 @@ const allowedOrigins = [
 function checkCorsOrigin(origin, callback) {
   if (!origin) return callback(null, true);
   if (allowedOrigins.includes(origin)) return callback(null, true);
-  if (origin.endsWith('.vercel.app') || origin.endsWith('.onrender.com')) return callback(null, true);
+  if (
+    origin.endsWith('.vercel.app') ||
+    origin.endsWith('.onrender.com') ||
+    origin.endsWith('.railway.app') ||
+    origin.endsWith('.up.railway.app')
+  ) return callback(null, true);
   if (process.env.APP_URL && origin === process.env.APP_URL.replace(/\/$/, '')) return callback(null, true);
   if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL.replace(/\/$/, '')) return callback(null, true);
-  callback(null, true); // Allow request
+  callback(null, true); // Allow all — specific blocking handled by auth middleware
 }
 
 app.use(

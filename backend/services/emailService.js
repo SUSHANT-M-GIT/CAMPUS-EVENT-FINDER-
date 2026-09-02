@@ -15,7 +15,6 @@ async function sendViaResend({ to, subject, html, attachments = [] }) {
   if (!apiKey) return false;
 
   console.log('🚀 [Email] Sending via Resend HTTPS API (Port 443)...');
-  // Use RESEND_FROM if custom domain is verified on Resend; otherwise default to Resend verified domain
   const from = process.env.RESEND_FROM || 'Campus Event Finder <onboarding@resend.dev>';
   const reply_to = process.env.EMAIL_USER || undefined;
 
@@ -35,7 +34,7 @@ async function sendViaResend({ to, subject, html, attachments = [] }) {
     ...(formattedAttachments.length > 0 ? { attachments: formattedAttachments } : {}),
   };
 
-  let res = await fetch('https://api.resend.com/emails', {
+  const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -46,26 +45,16 @@ async function sendViaResend({ to, subject, html, attachments = [] }) {
 
   if (!res.ok) {
     const errText = await res.text().catch(() => '');
-    // If domain unverified error, auto-fallback to onboarding@resend.dev
-    if (errText.includes('domain is not verified') && from !== 'Campus Event Finder <onboarding@resend.dev>') {
-      console.warn('⚠️ [Email] Custom domain not verified on Resend. Auto-fallback to onboarding@resend.dev...');
-      payload.from = 'Campus Event Finder <onboarding@resend.dev>';
-      res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
 
-      if (!res.ok) {
-        const retryErr = await res.text().catch(() => '');
-        throw new Error(`Resend API HTTP ${res.status}: ${retryErr}`);
-      }
-    } else {
-      throw new Error(`Resend API HTTP ${res.status}: ${errText}`);
+    // 403 means domain not verified or sending restricted — log clearly, fall through to next provider
+    if (res.status === 403) {
+      console.warn(`⚠️ [Email] Resend failed: 403`);
+      console.warn(`⚠️ [Email] Reason: sender/domain not verified or testing restrictions apply`);
+      console.warn(`⚠️ [Email] Falling back to Brevo`);
+      throw new Error(`Resend API HTTP 403: ${errText}`);
     }
+
+    throw new Error(`Resend API HTTP ${res.status}: ${errText}`);
   }
 
   const data = await res.json().catch(() => ({}));
@@ -241,14 +230,19 @@ async function sendEmail({ to, subject, html, attachments = [] }) {
 // ─── named helpers used by controllers and scheduler ─────────────────────────
 
 function buildQrUrl(registration) {
-  const appUrl = (process.env.APP_URL || 'http://localhost:5000').replace(/\/$/, '');
+  // Use BACKEND_URL for QR file serving — APP_URL/FRONTEND_URL is the frontend
+  let backendUrl = 'http://localhost:5000';
+  if (process.env.BACKEND_URL) backendUrl = process.env.BACKEND_URL.replace(/\/$/, '');
+  else if (process.env.RAILWAY_PUBLIC_DOMAIN) backendUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+  else if (process.env.RENDER_EXTERNAL_URL) backendUrl = process.env.RENDER_EXTERNAL_URL.replace(/\/$/, '');
+
   const qrCandidate = registration.attendanceQr || registration.attendanceQrFile || '';
 
   if (!qrCandidate) return '';
   if (qrCandidate.startsWith('http://') || qrCandidate.startsWith('https://')) return qrCandidate;
 
   const normalizedPath = qrCandidate.startsWith('/') ? qrCandidate : `/${qrCandidate}`;
-  return `${appUrl}${normalizedPath}`;
+  return `${backendUrl}${normalizedPath}`;
 }
 
 async function buildQrAttachment(registration) {
@@ -615,7 +609,7 @@ async function sendOrganizerApprovedNotificationEmail(organizer) {
       <li>Automatic certificate generation</li>
     </ul>
     <p style="margin-top:24px;text-align:center;">
-      <a href="${process.env.APP_URL || 'http://localhost:5173'}/login" style="background:#4f46e5;color:#ffffff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block;">
+      <a href="${(process.env.FRONTEND_URL || process.env.APP_URL || 'http://localhost:5173').replace(/\/$/, '')}/login" style="background:#4f46e5;color:#ffffff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block;">
         Log In to Admin Dashboard
       </a>
     </p>

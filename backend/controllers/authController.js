@@ -359,12 +359,12 @@ exports.forgotPassword = async (req, res) => {
     u.passwordResetExpiry = new Date(Date.now() + 60 * 60 * 1000);
     await u.save();
 
-    const emailSent = await sendPasswordResetEmail(u.email, resetToken, u.name);
-    if (!emailSent) {
-      return res
-        .status(500)
-        .json({ msg: 'Failed to send password reset email. Please try again later.' });
-    }
+    // Send email — fire non-blocking so the DB token is never rolled back on email failure
+    sendPasswordResetEmail(u.email, resetToken, u.name).then((sent) => {
+      if (!sent) console.error(`[PasswordReset] Email delivery failed for ${u.email} — token saved, user can retry`);
+    }).catch((err) => {
+      console.error('[PasswordReset] Email error:', err.message);
+    });
 
     res.json({ success: true, msg: 'If that account exists, a reset link has been emailed.' });
   } catch (e) {
