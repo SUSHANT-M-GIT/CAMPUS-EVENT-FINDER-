@@ -15,9 +15,11 @@ async function sendViaResend({ to, subject, html }) {
   if (!apiKey) return false;
 
   console.log('🚀 [Email] Sending via Resend HTTPS API (Port 443)...');
-  const from = process.env.EMAIL_FROM || 'Campus Event Finder <onboarding@resend.dev>';
+  // Use RESEND_FROM if custom domain is verified on Resend; otherwise default to Resend verified domain
+  const from = process.env.RESEND_FROM || 'Campus Event Finder <onboarding@resend.dev>';
+  const reply_to = process.env.EMAIL_USER || undefined;
 
-  const res = await fetch('https://api.resend.com/emails', {
+  let res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -28,12 +30,37 @@ async function sendViaResend({ to, subject, html }) {
       to: [to],
       subject,
       html,
+      ...(reply_to ? { reply_to } : {}),
     }),
   });
 
   if (!res.ok) {
     const errText = await res.text().catch(() => '');
-    throw new Error(`Resend API HTTP ${res.status}: ${errText}`);
+    // If domain unverified error, auto-fallback to onboarding@resend.dev
+    if (errText.includes('domain is not verified') && from !== 'Campus Event Finder <onboarding@resend.dev>') {
+      console.warn('⚠️ [Email] Custom domain not verified on Resend. Auto-fallback to onboarding@resend.dev...');
+      res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'Campus Event Finder <onboarding@resend.dev>',
+          to: [to],
+          subject,
+          html,
+          ...(reply_to ? { reply_to } : {}),
+        }),
+      });
+
+      if (!res.ok) {
+        const retryErr = await res.text().catch(() => '');
+        throw new Error(`Resend API HTTP ${res.status}: ${retryErr}`);
+      }
+    } else {
+      throw new Error(`Resend API HTTP ${res.status}: ${errText}`);
+    }
   }
 
   const data = await res.json().catch(() => ({}));
