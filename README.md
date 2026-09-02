@@ -6,6 +6,8 @@ The platform streamlines the complete lifecycle of campus events: from event pub
 
 ---
 
+# DEPLOYED -- https://c-e-s.vercel.app/
+
 ## 🌟 Key Features
 
 ### 1. 🔐 Multi-Role Authentication & Access Control
