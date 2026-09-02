@@ -9,12 +9,14 @@ const nodemailer = require('nodemailer');
 function getTransport() {
   // Primary: Gmail SMTP (if configured)
   if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-    console.log('🔧 Using Gmail SMTP transport');
+    console.log('🔧 Using Gmail SMTP transport (port 587)');
     // Google App Passwords are sometimes stored with spaces (e.g. "abcd efgh ijkl mnop")
     // Nodemailer requires no spaces — strip them here
     const cleanPass = process.env.EMAIL_PASS.replace(/\s+/g, '');
     return nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false, // STARTTLS
       auth: {
         user: process.env.EMAIL_USER,
         pass: cleanPass,
