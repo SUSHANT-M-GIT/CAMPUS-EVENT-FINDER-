@@ -16,6 +16,9 @@ connectDB();
 const app = express();
 const server = http.createServer(app);
 
+// Enable trust proxy for cloud deployment (Render, Vercel, Railway load balancers)
+app.set('trust proxy', 1);
+
 // ── Socket.IO ────────────────────────────────────────────────────────────────
 const io = new Server(server, {
   cors: { origin: '*', methods: ['GET', 'POST'] },
@@ -48,6 +51,7 @@ app.use(
     max: 100,
     standardHeaders: true,
     legacyHeaders: false,
+    validate: { xForwardedForHeader: false },
     message: { msg: 'Too many requests, please try again later.' },
   })
 );
@@ -62,26 +66,23 @@ const allowedOrigins = [
   'http://localhost:3000',
 ];
 
+function checkCorsOrigin(origin, callback) {
+  if (!origin) return callback(null, true);
+  if (allowedOrigins.includes(origin)) return callback(null, true);
+  if (origin.endsWith('.vercel.app') || origin.endsWith('.onrender.com')) return callback(null, true);
+  if (process.env.APP_URL && origin === process.env.APP_URL.replace(/\/$/, '')) return callback(null, true);
+  if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL.replace(/\/$/, '')) return callback(null, true);
+  callback(null, true); // Allow request
+}
+
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
+    origin: checkCorsOrigin,
     credentials: true,
   })
 );
 app.options('*', cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: checkCorsOrigin,
   credentials: true,
 }));
 
