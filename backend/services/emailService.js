@@ -1,11 +1,78 @@
 /**
  * emailService.js
- * Primary: Gmail SMTP via Nodemailer (Port 465 SSL with IPv4 enforcement for cloud deployment)
- * Secondary: Gmail SMTP (Port 587 STARTTLS)
- * Fallback: Brevo SMTP (300 free emails/day)
- * All env vars read at call-time (never at module load).
+ * High-Reliability Email Delivery Engine:
+ * 1. Resend HTTPS API (Port 443 — Unblocked on Render, Railway, AWS, Vercel)
+ * 2. Brevo HTTPS API (Port 443 — Unblocked on all cloud providers)
+ * 3. Gmail SMTP (Port 465 SSL / Port 587 STARTTLS with IPv4 enforcement)
+ * 4. Brevo SMTP Relay (Port 587 / 2525)
  */
 const nodemailer = require('nodemailer');
+
+// ─── 1. HTTPS REST API Transports (Port 443 - 100% unblocked on Render) ────────
+
+async function sendViaResend({ to, subject, html }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return false;
+
+  console.log('🚀 [Email] Sending via Resend HTTPS API (Port 443)...');
+  const from = process.env.EMAIL_FROM || 'Campus Event Finder <onboarding@resend.dev>';
+
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from,
+      to: [to],
+      subject,
+      html,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Resend API HTTP ${res.status}: ${errText}`);
+  }
+
+  const data = await res.json().catch(() => ({}));
+  console.log(`✅ [Email] SUCCESS → Delivered to="${to}" via Resend HTTPS API | id="${data.id || 'OK'}"`);
+  return true;
+}
+
+async function sendViaBrevoApi({ to, subject, html }) {
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) return false;
+
+  console.log('🚀 [Email] Sending via Brevo HTTPS API (Port 443)...');
+  const senderEmail = process.env.EMAIL_USER || process.env.BREVO_SENDER || 'noreply@campuseventfinder.com';
+
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'api-key': apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      sender: { name: 'Campus Event Finder', email: senderEmail },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`Brevo API HTTP ${res.status}: ${errText}`);
+  }
+
+  const data = await res.json().catch(() => ({}));
+  console.log(`✅ [Email] SUCCESS → Delivered to="${to}" via Brevo HTTPS API | messageId="${data.messageId || 'OK'}"`);
+  return true;
+}
+
+// ─── 2. Direct SMTP Transports (For local development or hosts with open SMTP) ─
 
 function createGmailTransport(port = 465, secure = true) {
   const cleanPass = (process.env.EMAIL_PASS || '').replace(/\s+/g, '');
@@ -17,29 +84,29 @@ function createGmailTransport(port = 465, secure = true) {
       user: process.env.EMAIL_USER,
       pass: cleanPass,
     },
-    family: 4, // CRITICAL for deployed cloud hosting: Forces IPv4 to avoid ENETUNREACH IPv6 errors
-    connectionTimeout: 10000, // 10 seconds max connection timeout
-    greetingTimeout: 8000,
-    socketTimeout: 15000,
+    family: 4, // Forces IPv4 to avoid ENETUNREACH IPv6 errors
+    connectionTimeout: 8000,
+    greetingTimeout: 6000,
+    socketTimeout: 10000,
     tls: {
-      rejectUnauthorized: false, // Prevents TLS handshaking rejections in containerized environments
+      rejectUnauthorized: false,
     },
   });
 }
 
-function createBrevoTransport() {
+function createBrevoTransport(port = 587) {
   return nodemailer.createTransport({
     host: 'smtp-relay.brevo.com',
-    port: 587,
+    port,
     secure: false,
     auth: {
       user: process.env.BREVO_USER,
       pass: process.env.BREVO_PASS,
     },
     family: 4,
-    connectionTimeout: 10000,
-    greetingTimeout: 8000,
-    socketTimeout: 15000,
+    connectionTimeout: 8000,
+    greetingTimeout: 6000,
+    socketTimeout: 10000,
   });
 }
 
@@ -60,24 +127,36 @@ function formatDate(d) {
   });
 }
 
-// ─── core send (returns true on success, false on failure) ────────────────────
+// ─── Core send (Returns true on success, false on failure) ───────────────────
 
 async function sendEmail({ to, subject, html, attachments = [] }) {
   console.log('📧 Attempting to send email to:', to);
   console.log('📧 Subject:', subject);
 
-  const gmailConfigured = !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
-  const brevoConfigured = !!(process.env.BREVO_USER && process.env.BREVO_PASS);
-
-  if (!gmailConfigured && !brevoConfigured) {
-    console.error(`❌ [Email] SKIP — No email service configured (to="${to}")`);
-    console.error('⚠️  Set EMAIL_USER/EMAIL_PASS for Gmail OR BREVO_USER/BREVO_PASS for Brevo');
-    return false;
+  // Strategy 1: Resend HTTPS API (Port 443 - Recommended for Render & Cloud deployments)
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const ok = await sendViaResend({ to, subject, html, attachments });
+      if (ok) return true;
+    } catch (errResend) {
+      console.warn(`⚠️ [Email] Resend HTTPS API failed: ${errResend.message}`);
+    }
   }
 
+  // Strategy 2: Brevo HTTPS API (Port 443)
+  if (process.env.BREVO_API_KEY) {
+    try {
+      const ok = await sendViaBrevoApi({ to, subject, html, attachments });
+      if (ok) return true;
+    } catch (errBrevoApi) {
+      console.warn(`⚠️ [Email] Brevo HTTPS API failed: ${errBrevoApi.message}`);
+    }
+  }
+
+  // Strategy 3: Gmail SMTP (Port 465 SSL, IPv4)
+  const gmailConfigured = !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
   const from = getFrom();
 
-  // 1. Try Gmail Port 465 (Direct SSL IPv4 — most reliable on cloud deployments)
   if (gmailConfigured) {
     try {
       console.log('🔧 [Email] Trying Gmail SMTP Port 465 (Direct SSL, IPv4)...');
@@ -88,7 +167,7 @@ async function sendEmail({ to, subject, html, attachments = [] }) {
     } catch (err465) {
       console.warn(`⚠️ [Email] Gmail Port 465 failed: ${err465.message}. Retrying via Port 587...`);
 
-      // 2. Fallback to Gmail Port 587 (STARTTLS IPv4)
+      // Strategy 4: Gmail SMTP (Port 587 STARTTLS, IPv4)
       try {
         const transporter587 = createGmailTransport(587, false);
         const info587 = await transporter587.sendMail({ from, to, subject, html, attachments });
@@ -96,23 +175,17 @@ async function sendEmail({ to, subject, html, attachments = [] }) {
         return true;
       } catch (err587) {
         console.error(`❌ [Email] Gmail Port 587 failed: ${err587.message}`);
-        if (
-          err587.message.includes('Invalid login') ||
-          err587.message.includes('Username and Password not accepted')
-        ) {
-          console.error('⚠️  Gmail Authentication Failed: Please verify your 16-character Google App Password in EMAIL_PASS');
-        }
       }
     }
   }
 
-  // 3. Fallback to Brevo SMTP if configured
-  if (brevoConfigured) {
+  // Strategy 5: Brevo SMTP Relay (Port 587 / 2525)
+  if (process.env.BREVO_USER && process.env.BREVO_PASS) {
     try {
       console.log('🔧 [Email] Trying Brevo SMTP fallback (Port 587, IPv4)...');
-      const brevoTransporter = createBrevoTransport();
+      const brevoTransporter = createBrevoTransport(587);
       const infoBrevo = await brevoTransporter.sendMail({ from, to, subject, html, attachments });
-      console.log(`✅ [Email] SUCCESS → Email delivered to="${to}" via Brevo | messageId="${infoBrevo.messageId}"`);
+      console.log(`✅ [Email] SUCCESS → Email delivered to="${to}" via Brevo SMTP | messageId="${infoBrevo.messageId}"`);
       return true;
     } catch (errBrevo) {
       console.error(`❌ [Email] Brevo SMTP failed: ${errBrevo.message}`);
@@ -120,6 +193,8 @@ async function sendEmail({ to, subject, html, attachments = [] }) {
   }
 
   console.error(`❌ [Email] FAILED → All email delivery strategies failed for: "${to}"`);
+  console.error(`💡 NOTE: Render blocks outbound SMTP ports 465 & 587 by default.`);
+  console.error(`👉 Solution for 100% instant delivery on Render: Add RESEND_API_KEY (free 3,000 emails/mo at https://resend.com) to your Render Environment Variables.`);
   return false;
 }
 
