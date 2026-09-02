@@ -10,7 +10,7 @@ const nodemailer = require('nodemailer');
 
 // ─── 1. HTTPS REST API Transports (Port 443 - 100% unblocked on Render) ────────
 
-async function sendViaResend({ to, subject, html }) {
+async function sendViaResend({ to, subject, html, attachments = [] }) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return false;
 
@@ -19,19 +19,29 @@ async function sendViaResend({ to, subject, html }) {
   const from = process.env.RESEND_FROM || 'Campus Event Finder <onboarding@resend.dev>';
   const reply_to = process.env.EMAIL_USER || undefined;
 
+  const formattedAttachments = attachments.map((att) => ({
+    filename: att.filename || 'attachment.png',
+    content: Buffer.isBuffer(att.content)
+      ? att.content.toString('base64')
+      : Buffer.from(att.content || '').toString('base64'),
+  }));
+
+  const payload = {
+    from,
+    to: [to],
+    subject,
+    html,
+    ...(reply_to ? { reply_to } : {}),
+    ...(formattedAttachments.length > 0 ? { attachments: formattedAttachments } : {}),
+  };
+
   let res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      from,
-      to: [to],
-      subject,
-      html,
-      ...(reply_to ? { reply_to } : {}),
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
@@ -39,19 +49,14 @@ async function sendViaResend({ to, subject, html }) {
     // If domain unverified error, auto-fallback to onboarding@resend.dev
     if (errText.includes('domain is not verified') && from !== 'Campus Event Finder <onboarding@resend.dev>') {
       console.warn('⚠️ [Email] Custom domain not verified on Resend. Auto-fallback to onboarding@resend.dev...');
+      payload.from = 'Campus Event Finder <onboarding@resend.dev>';
       res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          from: 'Campus Event Finder <onboarding@resend.dev>',
-          to: [to],
-          subject,
-          html,
-          ...(reply_to ? { reply_to } : {}),
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -68,12 +73,27 @@ async function sendViaResend({ to, subject, html }) {
   return true;
 }
 
-async function sendViaBrevoApi({ to, subject, html }) {
+async function sendViaBrevoApi({ to, subject, html, attachments = [] }) {
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) return false;
 
   console.log('🚀 [Email] Sending via Brevo HTTPS API (Port 443)...');
   const senderEmail = process.env.EMAIL_USER || process.env.BREVO_SENDER || 'noreply@campuseventfinder.com';
+
+  const formattedAttachments = attachments.map((att) => ({
+    name: att.filename || 'attachment.png',
+    content: Buffer.isBuffer(att.content)
+      ? att.content.toString('base64')
+      : Buffer.from(att.content || '').toString('base64'),
+  }));
+
+  const payload = {
+    sender: { name: 'Campus Event Finder', email: senderEmail },
+    to: [{ email: to }],
+    subject,
+    htmlContent: html,
+    ...(formattedAttachments.length > 0 ? { attachment: formattedAttachments } : {}),
+  };
 
   const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
@@ -81,12 +101,7 @@ async function sendViaBrevoApi({ to, subject, html }) {
       'api-key': apiKey,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      sender: { name: 'Campus Event Finder', email: senderEmail },
-      to: [{ email: to }],
-      subject,
-      htmlContent: html,
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
@@ -220,8 +235,6 @@ async function sendEmail({ to, subject, html, attachments = [] }) {
   }
 
   console.error(`❌ [Email] FAILED → All email delivery strategies failed for: "${to}"`);
-  console.error(`💡 NOTE: Render blocks outbound SMTP ports 465 & 587 by default.`);
-  console.error(`👉 Solution for 100% instant delivery on Render: Add RESEND_API_KEY (free 3,000 emails/mo at https://resend.com) to your Render Environment Variables.`);
   return false;
 }
 
@@ -275,10 +288,15 @@ async function sendConfirmationEmail(to, event, registration) {
   const qrAttachment = await buildQrAttachment(registration);
   const hasQr = !!qrUrl || !!qrAttachment;
 
+  let qrImgSrc = qrUrl;
+  if (qrAttachment && qrAttachment.content) {
+    qrImgSrc = `data:image/png;base64,${qrAttachment.content.toString('base64')}`;
+  }
+
   const qrSection = `
     <div style="text-align:center;margin:24px 0;padding:20px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
       <p style="margin:0 0 12px;font-weight:700;color:#1e293b;font-size:1rem;">Your Attendance QR Code</p>
-      ${hasQr ? `<img src="${qrAttachment ? 'cid:attendance-qr' : qrUrl}" alt="Attendance QR" style="width:200px;height:200px;border-radius:8px;border:2px solid #e2e8f0;display:block;margin:0 auto;" />` : ''}
+      ${hasQr ? `<img src="${qrImgSrc || 'cid:attendance-qr'}" alt="Attendance QR" style="width:200px;height:200px;border-radius:8px;border:2px solid #e2e8f0;display:block;margin:0 auto;" />` : ''}
       <p style="margin:12px 0 4px;font-size:0.85rem;color:#64748b;">Show this QR at the venue for attendance.</p>
       <div style="display:inline-block;background:#4f46e5;color:#fff;padding:10px 24px;border-radius:99px;font-family:monospace;font-size:1.2rem;font-weight:800;letter-spacing:0.12em;margin-top:10px;">
         ${regCode}
