@@ -191,6 +191,12 @@ exports.registerEvent = async (req, res) => {
     });
 
     // Fire-and-forget emails
+    // Capture the backend base URL at request time — used for QR image URL in email
+    const backendBaseUrl = process.env.BACKEND_URL
+      || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : '')
+      || (process.env.RENDER_EXTERNAL_URL || '')
+      || `${req.protocol}://${req.get('host')}`;
+
     (async () => {
       try {
         const userDoc = await User.findById(req.user.id).lean();
@@ -203,11 +209,12 @@ exports.registerEvent = async (req, res) => {
             `[Email] Preparing confirmation email for ${recipientEmail}, hasQr=${!!reg.attendanceQrBase64}`
           );
           await sendConfirmationEmail(recipientEmail, event, {
+            _id: reg._id.toString(),
             name: recipientName,
             attendanceQr: reg.attendanceQr || '',
             attendanceQrBase64: reg.attendanceQrBase64 || '',
             registrationCode: reg.registrationCode || '',
-          });
+          }, backendBaseUrl);
           console.log(`[Email] ✅ Confirmation email sent to ${recipientEmail}`);
           // Alert admin
           const adminDoc = await User.findById(event.createdBy).lean();

@@ -299,26 +299,25 @@ async function buildQrAttachment(registration) {
   };
 }
 
-async function sendConfirmationEmail(to, event, registration) {
+async function sendConfirmationEmail(to, event, registration, backendBaseUrl) {
   console.log(`[Email] sendConfirmationEmail: to=${to}, code=${registration.registrationCode}`);
 
   const regCode = registration.registrationCode || '';
   const registrationId = registration._id?.toString() || registration.id?.toString() || '';
 
-  // Build a publicly-accessible QR image URL served by our own backend.
-  // This works in all email clients (Gmail, Outlook, Apple Mail) because it's
-  // a real HTTPS URL — not a data: URI (blocked by Gmail) or CID (unsupported by Brevo API).
-  let backendUrl = '';
-  if (process.env.BACKEND_URL) backendUrl = process.env.BACKEND_URL.replace(/\/$/, '');
-  else if (process.env.RAILWAY_PUBLIC_DOMAIN) backendUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
-  else if (process.env.RENDER_EXTERNAL_URL) backendUrl = process.env.RENDER_EXTERNAL_URL.replace(/\/$/, '');
+  // Determine backend URL — parameter from controller (built from req) takes priority over env vars
+  let resolvedBackendUrl = '';
+  if (backendBaseUrl) resolvedBackendUrl = backendBaseUrl.replace(/\/$/, '');
+  else if (process.env.BACKEND_URL) resolvedBackendUrl = process.env.BACKEND_URL.replace(/\/$/, '');
+  else if (process.env.RAILWAY_PUBLIC_DOMAIN) resolvedBackendUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+  else if (process.env.RENDER_EXTERNAL_URL) resolvedBackendUrl = process.env.RENDER_EXTERNAL_URL.replace(/\/$/, '');
 
-  const qrImageUrl = (registrationId && backendUrl)
-    ? `${backendUrl}/api/attendance/qr-image/${registrationId}`
+  const qrImageUrl = (registrationId && resolvedBackendUrl)
+    ? `${resolvedBackendUrl}/api/attendance/qr-image/${registrationId}`
     : '';
 
   const hasQr = !!qrImageUrl;
-  console.log(`[Email] QR image URL: ${hasQr ? qrImageUrl : 'none (BACKEND_URL not configured)'}`);
+  console.log(`[Email] QR image URL: ${hasQr ? qrImageUrl : 'none — set BACKEND_URL on Render'}`);
 
   const qrSection = `
     <div style="text-align:center;margin:24px 0;padding:20px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
