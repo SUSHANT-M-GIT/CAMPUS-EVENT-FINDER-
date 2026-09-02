@@ -50,8 +50,9 @@ export default function MyRegistrationsPage() {
         data.map((r) => ({
           id: r._id,
           code: r.registrationCode,
-          hasQr: !!r.attendanceQr,
-          qrStart: (r.attendanceQr || '').slice(0, 80),
+          hasQrUrl: !!r.attendanceQr,
+          hasQrBase64: !!r.attendanceQrBase64,
+          qrStart: (r.attendanceQrBase64 || r.attendanceQr || '').slice(0, 60),
         }))
       );
       setRegistrations(data);

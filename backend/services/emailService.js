@@ -34,14 +34,23 @@ async function sendViaResend({ to, subject, html, attachments = [] }) {
     ...(formattedAttachments.length > 0 ? { attachments: formattedAttachments } : {}),
   };
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+
+  let res;
+  try {
+    res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!res.ok) {
     const errText = await res.text().catch(() => '');
@@ -62,11 +71,12 @@ async function sendViaResend({ to, subject, html, attachments = [] }) {
   return true;
 }
 
-async function sendViaBrevoApi({ to, subject, html, attachments = [] }) {
+async function sendViaBrevoApi({ to, subject, html, text, headers: customHeaders = {}, attachments = [] }) {
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) return false;
 
-  console.log('🚀 [Email] Sending via Brevo HTTPS API (Port 443)...');
+  const startTime = Date.now();
+  console.log(`🚀 [Email] Sending via Brevo HTTPS API (Port 443)...`);
   const senderEmail = process.env.EMAIL_USER || process.env.BREVO_SENDER || 'noreply@campuseventfinder.com';
 
   const formattedAttachments = attachments.map((att) => ({
@@ -81,17 +91,29 @@ async function sendViaBrevoApi({ to, subject, html, attachments = [] }) {
     to: [{ email: to }],
     subject,
     htmlContent: html,
+    ...(text ? { textContent: text } : {}),
+    // Pass custom headers (e.g. X-Mailin-Track-Click: no for security emails)
+    ...(Object.keys(customHeaders).length > 0 ? { headers: customHeaders } : {}),
     ...(formattedAttachments.length > 0 ? { attachment: formattedAttachments } : {}),
   };
 
-  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
-    method: 'POST',
-    headers: {
-      'api-key': apiKey,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
+  const brevoController = new AbortController();
+  const brevoTimeoutId = setTimeout(() => brevoController.abort(), 10000); // 10s timeout
+
+  let res;
+  try {
+    res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal: brevoController.signal,
+    });
+  } finally {
+    clearTimeout(brevoTimeoutId);
+  }
 
   if (!res.ok) {
     const errText = await res.text().catch(() => '');
@@ -99,7 +121,8 @@ async function sendViaBrevoApi({ to, subject, html, attachments = [] }) {
   }
 
   const data = await res.json().catch(() => ({}));
-  console.log(`✅ [Email] SUCCESS → Delivered to="${to}" via Brevo HTTPS API | messageId="${data.messageId || 'OK'}"`);
+  const durationMs = Date.now() - startTime;
+  console.log(`✅ [Email] SUCCESS → Accepted by Brevo | to="${to}" | messageId="${data.messageId || 'OK'}" | duration=${durationMs}ms`);
   return true;
 }
 
@@ -160,12 +183,14 @@ function formatDate(d) {
 
 // ─── Core send (Returns true on success, false on failure) ───────────────────
 
-async function sendEmail({ to, subject, html, attachments = [] }) {
-  console.log('📧 Attempting to send email to:', to);
-  console.log('📧 Subject:', subject);
+async function sendEmail({ to, subject, html, text, headers: customHeaders = {}, attachments = [] }) {
+  const reqTime = new Date().toISOString();
+  console.log(`📧 [Email] requestedAt=${reqTime} to="${to}" subject="${subject}"`);
 
-  // Strategy 1: Resend HTTPS API (Port 443 - Recommended for Render & Cloud deployments)
-  if (process.env.RESEND_API_KEY) {
+  // Strategy 1: Resend HTTPS API (Port 443)
+  // Skip Resend entirely if EMAIL_PROVIDER=brevo is set (avoids guaranteed 403 when domain unverified)
+  const emailProvider = (process.env.EMAIL_PROVIDER || '').toLowerCase();
+  if (process.env.RESEND_API_KEY && emailProvider !== 'brevo') {
     try {
       const ok = await sendViaResend({ to, subject, html, attachments });
       if (ok) return true;
@@ -177,7 +202,7 @@ async function sendEmail({ to, subject, html, attachments = [] }) {
   // Strategy 2: Brevo HTTPS API (Port 443)
   if (process.env.BREVO_API_KEY) {
     try {
-      const ok = await sendViaBrevoApi({ to, subject, html, attachments });
+      const ok = await sendViaBrevoApi({ to, subject, html, text, headers: customHeaders, attachments });
       if (ok) return true;
     } catch (errBrevoApi) {
       console.warn(`⚠️ [Email] Brevo HTTPS API failed: ${errBrevoApi.message}`);
@@ -192,7 +217,7 @@ async function sendEmail({ to, subject, html, attachments = [] }) {
     try {
       console.log('🔧 [Email] Trying Gmail SMTP Port 465 (Direct SSL, IPv4)...');
       const transporter = createGmailTransport(465, true);
-      const info = await transporter.sendMail({ from, to, subject, html, attachments });
+      const info = await transporter.sendMail({ from, to, subject, html, text, attachments });
       console.log(`✅ [Email] SUCCESS → Email delivered to="${to}" via Gmail (Port 465) | messageId="${info.messageId}"`);
       return true;
     } catch (err465) {

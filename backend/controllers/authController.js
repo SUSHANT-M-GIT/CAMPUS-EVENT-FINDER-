@@ -73,9 +73,13 @@ async function sendPasswordResetEmail(email, token, name) {
   ).replace(/\/$/, '');
   const resetLink = `${frontendUrl}/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
 
+  console.log(`[PasswordReset] Reset link generated for ${email} (token omitted)`);
+
   return await sendEmail({
     to: email,
     subject: '🔐 Reset your Campus Event Finder password',
+    // Instruct Brevo NOT to rewrite/track links in this security-critical email
+    headers: { 'X-Mailin-Track-Click': 'no' },
     html: `
 <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;border:1px solid #e0e0e0;border-radius:10px;overflow:hidden;">
   <div style="background:#023047;padding:20px 24px;color:#fff;">
@@ -87,10 +91,12 @@ async function sendPasswordResetEmail(email, token, name) {
     <div style="text-align:center;margin:24px 0;">
       <a href="${resetLink}" style="background:#4f46e5;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:700;">Reset password</a>
     </div>
+    <p style="font-size:0.8rem;color:#666;word-break:break-all;">If the button does not work, copy and paste this link into your browser:<br/><span style="color:#4f46e5;">${resetLink}</span></p>
     <p style="color:#888;font-size:0.9rem;">If you did not request a password reset, you can safely ignore this email.</p>
     <p style="color:#888;font-size:0.75rem;margin-top:24px;">Campus Event Finder</p>
   </div>
 </div>`,
+    text: `Password Reset Request\n\nHi ${name},\n\nWe received a request to reset your Campus Event Finder password.\n\nCopy and paste this link into your browser to reset your password:\n${resetLink}\n\nThis link expires in 60 minutes.\n\nIf you did not request a password reset, you can safely ignore this email.\n\nCampus Event Finder`,
   });
 }
 
