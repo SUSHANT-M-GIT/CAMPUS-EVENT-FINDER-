@@ -55,6 +55,7 @@ app.use(
 app.use(mongoSanitize());
 
 const allowedOrigins = [
+  'https://c-e-s.vercel.app',
   'https://campus-event-finder-pgguchles-sushant-m-gits-projects.vercel.app',
   'https://campus-event-finder-r2j3.onrender.com',
   'http://localhost:5173',
