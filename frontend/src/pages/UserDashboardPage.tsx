@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Calendar,
   CheckCircle2,
@@ -33,6 +33,8 @@ const API_BASE = (api.defaults.baseURL ?? '').replace(/\/api\/?$/, '');
 export default function UserDashboardPage() {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const locationState = location.state as { registerEventId?: string } | null;
   const [events, setEvents] = useState<EventItem[]>([]);
   const [similarEvents, setSimilarEvents] = useState<EventItem[]>([]);
   const [noResultsMsg, setNoResultsMsg] = useState('');
@@ -147,6 +149,15 @@ export default function UserDashboardPage() {
   useEffect(() => {
     void loadSubmittedFeedbacks();
   }, [loadSubmittedFeedbacks]);
+
+  // If navigated from EventDetailsPage with a registerEventId, open the modal once events are loaded
+  useEffect(() => {
+    if (locationState?.registerEventId && events.length > 0) {
+      setSelectedEventId(locationState.registerEventId);
+      // Clear the state so refreshing doesn't re-open the modal
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [locationState, events, navigate, location.pathname]);
 
   // Map eventId  registration for quick lookup
   const registrationByEventId = useMemo(() => {

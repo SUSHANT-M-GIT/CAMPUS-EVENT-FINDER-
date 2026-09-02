@@ -18,8 +18,14 @@ import type { EventItem, RegistrationItem } from '../types';
 
 function toQrImageUrl(value?: string | null) {
   if (!value) return '';
+  // base64 data URI — use as-is
+  if (value.startsWith('data:')) return value;
+  // absolute URL — use as-is
   if (value.startsWith('http://') || value.startsWith('https://')) return value;
-  return `http://127.0.0.1:5000${value.startsWith('/') ? value : `/${value}`}`;
+  // relative path — build URL from VITE_API_URL backend base
+  const backendBase = (import.meta.env.VITE_API_URL as string || 'http://127.0.0.1:5000/api')
+    .replace(/\/api\/?$/, '');
+  return `${backendBase}${value.startsWith('/') ? value : `/${value}`}`;
 }
 
 export default function MyRegistrationsPage() {
@@ -293,18 +299,18 @@ export default function MyRegistrationsPage() {
                         type="button"
                         onClick={async () => {
                           try {
-                            // If QR missing, attempt regeneration
-                            if (!reg.attendanceQr) {
-                              // optimistic UI: show spinner by setting certLoading to id
+                            const hasQr = !!(reg.attendanceQrBase64 || reg.attendanceQr);
+                            if (!hasQr) {
                               setCertLoading(reg._id);
                               const res = await (
                                 await import('../services/registrationService')
                               ).regenerateRegistrationQr(reg._id);
                               if (res?.attendanceQr) {
-                                // update local state
                                 setRegistrations((prev) =>
                                   prev.map((p) =>
-                                    p._id === reg._id ? { ...p, attendanceQr: res.attendanceQr } : p
+                                    p._id === reg._id
+                                      ? { ...p, attendanceQr: res.attendanceQr, attendanceQrBase64: res.attendanceQr?.startsWith('data:') ? res.attendanceQr : p.attendanceQrBase64 }
+                                      : p
                                   )
                                 );
                               }
@@ -325,7 +331,7 @@ export default function MyRegistrationsPage() {
                         <QrCode size={14} />{' '}
                         {qrOpen === reg._id
                           ? 'Hide QR'
-                          : reg.attendanceQr
+                          : (reg.attendanceQrBase64 || reg.attendanceQr)
                             ? 'Show QR'
                             : 'Generate QR'}
                       </button>
@@ -357,7 +363,7 @@ export default function MyRegistrationsPage() {
                   </div>
 
                   {/* QR Code Display */}
-                  {qrOpen === reg._id && reg.attendanceQr && (
+                  {qrOpen === reg._id && (reg.attendanceQrBase64 || reg.attendanceQr) && (
                     <div
                       style={{
                         marginTop: 12,
@@ -401,7 +407,7 @@ export default function MyRegistrationsPage() {
                         </div>
                       ) : (
                         <img
-                          src={toQrImageUrl(reg.attendanceQr)}
+                          src={toQrImageUrl(reg.attendanceQrBase64 || reg.attendanceQr)}
                           alt="Attendance QR"
                           onError={() => setQrLoadError((prev) => ({ ...prev, [reg._id]: true }))}
                           style={{
@@ -425,25 +431,28 @@ export default function MyRegistrationsPage() {
                         Show this to the organizer at the venue — or give your code above if
                         scanning fails.
                       </p>
-                      <a
-                        href={toQrImageUrl(reg.attendanceQr)}
-                        download={`qr-${reg.registrationCode || reg._id}.png`}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 5,
-                          marginTop: 10,
-                          background: 'linear-gradient(135deg,#4f46e5,#7c3aed)',
-                          color: '#fff',
-                          borderRadius: 8,
-                          padding: '8px 18px',
-                          fontSize: '0.82rem',
-                          fontWeight: 700,
-                          textDecoration: 'none',
-                        }}
-                      >
-                        <Download size={13} /> Download QR
-                      </a>
+                      {/* Only show download link for non-base64 URLs (can't download data URI easily) */}
+                      {!(reg.attendanceQrBase64 || reg.attendanceQr || '').startsWith('data:') && (
+                        <a
+                          href={toQrImageUrl(reg.attendanceQr)}
+                          download={`qr-${reg.registrationCode || reg._id}.png`}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            marginTop: 10,
+                            background: 'linear-gradient(135deg,#4f46e5,#7c3aed)',
+                            color: '#fff',
+                            borderRadius: 8,
+                            padding: '8px 18px',
+                            fontSize: '0.82rem',
+                            fontWeight: 700,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <Download size={13} /> Download QR
+                        </a>
+                      )}
                     </div>
                   )}
                 </div>

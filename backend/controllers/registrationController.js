@@ -18,11 +18,15 @@ function makeRegCode() {
   return 'REG-' + crypto.randomBytes(3).toString('hex').toUpperCase();
 }
 
-/** Generate a QR PNG file, save it in the uploads folder, and store a public URL. */
-function getPublicBaseUrl() {
-  const configured = (process.env.APP_URL || `http://localhost:${process.env.PORT || 5000}`)
-    .replace(/\/$/, '');
-  return configured;
+/** Generate a QR PNG, store it as base64 on the registration doc, and also try to save a file. */
+function getBackendBaseUrl() {
+  // BACKEND_URL should be the deployed backend (e.g. https://campus-event-finder-r2j3.onrender.com)
+  // APP_URL is the frontend — do NOT use it for QR file serving
+  return (
+    process.env.BACKEND_URL ||
+    process.env.RENDER_EXTERNAL_URL ||  // Render injects this automatically
+    `http://localhost:${process.env.PORT || 5000}`
+  ).replace(/\/$/, '');
 }
 
 function buildQrPayload(registration, context = {}) {
@@ -38,15 +42,10 @@ async function generateAndSaveQr(registration, context = {}) {
   try {
     const registrationId = registration?._id?.toString?.() || String(registration?.id || registration);
     const eventId = context.eventId || registration?.eventId?.toString?.() || '';
-    const studentName = context.studentName || registration?.name || '';
 
     const qrPayload = buildQrPayload(registration, { eventId });
 
-    const qrDir = path.join(__dirname, '../uploads/qr-codes');
-    if (!fs.existsSync(qrDir)) fs.mkdirSync(qrDir, { recursive: true });
-
-    const filename = `qr-${registrationId}.png`;
-    const filePath = path.join(qrDir, filename);
+    // Always generate base64 — works on ephemeral filesystems (Render free tier)
     const buffer = await QRCode.toBuffer(qrPayload, {
       width: 300,
       margin: 2,
@@ -54,17 +53,32 @@ async function generateAndSaveQr(registration, context = {}) {
       type: 'image/png',
     });
 
-    fs.writeFileSync(filePath, buffer);
+    const base64DataUri = `data:image/png;base64,${buffer.toString('base64')}`;
+    registration.attendanceQrBase64 = base64DataUri;
 
-    const qrFilePath = `/uploads/qr-codes/${filename}`;
-    const publicQrUrl = `${getPublicBaseUrl()}${qrFilePath}`;
+    // Also attempt to write a file for local dev / persistent storage environments
+    try {
+      const qrDir = path.join(__dirname, '../uploads/qr-codes');
+      if (!fs.existsSync(qrDir)) fs.mkdirSync(qrDir, { recursive: true });
+      const filename = `qr-${registrationId}.png`;
+      const filePath = path.join(qrDir, filename);
+      fs.writeFileSync(filePath, buffer);
+      const qrFilePath = `/uploads/qr-codes/${filename}`;
+      const publicQrUrl = `${getBackendBaseUrl()}${qrFilePath}`;
+      registration.attendanceQr = publicQrUrl;
+      registration.attendanceQrFile = qrFilePath;
+      console.log(`[QR] Saved QR file: ${publicQrUrl}`);
+    } catch (fileErr) {
+      // File save failed (expected on ephemeral hosts) — base64 is the fallback
+      console.warn(`[QR] File save skipped (ephemeral fs): ${fileErr?.message}`);
+      registration.attendanceQr = '';
+      registration.attendanceQrFile = '';
+    }
 
-    registration.attendanceQr = publicQrUrl;
-    registration.attendanceQrFile = qrFilePath;
-    console.log(`[QR] Saved QR file: ${publicQrUrl}`);
-    return publicQrUrl;
+    console.log(`[QR] ✅ base64 QR generated for registration ${registrationId}`);
+    return base64DataUri; // always return the base64 — never an empty string
   } catch (err) {
-    console.error('[QR] Failed to generate QR file:', err?.message || err);
+    console.error('[QR] Failed to generate QR:', err?.message || err);
     return '';
   }
 }
@@ -172,7 +186,7 @@ exports.registerEvent = async (req, res) => {
       status,
       waitlistPosition,
       registrationId: reg._id,
-      attendanceQr: reg.attendanceQr || '',
+      attendanceQr: reg.attendanceQrBase64 || reg.attendanceQr || '',
       registrationCode: reg.registrationCode || '',
     });
 
@@ -186,11 +200,12 @@ exports.registerEvent = async (req, res) => {
 
         if (status === 'confirmed') {
           console.log(
-            `[Email] Preparing confirmation email for ${recipientEmail}, QR length=${reg.attendanceQr?.length || 0}`
+            `[Email] Preparing confirmation email for ${recipientEmail}, hasQr=${!!reg.attendanceQrBase64}`
           );
           await sendConfirmationEmail(recipientEmail, event, {
             name: recipientName,
             attendanceQr: reg.attendanceQr || '',
+            attendanceQrBase64: reg.attendanceQrBase64 || '',
             registrationCode: reg.registrationCode || '',
           });
           console.log(`[Email] ✅ Confirmation email sent to ${recipientEmail}`);
@@ -263,6 +278,7 @@ exports.regenerateQr = async (req, res) => {
         await sendConfirmationEmail(userDoc.email, event || {}, {
           name: userDoc.name || reg.name,
           attendanceQr: reg.attendanceQr || '',
+          attendanceQrBase64: reg.attendanceQrBase64 || '',
           registrationCode: reg.registrationCode || '',
         });
       }
@@ -273,7 +289,7 @@ exports.regenerateQr = async (req, res) => {
 
     res.json({
       success: true,
-      attendanceQr: reg.attendanceQr,
+      attendanceQr: reg.attendanceQrBase64 || reg.attendanceQr,
       registrationCode: reg.registrationCode,
     });
   } catch (e) {

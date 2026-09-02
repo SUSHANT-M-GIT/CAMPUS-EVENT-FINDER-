@@ -66,6 +66,7 @@ export interface RegistrationItem {
   waitlistPosition?: number | null;
   // QR Attendance
   attendanceQr?: string;
+  attendanceQrBase64?: string;
   attendanceStatus?: 'absent' | 'present';
   // Certificate
   certificateId?: string;

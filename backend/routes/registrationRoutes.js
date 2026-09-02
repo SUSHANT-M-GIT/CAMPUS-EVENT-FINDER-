@@ -3,18 +3,19 @@ const auth = require('../middleware/auth');
 const role = require('../middleware/role');
 const c = require('../controllers/registrationController');
 
-// Students register / cancel / view their own
-router.post('/register/:eventId', auth, role(['student']), c.registerEvent);
-router.post('/registrations/:eventId', auth, role(['student']), c.registerEvent);
-router.delete('/registrations/:eventId', auth, role(['student']), c.cancelRegistration);
+// Students AND professionals can register, cancel, and view their own registrations
+const participantRoles = ['student', 'professional'];
+router.post('/register/:eventId', auth, role(participantRoles), c.registerEvent);
+router.post('/registrations/:eventId', auth, role(participantRoles), c.registerEvent);
+router.delete('/registrations/:eventId', auth, role(participantRoles), c.cancelRegistration);
 // Regenerate a missing/broken QR for a registration
 router.post(
   '/registrations/:registrationId/regenerate-qr',
   auth,
-  role(['student']),
+  role(participantRoles),
   c.regenerateQr
 );
-router.get('/my-registrations', auth, role(['student']), c.myRegistrations);
+router.get('/my-registrations', auth, role(participantRoles), c.myRegistrations);
 
 // Admin cancellation management
 router.get('/cancellations/pending', auth, role(['admin']), c.getPendingCancellations);

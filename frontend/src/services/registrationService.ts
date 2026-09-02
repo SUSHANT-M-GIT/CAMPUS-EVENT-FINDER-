@@ -13,6 +13,8 @@ export interface RegisterResponse {
   status: 'confirmed' | 'waitlisted';
   waitlistPosition?: number | null;
   registrationId?: string;
+  attendanceQr?: string;
+  registrationCode?: string;
   requested?: boolean;
 }
 

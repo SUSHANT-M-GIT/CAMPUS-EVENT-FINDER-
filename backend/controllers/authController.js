@@ -64,10 +64,14 @@ function generateResetToken() {
 }
 
 async function sendPasswordResetEmail(email, token, name) {
-  const appUrl = process.env.APP_URL || 'http://localhost:5173';
-  const resetLink = `${appUrl}/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(
-    email
-  )}`;
+  // FRONTEND_URL is the deployed frontend (e.g. https://c-e-s.vercel.app)
+  // APP_URL is also the frontend — BACKEND_URL is used only for QR file serving
+  const frontendUrl = (
+    process.env.FRONTEND_URL ||
+    process.env.APP_URL ||
+    'http://localhost:5173'
+  ).replace(/\/$/, '');
+  const resetLink = `${frontendUrl}/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
 
   return await sendEmail({
     to: email,
@@ -103,7 +107,11 @@ async function createAndSendOrganizerApprovalRequest(u, req) {
     u.organizerApprovalStatus = 'pending';
     await u.save();
 
-    const baseUrl = (process.env.APP_URL || (req ? `${req.protocol}://${req.get('host')}` : 'http://localhost:5173')).replace(/\/$/, '');
+    const baseUrl = (
+      process.env.FRONTEND_URL ||
+      process.env.APP_URL ||
+      (req ? `${req.protocol}://${req.get('host')}` : 'http://localhost:5173')
+    ).replace(/\/$/, '');
     const approveUrl = `${baseUrl}/organizer-approval/approve/${rawToken}`;
     const rejectUrl = `${baseUrl}/organizer-approval/reject/${rawToken}`;
     const ownerEmail = process.env.PLATFORM_OWNER_EMAIL || process.env.EMAIL_USER;
@@ -127,7 +135,7 @@ async function createAndSendOrganizerApprovalRequest(u, req) {
 function renderApprovalHtml({ title, heading, message, type }) {
   const icon = type === 'success' ? '✅' : type === 'warn' ? '⚠️' : '❌';
   const color = type === 'success' ? '#10b981' : type === 'warn' ? '#f59e0b' : '#ef4444';
-  const appUrl = process.env.APP_URL || 'http://localhost:5173';
+  const appUrl = (process.env.FRONTEND_URL || process.env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
 
   return `
 <!DOCTYPE html>

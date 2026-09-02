@@ -1,20 +1,18 @@
 ﻿import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import Alert from '../components/Alert';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
 import { getEventById } from '../services/eventService';
-import { registerForEvent } from '../services/registrationService';
 import type { EventItem } from '../types';
 
 export default function EventDetailsPage() {
   const { id } = useParams();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [event, setEvent] = useState<EventItem | null>(null);
   const [loading, setLoading] = useState(true);
-  const [registering, setRegistering] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     const loadEvent = async () => {
@@ -38,19 +36,10 @@ export default function EventDetailsPage() {
     (new Date(event.registrationDeadline) < new Date() || new Date(event.date) < new Date())
   );
 
-  const handleRegister = async () => {
-    if (!id || eventClosed) return;
-    setError('');
-    setSuccess('');
-    setRegistering(true);
-    try {
-      const data = await registerForEvent(id);
-      setSuccess(data.msg);
-    } catch {
-      setError('Registration failed. You may already be registered or deadline has passed.');
-    } finally {
-      setRegistering(false);
-    }
+  const handleRegister = () => {
+    // Navigate to dashboard with the event pre-selected for registration
+    // The full registration form (name, collegeId, department) lives on the dashboard
+    navigate('/', { state: { registerEventId: id } });
   };
 
   if (loading) return <LoadingSpinner />;
@@ -75,19 +64,14 @@ export default function EventDetailsPage() {
 
         <div className="mt-6">
           {error && <Alert type="error" message={error} />}
-          {success && <Alert type="success" message={success} />}
-          {user?.role === 'student' && (
+          {(user?.role === 'student' || user?.role === 'professional') && (
             <>
               <button
                 onClick={handleRegister}
-                disabled={registering || eventClosed}
+                disabled={eventClosed}
                 className="rounded-md bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-500 disabled:opacity-70"
               >
-                {registering
-                  ? 'Registering...'
-                  : eventClosed
-                    ? 'Registration closed'
-                    : 'Register for Event'}
+                {eventClosed ? 'Registration closed' : 'Register for Event'}
               </button>
               {eventClosed && (
                 <p className="mt-3 text-sm text-slate-500">

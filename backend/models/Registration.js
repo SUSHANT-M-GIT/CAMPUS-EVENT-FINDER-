@@ -15,8 +15,9 @@ const schema = new mongoose.Schema({
   waitlistPosition: { type: Number, default: null },
 
   // ── QR Attendance ─────────────────────────────────────────────────────────
-  attendanceQr: { type: String, default: '' }, // public URL to saved QR PNG file
-  attendanceQrFile: { type: String, default: '' }, // server-side file path for QR image
+  attendanceQr: { type: String, default: '' },      // public URL to saved QR PNG file
+  attendanceQrFile: { type: String, default: '' },  // server-side file path for QR image
+  attendanceQrBase64: { type: String, default: '' }, // base64 PNG data URI — survives ephemeral filesystems
   attendanceStatus: { type: String, enum: ['absent', 'present'], default: 'absent' },
 
   // ── Certificate ───────────────────────────────────────────────────────────
