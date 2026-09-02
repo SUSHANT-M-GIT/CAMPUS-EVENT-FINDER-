@@ -1,50 +1,49 @@
 /**
  * emailService.js
- * Primary: Gmail SMTP via Nodemailer (requires App Password)
+ * Primary: Gmail SMTP via Nodemailer (Port 465 SSL with IPv4 enforcement for cloud deployment)
+ * Secondary: Gmail SMTP (Port 587 STARTTLS)
  * Fallback: Brevo SMTP (300 free emails/day)
  * All env vars read at call-time (never at module load).
  */
 const nodemailer = require('nodemailer');
 
-function getTransport() {
-  // Primary: Gmail SMTP (if configured)
-  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-    console.log('🔧 Using Gmail SMTP transport (port 587)');
-    // Google App Passwords are sometimes stored with spaces (e.g. "abcd efgh ijkl mnop")
-    // Nodemailer requires no spaces — strip them here
-    const cleanPass = process.env.EMAIL_PASS.replace(/\s+/g, '');
-    return nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false, // STARTTLS
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: cleanPass,
-      },
-    });
-  }
+function createGmailTransport(port = 465, secure = true) {
+  const cleanPass = (process.env.EMAIL_PASS || '').replace(/\s+/g, '');
+  return nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port,
+    secure,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: cleanPass,
+    },
+    family: 4, // CRITICAL for deployed cloud hosting: Forces IPv4 to avoid ENETUNREACH IPv6 errors
+    connectionTimeout: 10000, // 10 seconds max connection timeout
+    greetingTimeout: 8000,
+    socketTimeout: 15000,
+    tls: {
+      rejectUnauthorized: false, // Prevents TLS handshaking rejections in containerized environments
+    },
+  });
+}
 
-  // Fallback: Brevo SMTP
-  if (process.env.BREVO_USER && process.env.BREVO_PASS) {
-    console.log('🔧 Using Brevo SMTP transport (fallback)');
-    return nodemailer.createTransport({
-      host: 'smtp-relay.brevo.com',
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.BREVO_USER,
-        pass: process.env.BREVO_PASS,
-      },
-    });
-  }
-
-  throw new Error(
-    'No email transport configured. Set EMAIL_USER/EMAIL_PASS or BREVO_USER/BREVO_PASS'
-  );
+function createBrevoTransport() {
+  return nodemailer.createTransport({
+    host: 'smtp-relay.brevo.com',
+    port: 587,
+    secure: false,
+    auth: {
+      user: process.env.BREVO_USER,
+      pass: process.env.BREVO_PASS,
+    },
+    family: 4,
+    connectionTimeout: 10000,
+    greetingTimeout: 8000,
+    socketTimeout: 15000,
+  });
 }
 
 function getFrom() {
-  // Use EMAIL_USER for Gmail, otherwise EMAIL_FROM or default
   if (process.env.EMAIL_USER) {
     return `Campus Event Finder <${process.env.EMAIL_USER}>`;
   }
@@ -64,65 +63,64 @@ function formatDate(d) {
 // ─── core send (returns true on success, false on failure) ────────────────────
 
 async function sendEmail({ to, subject, html, attachments = [] }) {
-  // ── diagnostic logs (safe to keep in production) ──
   console.log('📧 Attempting to send email to:', to);
   console.log('📧 Subject:', subject);
 
-  try {
-    // Check if email transport is configured
-    const gmailConfigured = !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
-    const brevoConfigured = !!(process.env.BREVO_USER && process.env.BREVO_PASS);
+  const gmailConfigured = !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
+  const brevoConfigured = !!(process.env.BREVO_USER && process.env.BREVO_PASS);
 
-    if (!gmailConfigured && !brevoConfigured) {
-      console.error(`❌ [Email] SKIP — No email service configured (to="${to}")`);
-      console.error('⚠️  Set EMAIL_USER/EMAIL_PASS for Gmail OR BREVO_USER/BREVO_PASS for Brevo');
-      return false;
-    }
-
-    if (gmailConfigured) {
-      console.log('✅ Gmail credentials detected:');
-      console.log('   EMAIL_USER:', process.env.EMAIL_USER);
-      const cleanPass = process.env.EMAIL_PASS.replace(/\s+/g, '');
-      console.log(
-        '   EMAIL_PASS (cleaned):',
-        cleanPass ? cleanPass.slice(0, 4) + '...' : 'NOT SET'
-      );
-      console.log('   Password length (no spaces):', cleanPass.length);
-    } else if (brevoConfigured) {
-      console.log('✅ Brevo credentials detected (fallback):');
-      console.log('   BREVO_USER:', process.env.BREVO_USER);
-      console.log(
-        '   BREVO_PASS:',
-        process.env.BREVO_PASS ? process.env.BREVO_PASS.slice(0, 10) + '...' : 'NOT SET'
-      );
-    }
-
-    const from = getFrom();
-    console.log(`📤 [Email] Sending from="${from}" to="${to}"`);
-
-    const transporter = getTransport();
-    const info = await transporter.sendMail({ from, to, subject, html, attachments });
-
-    console.log(`✅ [Email] SUCCESS → Email delivered to="${to}" | messageId="${info.messageId}"`);
-    return true;
-  } catch (err) {
-    console.error(`❌ [Email] FAILED → to="${to}"`);
-    console.error(`❌ Error details: ${err.message}`);
-
-    // Provide helpful troubleshooting info
-    if (
-      err.message.includes('Invalid login') ||
-      err.message.includes('Username and Password not accepted')
-    ) {
-      console.error('⚠️  Gmail Authentication Failed:');
-      console.error("   1. Make sure you're using Gmail App Password (NOT regular password)");
-      console.error('   2. Enable 2-Step Verification in Google Account');
-      console.error('   3. Generate App Password: https://myaccount.google.com/apppasswords');
-      console.error('   4. Use the 16-character app password in .env EMAIL_PASS');
-    }
-
+  if (!gmailConfigured && !brevoConfigured) {
+    console.error(`❌ [Email] SKIP — No email service configured (to="${to}")`);
+    console.error('⚠️  Set EMAIL_USER/EMAIL_PASS for Gmail OR BREVO_USER/BREVO_PASS for Brevo');
     return false;
   }
+
+  const from = getFrom();
+
+  // 1. Try Gmail Port 465 (Direct SSL IPv4 — most reliable on cloud deployments)
+  if (gmailConfigured) {
+    try {
+      console.log('🔧 [Email] Trying Gmail SMTP Port 465 (Direct SSL, IPv4)...');
+      const transporter = createGmailTransport(465, true);
+      const info = await transporter.sendMail({ from, to, subject, html, attachments });
+      console.log(`✅ [Email] SUCCESS → Email delivered to="${to}" via Gmail (Port 465) | messageId="${info.messageId}"`);
+      return true;
+    } catch (err465) {
+      console.warn(`⚠️ [Email] Gmail Port 465 failed: ${err465.message}. Retrying via Port 587...`);
+
+      // 2. Fallback to Gmail Port 587 (STARTTLS IPv4)
+      try {
+        const transporter587 = createGmailTransport(587, false);
+        const info587 = await transporter587.sendMail({ from, to, subject, html, attachments });
+        console.log(`✅ [Email] SUCCESS → Email delivered to="${to}" via Gmail (Port 587) | messageId="${info587.messageId}"`);
+        return true;
+      } catch (err587) {
+        console.error(`❌ [Email] Gmail Port 587 failed: ${err587.message}`);
+        if (
+          err587.message.includes('Invalid login') ||
+          err587.message.includes('Username and Password not accepted')
+        ) {
+          console.error('⚠️  Gmail Authentication Failed: Please verify your 16-character Google App Password in EMAIL_PASS');
+        }
+      }
+    }
+  }
+
+  // 3. Fallback to Brevo SMTP if configured
+  if (brevoConfigured) {
+    try {
+      console.log('🔧 [Email] Trying Brevo SMTP fallback (Port 587, IPv4)...');
+      const brevoTransporter = createBrevoTransport();
+      const infoBrevo = await brevoTransporter.sendMail({ from, to, subject, html, attachments });
+      console.log(`✅ [Email] SUCCESS → Email delivered to="${to}" via Brevo | messageId="${infoBrevo.messageId}"`);
+      return true;
+    } catch (errBrevo) {
+      console.error(`❌ [Email] Brevo SMTP failed: ${errBrevo.message}`);
+    }
+  }
+
+  console.error(`❌ [Email] FAILED → All email delivery strategies failed for: "${to}"`);
+  return false;
 }
 
 // ─── named helpers used by controllers and scheduler ─────────────────────────
