@@ -303,35 +303,29 @@ async function sendConfirmationEmail(to, event, registration) {
   console.log(`[Email] sendConfirmationEmail: to=${to}, code=${registration.registrationCode}`);
 
   const regCode = registration.registrationCode || '';
+  const registrationId = registration._id?.toString() || registration.id?.toString() || '';
 
-  // Priority 1: base64 stored on the registration doc (works on ephemeral hosts like Render)
-  // Priority 2: file on disk (local dev)
-  // Priority 3: public URL (fallback)
-  let qrImgSrc = '';
+  // Build a publicly-accessible QR image URL served by our own backend.
+  // This works in all email clients (Gmail, Outlook, Apple Mail) because it's
+  // a real HTTPS URL — not a data: URI (blocked by Gmail) or CID (unsupported by Brevo API).
+  let backendUrl = '';
+  if (process.env.BACKEND_URL) backendUrl = process.env.BACKEND_URL.replace(/\/$/, '');
+  else if (process.env.RAILWAY_PUBLIC_DOMAIN) backendUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+  else if (process.env.RENDER_EXTERNAL_URL) backendUrl = process.env.RENDER_EXTERNAL_URL.replace(/\/$/, '');
 
-  if (registration.attendanceQrBase64 && registration.attendanceQrBase64.startsWith('data:image')) {
-    qrImgSrc = registration.attendanceQrBase64;
-    console.log(`[Email] Using base64 QR (length=${qrImgSrc.length})`);
-  } else {
-    const qrAttachment = await buildQrAttachment(registration);
-    if (qrAttachment && qrAttachment.content) {
-      qrImgSrc = `data:image/png;base64,${qrAttachment.content.toString('base64')}`;
-      console.log('[Email] Using QR from disk file');
-    } else {
-      const qrUrl = buildQrUrl(registration);
-      if (qrUrl) {
-        qrImgSrc = qrUrl;
-        console.log(`[Email] Using QR URL: ${qrUrl}`);
-      }
-    }
-  }
+  const qrImageUrl = (registrationId && backendUrl)
+    ? `${backendUrl}/api/attendance/qr-image/${registrationId}`
+    : '';
 
-  const hasQr = !!qrImgSrc;
+  const hasQr = !!qrImageUrl;
+  console.log(`[Email] QR image URL: ${hasQr ? qrImageUrl : 'none (BACKEND_URL not configured)'}`);
 
   const qrSection = `
     <div style="text-align:center;margin:24px 0;padding:20px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
       <p style="margin:0 0 12px;font-weight:700;color:#1e293b;font-size:1rem;">Your Attendance QR Code</p>
-      ${hasQr ? `<img src="${qrImgSrc}" alt="Attendance QR" style="width:200px;height:200px;border-radius:8px;border:2px solid #e2e8f0;display:block;margin:0 auto;" />` : '<p style="color:#94a3b8;font-size:0.85rem;">QR code will be available shortly.</p>'}
+      ${hasQr
+        ? `<img src="${qrImageUrl}" alt="Attendance QR Code" width="200" height="200" style="width:200px;height:200px;border-radius:8px;border:2px solid #e2e8f0;display:block;margin:0 auto;" />`
+        : '<p style="color:#94a3b8;font-size:0.85rem;">QR code will be available shortly.</p>'}
       <p style="margin:12px 0 4px;font-size:0.85rem;color:#64748b;">Show this QR at the venue for attendance.</p>
       <div style="display:inline-block;background:#4f46e5;color:#fff;padding:10px 24px;border-radius:99px;font-family:monospace;font-size:1.2rem;font-weight:800;letter-spacing:0.12em;margin-top:10px;">
         ${regCode}
@@ -358,8 +352,8 @@ async function sendConfirmationEmail(to, event, registration) {
   </div>
 </div>`;
 
-  // No CID attachments needed — QR is embedded as base64 data URI directly in the HTML
   await sendEmail({ to, subject: `Registration Confirmed: ${event.title}`, html, attachments: [] });
+  console.log(`[Email] Confirmation email queued — hasQr=${hasQr}`);
 }
 
 async function sendReminderEmail(to, event, registration) {

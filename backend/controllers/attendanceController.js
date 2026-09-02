@@ -323,11 +323,48 @@ exports.getMyQr = async (req, res) => {
     if (ownerId !== req.user.id) return res.status(403).json({ msg: 'Access denied' });
 
     res.json({
-      attendanceQr: reg.attendanceQr || null,
+      attendanceQr: reg.attendanceQrBase64 || reg.attendanceQr || null,
       attendanceStatus: reg.attendanceStatus || 'absent',
       certificateId: reg.certificateId || null,
     });
   } catch (e) {
     res.status(500).json({ msg: e.message });
+  }
+};
+
+// ── GET QR IMAGE — PUBLIC (used in emails, no auth required) ─────────────────
+// GET /api/attendance/qr-image/:registrationId
+// Returns the QR as a PNG image directly — safe to embed in emails as <img src="...">
+exports.getQrImage = async (req, res) => {
+  try {
+    const reg = await Registration.findById(req.params.registrationId)
+      .select('attendanceQrBase64 attendanceQr registrationCode')
+      .lean();
+    if (!reg) return res.status(404).send('Not found');
+
+    let pngBuffer = null;
+
+    if (reg.attendanceQrBase64 && reg.attendanceQrBase64.startsWith('data:image')) {
+      const base64Data = reg.attendanceQrBase64.replace(/^data:image\/\w+;base64,/, '');
+      pngBuffer = Buffer.from(base64Data, 'base64');
+    }
+
+    if (!pngBuffer || pngBuffer.length === 0) {
+      // Regenerate on-the-fly from the registration code if base64 is missing
+      const QRCode = require('qrcode');
+      const crypto = require('crypto');
+      const payload = reg.registrationCode || req.params.registrationId;
+      pngBuffer = await QRCode.toBuffer(payload, {
+        width: 300, margin: 2,
+        color: { dark: '#0f172a', light: '#ffffff' },
+      });
+    }
+
+    res.set('Content-Type', 'image/png');
+    res.set('Cache-Control', 'public, max-age=86400'); // cache 24h
+    res.send(pngBuffer);
+  } catch (e) {
+    console.error('[QR Image] Error serving QR image:', e.message);
+    res.status(500).send('Error');
   }
 };
