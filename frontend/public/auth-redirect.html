@@ -13,69 +13,78 @@
     /**
      * MSAL v5 popup redirect page.
      *
-     * MSAL v5 uses a BroadcastChannel keyed on the libraryState.id to pass the
-     * auth-code response from the popup back to the parent window.  This page:
-     *  1. Reads the current URL (hash or search) which contains the auth code.
-     *  2. Parses the `state` parameter to extract the libraryState.id.
-     *  3. Opens a BroadcastChannel on that id and posts the response payload
-     *     in the exact format MSAL expects.
-     *  4. Closes the popup.
+     * MSAL v5 state format:  <base64LibraryState>|<userState>
+     *   libraryState = base64( JSON { id: guid, meta?: {...} } )
+     *   RESOURCE_DELIM = "|"
      *
-     * This avoids loading the full React/MSAL bundle here.
+     * MSAL waits on:  new BroadcastChannel(libraryState.id)
+     * Message format: { payload: <full response string>, v: 1 }
+     *
+     * This page:
+     *  1. Reads the auth response from the URL (hash or search).
+     *  2. Parses the `state` param → base64-decodes → gets libraryState.id
+     *  3. Posts the response to that BroadcastChannel.
+     *  4. Closes the popup.
      */
     (function () {
       try {
-        // The auth response can be in the hash OR the search string
+        // Auth response is in the hash (implicit/hybrid) or search (code flow)
         var responseString = window.location.hash || window.location.search;
         if (!responseString || responseString.length < 2) {
-          // Nothing to process — just close
           window.close();
           return;
         }
 
-        // Strip leading # or ?
-        var paramString = responseString.slice(1);
+        // Parse all key=value pairs from the response
+        var paramString = responseString.slice(1); // strip leading # or ?
         var params = {};
         paramString.split('&').forEach(function (pair) {
           var idx = pair.indexOf('=');
           if (idx > -1) {
-            params[decodeURIComponent(pair.slice(0, idx))] = decodeURIComponent(pair.slice(idx + 1).replace(/\+/g, ' '));
+            try {
+              params[decodeURIComponent(pair.slice(0, idx))] =
+                decodeURIComponent(pair.slice(idx + 1).replace(/\+/g, ' '));
+            } catch (e) { /* ignore malformed pairs */ }
           }
         });
 
-        // The `state` param is base64url-encoded JSON: { id, meta, ... }
         var stateParam = params['state'];
         if (!stateParam) {
           window.close();
           return;
         }
 
-        // Extract the libraryState.id — MSAL encodes state as: <requestId>.<b64LibraryState>
-        // Split on the first dot
-        var dotIdx = stateParam.indexOf('.');
-        var b64LibraryState = dotIdx > -1 ? stateParam.slice(dotIdx + 1) : stateParam;
+        // MSAL state format: "<base64LibraryState>|<userState>"
+        // RESOURCE_DELIM = "|"
+        var b64LibraryState = stateParam.split('|')[0];
+        if (!b64LibraryState) {
+          window.close();
+          return;
+        }
 
-        // base64url → base64 → JSON
+        // base64 decode (handle base64url encoding too)
         var b64 = b64LibraryState.replace(/-/g, '+').replace(/_/g, '/');
-        while (b64.length % 4 !== 0) b64 += '=';
+        while (b64.length % 4 !== 0) { b64 += '='; }
         var libraryState = JSON.parse(atob(b64));
-        var channelId = libraryState.id;
+        var channelId = libraryState && libraryState.id;
 
         if (!channelId) {
           window.close();
           return;
         }
 
-        // Post the response to the BroadcastChannel MSAL is listening on
+        // Post auth response to the BroadcastChannel MSAL is listening on
         var channel = new BroadcastChannel(channelId);
+        // MSAL v5 waitForBridgeResponse expects: { payload: responseString, v: 1 }
         channel.postMessage({ payload: responseString, v: 1 });
         channel.close();
 
-        // Give MSAL a moment to receive the message, then close the popup
-        setTimeout(function () { window.close(); }, 500);
+        // Close the popup after a short delay so MSAL receives the message
+        setTimeout(function () { window.close(); }, 300);
+
       } catch (e) {
-        // If anything fails, just close the popup — MSAL will timeout cleanly
-        console.warn('[auth-redirect] Error processing popup response:', e.message);
+        console.warn('[auth-redirect] Error:', e.message);
+        // On any failure close the popup — MSAL will surface a timeout error
         window.close();
       }
     })();
