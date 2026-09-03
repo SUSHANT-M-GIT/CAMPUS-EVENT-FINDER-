@@ -2534,9 +2534,7 @@ select.input {
 [data-theme='light'] .land-hero {
   background: linear-gradient(135deg, #1a1040 0%, #0f172a 100%);
 }
-[data-theme='light'] .auth-card {
-  background: rgba(255, 255, 255, 0.95);
-}
+/* Auth card text — dark mode: near-white (card is always dark-glass) */
 .auth-card label {
   color: #e2e8f0 !important;
 }
@@ -2546,6 +2544,33 @@ select.input {
 .auth-card h1,
 .auth-card p {
   color: #f1f5f9;
+}
+
+/* Light mode auth card — flip text to dark so it's readable on white card */
+[data-theme='light'] .auth-card {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(108, 99, 255, 0.07);
+}
+[data-theme='light'] .auth-card label {
+  color: #1e293b !important;
+}
+[data-theme='light'] .auth-card .auth-form input {
+  color: #0f172a;
+  background: #f8faff;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+[data-theme='light'] .auth-card .auth-form input::placeholder {
+  color: #94a3b8;
+}
+[data-theme='light'] .auth-card h1 {
+  color: #0f172a;
+}
+[data-theme='light'] .auth-card p {
+  color: #475569;
+}
+[data-theme='light'] .auth-card .auth-footnote {
+  color: #475569;
 }
 [data-theme='light'] .input {
   background: #ffffff;
@@ -2669,16 +2694,7 @@ select.input {
   .auth-card {
     padding: 26px 20px;
   }
-  .auth-card label {
-    color: #e2e8f0 !important;
-  }
-  .auth-card .auth-form input {
-    color: #f1f5f9;
-  }
-  .auth-card h1,
-  .auth-card p {
-    color: #f1f5f9;
-  }
+  /* light-mode responsive auth text already handled by [data-theme='light'] .auth-card rules above */
   .stat-cards-grid {
     grid-template-columns: 1fr;
   }
