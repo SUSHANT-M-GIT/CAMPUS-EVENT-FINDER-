@@ -312,18 +312,29 @@ async function sendConfirmationEmail(to, event, registration, backendBaseUrl) {
   else if (process.env.RAILWAY_PUBLIC_DOMAIN) resolvedBackendUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
   else if (process.env.RENDER_EXTERNAL_URL) resolvedBackendUrl = process.env.RENDER_EXTERNAL_URL.replace(/\/$/, '');
 
-  const qrImageUrl = (registrationId && resolvedBackendUrl)
-    ? `${resolvedBackendUrl}/api/attendance/qr-image/${registrationId}`
-    : '';
+  // Prefer base64 inline image (always works, no backend wake-up needed).
+  // Fall back to a URL only if base64 is genuinely absent.
+  const qrBase64 = registration.attendanceQrBase64 || '';
+  let qrImgSrc = '';
+  if (qrBase64.startsWith('data:image')) {
+    // Already a proper data URI — use directly
+    qrImgSrc = qrBase64;
+  } else if (qrBase64) {
+    // Raw base64 without the data URI prefix
+    qrImgSrc = `data:image/png;base64,${qrBase64}`;
+  } else if (registrationId && resolvedBackendUrl) {
+    // Last resort: URL (requires backend to be awake)
+    qrImgSrc = `${resolvedBackendUrl}/api/attendance/qr-image/${registrationId}`;
+  }
 
-  const hasQr = !!qrImageUrl;
-  console.log(`[Email] QR image URL: ${hasQr ? qrImageUrl : 'none — set BACKEND_URL on Render'}`);
+  const hasQr = !!qrImgSrc;
+  console.log(`[Email] QR: ${qrBase64 ? 'inline base64 ✅' : qrImgSrc ? `url ${qrImgSrc.slice(0, 60)}` : 'none — BACKEND_URL not set'}`);
 
   const qrSection = `
     <div style="text-align:center;margin:24px 0;padding:20px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
       <p style="margin:0 0 12px;font-weight:700;color:#1e293b;font-size:1rem;">Your Attendance QR Code</p>
       ${hasQr
-        ? `<img src="${qrImageUrl}" alt="Attendance QR Code" width="200" height="200" style="width:200px;height:200px;border-radius:8px;border:2px solid #e2e8f0;display:block;margin:0 auto;" />`
+        ? `<img src="${qrImgSrc}" alt="Attendance QR Code" width="200" height="200" style="width:200px;height:200px;border-radius:8px;border:2px solid #e2e8f0;display:block;margin:0 auto;" />`
         : '<p style="color:#94a3b8;font-size:0.85rem;">QR code will be available shortly.</p>'}
       <p style="margin:12px 0 4px;font-size:0.85rem;color:#64748b;">Show this QR at the venue for attendance.</p>
       <div style="display:inline-block;background:#4f46e5;color:#fff;padding:10px 24px;border-radius:99px;font-family:monospace;font-size:1.2rem;font-weight:800;letter-spacing:0.12em;margin-top:10px;">
@@ -356,6 +367,28 @@ async function sendConfirmationEmail(to, event, registration, backendBaseUrl) {
 }
 
 async function sendReminderEmail(to, event, registration) {
+  // Build inline base64 QR for the reminder email (same logic as confirmation)
+  const regCode = registration.registrationCode || '';
+  const qrBase64 = registration.attendanceQrBase64 || '';
+  let qrImgSrc = '';
+  if (qrBase64.startsWith('data:image')) {
+    qrImgSrc = qrBase64;
+  } else if (qrBase64) {
+    qrImgSrc = `data:image/png;base64,${qrBase64}`;
+  }
+
+  const qrBlock = qrImgSrc ? `
+    <div style="text-align:center;margin:20px 0;padding:16px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
+      <p style="margin:0 0 10px;font-weight:700;color:#1e293b;font-size:0.95rem;">Your Attendance QR Code</p>
+      <img src="${qrImgSrc}" alt="Attendance QR Code" width="180" height="180" style="width:180px;height:180px;border-radius:8px;border:2px solid #e2e8f0;display:block;margin:0 auto;" />
+      <div style="display:inline-block;background:#4f46e5;color:#fff;padding:8px 20px;border-radius:99px;font-family:monospace;font-size:1.1rem;font-weight:800;letter-spacing:0.1em;margin-top:10px;">${regCode}</div>
+      <p style="margin:8px 0 0;font-size:0.78rem;color:#94a3b8;">Use this code for manual attendance if QR scan fails.</p>
+    </div>` : (regCode ? `
+    <div style="text-align:center;margin:20px 0;">
+      <div style="display:inline-block;background:#4f46e5;color:#fff;padding:10px 24px;border-radius:99px;font-family:monospace;font-size:1.2rem;font-weight:800;letter-spacing:0.12em;">${regCode}</div>
+      <p style="font-size:0.78rem;color:#94a3b8;margin:6px 0 0;">Your registration code for manual attendance.</p>
+    </div>` : '');
+
   await sendEmail({
     to,
     subject: `⏰ Reminder: "${event.title}" is tomorrow!`,
@@ -364,13 +397,14 @@ async function sendReminderEmail(to, event, registration) {
   <div style="background:#f59e0b;padding:24px;color:#fff;"><h2 style="margin:0;">Event Reminder — 24 Hours to go!</h2></div>
   <div style="padding:24px;">
     <p>Hi <strong>${registration.name || 'there'}</strong>,</p>
-    <p>Your event starts in approximately <strong>24 hours</strong>.</p>
+    <p>Your event starts in approximately <strong>24 hours</strong>. Here are your details:</p>
     <table style="width:100%;border-collapse:collapse;margin:16px 0;">
       <tr><td style="padding:8px;font-weight:bold;width:140px;">Event</td><td style="padding:8px;">${event.title}</td></tr>
       <tr style="background:#f9f9f9;"><td style="padding:8px;font-weight:bold;">Date</td><td style="padding:8px;">${formatDate(event.date)}</td></tr>
       <tr><td style="padding:8px;font-weight:bold;">Time</td><td style="padding:8px;">${event.time || 'TBD'}</td></tr>
       <tr style="background:#f9f9f9;"><td style="padding:8px;font-weight:bold;">Venue</td><td style="padding:8px;">${event.location || 'TBD'}</td></tr>
     </table>
+    ${qrBlock}
     <p>See you there!</p>
     <p style="color:#888;font-size:12px;margin-top:32px;">Campus Event Finder</p>
   </div>
