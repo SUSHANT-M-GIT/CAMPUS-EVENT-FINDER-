@@ -3,6 +3,9 @@
 A full-stack web application that helps students, professionals, and organizers discover, register for, and manage campus events — with QR-based attendance, certificates, real-time notifications, and a complete organizer dashboard.
 
 ---
+## APP LINK 
+
+ **https://c-e-s.vercel.app/**
 
 ## 🌐 Live App
 
