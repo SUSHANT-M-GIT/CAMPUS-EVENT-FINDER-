@@ -191,11 +191,13 @@ exports.registerEvent = async (req, res) => {
     });
 
     // Fire-and-forget emails
-    // Capture the backend base URL at request time — used for QR image URL in email
+    // Capture the backend base URL at request time — used for QR image URL in email.
+    // Use x-forwarded-proto because Render sits behind a reverse proxy (req.protocol = 'http' always).
+    const reqProto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
     const backendBaseUrl = process.env.BACKEND_URL
       || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : '')
       || (process.env.RENDER_EXTERNAL_URL || '')
-      || `${req.protocol}://${req.get('host')}`;
+      || `${reqProto}://${req.get('host')}`;
 
     (async () => {
       try {
@@ -283,12 +285,15 @@ exports.regenerateQr = async (req, res) => {
       const userDoc = await User.findById(reg.userId).lean();
       if (userDoc?.email) {
         const event = await Event.findById(reg.eventId).lean();
+        const reqProto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+        const bbUrl = process.env.BACKEND_URL || `${reqProto}://${req.get('host')}`;
         await sendConfirmationEmail(userDoc.email, event || {}, {
+          _id: reg._id.toString(),
           name: userDoc.name || reg.name,
           attendanceQr: reg.attendanceQr || '',
           attendanceQrBase64: reg.attendanceQrBase64 || '',
           registrationCode: reg.registrationCode || '',
-        });
+        }, bbUrl);
       }
     } catch (emailErr) {
       console.error('[QR] Regenerate: failed to email QR:', emailErr?.message || emailErr);

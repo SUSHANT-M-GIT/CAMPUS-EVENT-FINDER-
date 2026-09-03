@@ -64,16 +64,22 @@ function generateResetToken() {
 }
 
 async function sendPasswordResetEmail(email, token, name) {
-  // FRONTEND_URL is the deployed frontend (e.g. https://c-e-s.vercel.app)
-  // APP_URL is also the frontend — BACKEND_URL is used only for QR file serving
-  const frontendUrl = (
-    process.env.FRONTEND_URL ||
-    process.env.APP_URL ||
-    'http://localhost:5173'
-  ).replace(/\/$/, '');
+  // Priority: FRONTEND_URL (set on Render dashboard) → APP_URL → known production URL → localhost dev
+  // IMPORTANT: Set FRONTEND_URL=https://c-e-s.vercel.app on Render to make this work in production.
+  // APP_URL on Render must NOT be localhost — it should be the frontend domain.
+  let frontendUrl = process.env.FRONTEND_URL || process.env.APP_URL || '';
+  // If frontendUrl is localhost (local .env leaked to production), override with CLIENT_URL or warn
+  if (!frontendUrl || frontendUrl.includes('localhost') || frontendUrl.includes('127.0.0.1')) {
+    if (process.env.CLIENT_URL) frontendUrl = process.env.CLIENT_URL;
+    else {
+      console.warn('[PasswordReset] WARNING: FRONTEND_URL not set or still localhost — reset link will be broken in production. Set FRONTEND_URL on Render.');
+      frontendUrl = 'http://localhost:5173'; // dev only
+    }
+  }
+  frontendUrl = frontendUrl.replace(/\/$/, '');
   const resetLink = `${frontendUrl}/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
 
-  console.log(`[PasswordReset] Reset link generated for ${email} (token omitted)`);
+  console.log(`[PasswordReset] Reset link frontend domain: ${frontendUrl} (token omitted)`);
 
   return await sendEmail({
     to: email,

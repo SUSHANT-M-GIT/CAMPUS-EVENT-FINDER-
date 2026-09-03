@@ -13,6 +13,17 @@ const { startReminderScheduler } = require('./services/reminderScheduler');
 dotenv.config();
 connectDB();
 
+// ── Startup env checks ───────────────────────────────────────────────────────
+const _frontendUrl = process.env.FRONTEND_URL || process.env.APP_URL || '';
+if (!_frontendUrl || _frontendUrl.includes('localhost')) {
+  console.warn('[Config] WARNING: FRONTEND_URL is not set or still points to localhost.');
+  console.warn('[Config] Password reset emails will contain broken links in production.');
+  console.warn('[Config] Set FRONTEND_URL=https://c-e-s.vercel.app on Render.');
+}
+if (!process.env.BACKEND_URL) {
+  console.warn('[Config] BACKEND_URL not set — QR image URL will be inferred from request host (usually correct on Render).');
+}
+
 const app = express();
 const server = http.createServer(app);
 
