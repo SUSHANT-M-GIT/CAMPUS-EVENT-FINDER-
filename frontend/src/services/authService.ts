@@ -73,7 +73,7 @@ export async function changePassword(payload: ChangePasswordPayload) {
 
 export interface GoogleAuthPayload {
   idToken: string;
-  role?: 'student' | 'professional' | 'admin';
+  role?: 'student' | 'professional' | 'general' | 'admin';
   collegeName?: string;
   collegeId?: string;
   company?: string;
@@ -90,7 +90,7 @@ export interface GoogleAuthResponse {
   msg?: string;
   googleEmail?: string;
   googleName?: string;
-  role?: 'student' | 'professional' | 'admin';
+  role?: 'student' | 'professional' | 'general' | 'admin';
 }
 
 export async function googleAuth(payload: GoogleAuthPayload) {
@@ -101,7 +101,7 @@ export async function googleAuth(payload: GoogleAuthPayload) {
 export interface MicrosoftAuthPayload {
   accessToken?: string;
   idToken?: string;
-  role?: 'student' | 'professional' | 'admin';
+  role?: 'student' | 'professional' | 'general' | 'admin';
   collegeName?: string;
   collegeId?: string;
   company?: string;
@@ -117,7 +117,7 @@ export interface MicrosoftAuthResponse {
   msg?: string;
   msEmail?: string;
   msName?: string;
-  role?: 'student' | 'professional' | 'admin';
+  role?: 'student' | 'professional' | 'general' | 'admin';
   provider?: string;
 }
 
@@ -128,5 +128,13 @@ export async function microsoftAuth(payload: MicrosoftAuthPayload) {
 
 export async function fetchCurrentUser() {
   const { data } = await api.get<AuthUser>('/auth/me');
+  return data;
+}
+
+export async function updateName(name: string) {
+  const { data } = await api.patch<{ success: boolean; msg: string; name: string }>(
+    '/auth/update-name',
+    { name }
+  );
   return data;
 }

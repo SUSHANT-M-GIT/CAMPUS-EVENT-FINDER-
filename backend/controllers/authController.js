@@ -186,19 +186,22 @@ exports.register = async (req, res) => {
     if (!email) return res.status(400).json({ msg: 'Email is required' });
     if (!FORMAT_RE.test(email)) return res.status(400).json({ msg: 'Invalid email format' });
 
-    if (role && !['student', 'professional', 'admin'].includes(role)) {
+    if (role && !['student', 'professional', 'general', 'admin'].includes(role)) {
       return res.status(400).json({ msg: 'Invalid account role.' });
     }
 
+    // 'general' is a UI-label alias for 'professional' (no company/designation required)
+    const effectiveRole = role === 'general' ? 'professional' : role;
+
     // Validate required fields per role
-    if (role === 'student') {
+    if (effectiveRole === 'student') {
       if (!collegeName?.trim())
         return res.status(400).json({ msg: 'College / university name is required for students' });
       if (!collegeId?.trim())
         return res.status(400).json({ msg: 'College ID / roll number is required for students' });
-    } else if (role === 'professional') {
-      // company is optional, but we still need a designation
-    } else if (role === 'admin') {
+    } else if (effectiveRole === 'professional') {
+      // company is optional, designation is optional for general users
+    } else if (effectiveRole === 'admin') {
       if (!collegeName?.trim())
         return res.status(400).json({ msg: 'College / organisation name is required' });
       if (!phone?.trim())
@@ -209,11 +212,11 @@ exports.register = async (req, res) => {
         return res.status(400).json({ msg: 'College / university name is required' });
     }
 
-    if (!collegeName?.trim() && role !== 'professional')
+    if (!collegeName?.trim() && effectiveRole !== 'professional')
       return res.status(400).json({ msg: 'College / organisation name is required' });
 
-    const isAdmin = role === 'admin';
-    const isProfessional = role === 'professional';
+    const isAdmin = effectiveRole === 'admin';
+    const isProfessional = effectiveRole === 'professional';
     let u = await User.findOne({ email: new RegExp(`^${email}$`, 'i') });
     if (u && u.isVerified) return res.status(400).json({ msg: 'User already exists' });
 
@@ -588,7 +591,7 @@ exports.googleAuth = async (req, res) => {
     }
 
     // New user — Profile completion check
-    if (!role || !['student', 'professional', 'admin'].includes(role)) {
+    if (!role || !['student', 'professional', 'general', 'admin'].includes(role)) {
       return res.status(200).json({
         needsProfileCompletion: true,
         isNewUser: true,
@@ -599,8 +602,11 @@ exports.googleAuth = async (req, res) => {
       });
     }
 
+    // 'general' is a UI alias for 'professional' (no company/designation required)
+    const effectiveGoogleRole = role === 'general' ? 'professional' : role;
+
     // Validate required profile information per selected role
-    if (role === 'student') {
+    if (effectiveGoogleRole === 'student') {
       if (!collegeName?.trim() || !collegeId?.trim()) {
         return res.status(200).json({
           needsProfileCompletion: true,
@@ -612,8 +618,8 @@ exports.googleAuth = async (req, res) => {
           msg: 'Please provide both College Name and College ID.',
         });
       }
-    } else if (role === 'professional') {
-      if (!designation?.trim()) {
+    } else if (effectiveGoogleRole === 'professional') {
+      if (role !== 'general' && !designation?.trim()) {
         return res.status(200).json({
           needsProfileCompletion: true,
           isNewUser: true,
@@ -624,7 +630,7 @@ exports.googleAuth = async (req, res) => {
           msg: 'Please provide your Designation / Role.',
         });
       }
-    } else if (role === 'admin') {
+    } else if (effectiveGoogleRole === 'admin') {
       if (!collegeName?.trim()) {
         return res.status(200).json({
           needsProfileCompletion: true,
@@ -649,28 +655,28 @@ exports.googleAuth = async (req, res) => {
       }
     }
 
-    const isAdmin = role === 'admin';
-    const isProfessional = role === 'professional';
+    const isGoogleAdmin = effectiveGoogleRole === 'admin';
+    const isGoogleProfessional = effectiveGoogleRole === 'professional';
 
     // Create new account — Google-verified
     u = await new User({
       name: googleName,
       email: googleEmail,
       password: '',
-      role: isAdmin ? 'admin' : isProfessional ? 'professional' : 'student',
+      role: isGoogleAdmin ? 'admin' : isGoogleProfessional ? 'professional' : 'student',
       collegeName: collegeName?.trim() || '',
-      collegeId: role === 'student' ? collegeId.trim() : '',
-      company: isProfessional ? (company?.trim() || '') : '',
-      designation: isProfessional ? designation.trim() : (isAdmin ? (designation?.trim() || 'Event Organizer') : ''),
+      collegeId: effectiveGoogleRole === 'student' ? collegeId.trim() : '',
+      company: isGoogleProfessional ? (company?.trim() || '') : '',
+      designation: isGoogleProfessional ? (designation?.trim() || '') : (isGoogleAdmin ? (designation?.trim() || 'Event Organizer') : ''),
       phone: phone?.trim() || '',
-      clubName: isAdmin ? collegeName.trim() : '',
-      verificationStatus: isAdmin ? 'pending' : 'approved',
-      organizerApprovalStatus: isAdmin ? 'pending' : 'approved',
+      clubName: isGoogleAdmin ? collegeName.trim() : '',
+      verificationStatus: isGoogleAdmin ? 'pending' : 'approved',
+      organizerApprovalStatus: isGoogleAdmin ? 'pending' : 'approved',
       accountStatus: 'active',
       isVerified: true,
     }).save();
 
-    if (isAdmin) {
+    if (isGoogleAdmin) {
       await createAndSendOrganizerApprovalRequest(u, req);
       return res.json({
         isNewUser: true,
@@ -786,7 +792,7 @@ exports.microsoftAuth = async (req, res) => {
     }
 
     // New user — Profile completion check
-    if (!role || !['student', 'professional', 'admin'].includes(role)) {
+    if (!role || !['student', 'professional', 'general', 'admin'].includes(role)) {
       return res.status(200).json({
         needsProfileCompletion: true,
         isNewUser: true,
@@ -797,8 +803,11 @@ exports.microsoftAuth = async (req, res) => {
       });
     }
 
+    // 'general' is a UI alias for 'professional' (no company/designation required)
+    const effectiveMsRole = role === 'general' ? 'professional' : role;
+
     // Validate required profile fields for new users
-    if (role === 'student') {
+    if (effectiveMsRole === 'student') {
       if (!collegeName?.trim() || !collegeId?.trim()) {
         return res.status(200).json({
           needsProfileCompletion: true,
@@ -810,8 +819,8 @@ exports.microsoftAuth = async (req, res) => {
           msg: 'Please provide both College Name and College ID.',
         });
       }
-    } else if (role === 'professional') {
-      if (!designation?.trim()) {
+    } else if (effectiveMsRole === 'professional') {
+      if (role !== 'general' && !designation?.trim()) {
         return res.status(200).json({
           needsProfileCompletion: true,
           isNewUser: true,
@@ -822,7 +831,7 @@ exports.microsoftAuth = async (req, res) => {
           msg: 'Please provide your Designation / Role.',
         });
       }
-    } else if (role === 'admin') {
+    } else if (effectiveMsRole === 'admin') {
       if (!collegeName?.trim()) {
         return res.status(200).json({
           needsProfileCompletion: true,
@@ -847,28 +856,28 @@ exports.microsoftAuth = async (req, res) => {
       }
     }
 
-    const isAdmin = role === 'admin';
-    const isProfessional = role === 'professional';
+    const isMsAdmin = effectiveMsRole === 'admin';
+    const isMsProfessional = effectiveMsRole === 'professional';
 
     // Create new account — Microsoft verified
     u = await new User({
       name: msName,
       email: msEmail,
       password: '',
-      role: isAdmin ? 'admin' : isProfessional ? 'professional' : 'student',
+      role: isMsAdmin ? 'admin' : isMsProfessional ? 'professional' : 'student',
       collegeName: collegeName?.trim() || '',
-      collegeId: role === 'student' ? collegeId.trim() : '',
-      company: isProfessional ? (company?.trim() || '') : '',
-      designation: isProfessional ? designation.trim() : (isAdmin ? (designation?.trim() || 'Event Organizer') : ''),
+      collegeId: effectiveMsRole === 'student' ? collegeId.trim() : '',
+      company: isMsProfessional ? (company?.trim() || '') : '',
+      designation: isMsProfessional ? (designation?.trim() || '') : (isMsAdmin ? (designation?.trim() || 'Event Organizer') : ''),
       phone: phone?.trim() || '',
-      clubName: isAdmin ? collegeName.trim() : '',
-      verificationStatus: isAdmin ? 'pending' : 'approved',
-      organizerApprovalStatus: isAdmin ? 'pending' : 'approved',
+      clubName: isMsAdmin ? collegeName.trim() : '',
+      verificationStatus: isMsAdmin ? 'pending' : 'approved',
+      organizerApprovalStatus: isMsAdmin ? 'pending' : 'approved',
       accountStatus: 'active',
       isVerified: true,
     }).save();
 
-    if (isAdmin) {
+    if (isMsAdmin) {
       await createAndSendOrganizerApprovalRequest(u, req);
       return res.json({
         isNewUser: true,
@@ -877,7 +886,7 @@ exports.microsoftAuth = async (req, res) => {
       });
     }
 
-    const token = jwt.sign(
+    const msToken = jwt.sign(
       {
         user: {
           id: u.id,
@@ -891,7 +900,7 @@ exports.microsoftAuth = async (req, res) => {
       { expiresIn: '1d' }
     );
 
-    res.json({ token, isNewUser: true });
+    res.json({ token: msToken, isNewUser: true });
   } catch (e) {
     console.error('microsoftAuth Error:', e);
     res.status(500).json({ msg: e.message || 'Microsoft sign-in failed' });
@@ -1093,6 +1102,40 @@ exports.changePassword = async (req, res) => {
   } catch (error) {
     console.error('changePassword Error:', error);
     res.status(500).json({ msg: error.message || 'Unable to update password.' });
+  }
+};
+
+// ── UPDATE NAME ───────────────────────────────────────────────────────────────
+// PATCH /api/auth/update-name  — requires authentication
+// Only updates the user's own name. Cannot change role, permissions, or any other field.
+exports.updateName = async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || typeof name !== 'string') {
+      return res.status(400).json({ msg: 'Name is required.' });
+    }
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      return res.status(400).json({ msg: 'Name cannot be empty or only spaces.' });
+    }
+    if (trimmedName.length < 2) {
+      return res.status(400).json({ msg: 'Name must be at least 2 characters.' });
+    }
+    if (trimmedName.length > 80) {
+      return res.status(400).json({ msg: 'Name cannot exceed 80 characters.' });
+    }
+
+    // Identity comes from JWT — never trust a userId from the request body
+    const u = await User.findById(req.user.id);
+    if (!u) return res.status(404).json({ msg: 'User not found.' });
+
+    u.name = trimmedName;
+    await u.save();
+
+    res.json({ success: true, msg: 'Name updated successfully.', name: u.name });
+  } catch (e) {
+    console.error('updateName Error:', e);
+    res.status(500).json({ msg: e.message || 'Unable to update name.' });
   }
 };
 

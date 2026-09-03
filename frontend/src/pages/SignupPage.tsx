@@ -10,7 +10,7 @@ interface SignupFormData {
   name: string;
   email: string;
   password: string;
-  role: 'student' | 'professional' | 'admin';
+  role: 'student' | 'professional' | 'general' | 'admin';
   collegeName: string;
   collegeId: string;
   company: string;
@@ -259,9 +259,20 @@ export default function SignupPage() {
                 required
               >
                 <option value="student">Student</option>
-                <option value="professional">Working Professional / General</option>
+                <option value="professional">Working Professional</option>
+                <option value="general">General / Individual</option>
                 <option value="admin">Admin / Organizer</option>
               </select>
+              {form.role === 'general' && (
+                <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                  Not a student or professional? Just here to explore campus events.
+                </p>
+              )}
+              {form.role === 'admin' && (
+                <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#f59e0b' }}>
+                  ⚠️ Organiser access requires platform owner approval after registration.
+                </p>
+              )}
             </div>
 
             {/* Student-only fields */}

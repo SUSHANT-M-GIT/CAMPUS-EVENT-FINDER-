@@ -1,13 +1,13 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { login as loginRequest, signup as signupRequest, fetchCurrentUser } from '../services/authService';
-import type { AuthUser, UserRole } from '../types';
+import { login as loginRequest, signup as signupRequest, fetchCurrentUser, updateName as updateNameRequest } from '../services/authService';
+import type { AuthUser, UIRole } from '../types';
 
 interface SignupInput {
   name: string;
   email: string;
   password: string;
-  role?: UserRole;
+  role?: UIRole;
   collegeName: string;
   collegeId?: string;
   company?: string;
@@ -22,6 +22,7 @@ interface AuthContextValue {
   loginWithToken: (token: string) => Promise<AuthUser | null>;
   signup: (input: SignupInput) => Promise<string>;
   logout: () => void;
+  updateUserName: (name: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -144,6 +145,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  // Update only the user's name — does NOT change role or permissions
+  const updateUserName = useCallback(async (name: string) => {
+    await updateNameRequest(name);
+    // Update local state immediately without a full reload
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, name };
+      localStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
   const value = useMemo(
     () => ({
       user,
@@ -153,8 +166,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loginWithToken,
       signup,
       logout,
+      updateUserName,
     }),
-    [user, token, login, loginWithToken, signup, logout]
+    [user, token, login, loginWithToken, signup, logout, updateUserName]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

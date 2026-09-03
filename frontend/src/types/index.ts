@@ -1,5 +1,8 @@
 export type UserRole = 'admin' | 'student' | 'professional';
 
+// UI-facing role labels (general maps internally to 'professional')
+export type UIRole = 'student' | 'professional' | 'general' | 'admin';
+
 export interface AuthUser {
   id: string;
   role: UserRole;

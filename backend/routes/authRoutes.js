@@ -18,6 +18,7 @@ router.get('/organizer-approval/reject/:token', c.handleOrganizerRejection);
 // Authenticated routes
 router.get('/me', auth, c.getCurrentUser);
 router.post('/change-password', auth, c.changePassword);
+router.patch('/update-name', auth, c.updateName);
 
 // Authenticated users can request admin access
 router.post('/request-admin', auth, c.requestAdmin);
