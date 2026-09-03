@@ -1,84 +1,70 @@
-# 🎓 Campus Event Finder & Manager
+# Campus Event Finder & Manager
 
-A modern, full-stack campus event discovery, management, and attendance platform built with **Node.js, Express, MongoDB, React, TypeScript, and Vite**.
-
-The platform covers the complete event lifecycle — from publishing and student registration to QR-based attendance scanning, live dashboards, PDF certificates, and a secure 1-click organizer approval system.
-
----
-## APP URL  
-
-**https://c-e-s.vercel.app** 
-
-## 🌐 Live Deployment
-
-| Service | URL |
-| :--- | :--- |
-| **Frontend** | https://c-e-s.vercel.app |
-| **Backend API** | https://campus-event-finder-r2j3.onrender.com |
+A full-stack web application that helps students, professionals, and organizers discover, register for, and manage campus events — with QR-based attendance, certificates, real-time notifications, and a complete organizer dashboard.
 
 ---
 
-## 🌟 Key Features
+## 🌐 Live App
 
-### 🔐 Multi-Role Authentication
-- Student, Working Professional, and Event Organizer / Admin roles
-- Email + password signup with OTP verification
-- Google OAuth (credential flow)
-- Microsoft OAuth (Azure App Registration — supports university Microsoft 365 and personal accounts)
-- Profile completion modal for OAuth users missing required fields
+**Frontend:** [https://c-e-s.vercel.app](https://c-e-s.vercel.app)
 
-### ⚡ 1-Click Organizer Approval
-- New organizer accounts start as `pending` and cannot publish events until approved
-- Platform owner receives a formatted approval email with applicant details
-- One-tap approve / reject buttons directly from the email — no dashboard login required
-- SHA-256 cryptographic tokens with 24-hour expiry and single-use invalidation
-
-### 📅 Event Management
-- Rich event creation: title, description, category, banner, venue, date/time, deadline, capacity
-- Search by keyword, filter by category/tags
-- Real-time updates via Socket.IO
-
-### 🎟️ Registration & QR Attendance
-- One-click event registration with real-time seat tracking and waitlist
-- Personalized QR code generated immediately on registration
-- QR served via hosted backend endpoint — works reliably in all email clients (Gmail, Outlook)
-- In-browser live camera QR scanner for organizers
-- Manual registration code (REG-XXXXXX) as scanner fallback
-- Live attendance roster
-
-### 📜 PDF Certificates
-- Organizer-controlled per-event certificate toggle
-- Verified PDF certificates generated server-side with PDFKit
-- Direct download for attended participants
-
-### 📧 Reliable Email Delivery
-- Brevo API (primary) with Resend and Gmail SMTP as fallbacks
-- Password reset emails with Brevo click-tracking disabled (prevents broken links)
-- Registration confirmation emails with embedded QR image
+**Backend API:** [https://campus-event-finder-r2j3.onrender.com](https://campus-event-finder-r2j3.onrender.com)
 
 ---
 
-## 🛠️ Tech Stack
+## 🏗️ Tech Stack
 
-### Frontend
-- React 19, TypeScript, Vite
-- TailwindCSS + custom CSS design tokens (dark/light theme)
-- Lucide Icons, Framer Motion
-- `@react-oauth/google`, `@azure/msal-browser`
-- Socket.IO client, Recharts, React Router v7
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, TypeScript, Vite |
+| Backend | Node.js, Express.js |
+| Database | MongoDB Atlas |
+| Auth | JWT, Google OAuth, Microsoft OAuth (MSAL v5) |
+| Real-time | Socket.IO |
+| Email | Brevo (primary), Gmail SMTP (fallback) |
+| Deployment | Vercel (frontend), Render (backend) |
 
-### Backend
-- Node.js, Express.js
-- MongoDB + Mongoose
-- Socket.IO
-- `bcryptjs`, `jsonwebtoken`, `crypto`
-- Nodemailer, Brevo API, Resend API
-- `qrcode`, `pdfkit`, `node-cron`
+---
 
-### Deployment
-- **Frontend**: Vercel (with `vercel.json` SPA rewrites for direct URL navigation)
-- **Backend**: Render (with `trust proxy` for correct HTTPS detection behind reverse proxy)
-- **Database**: MongoDB Atlas
+## 👤 Account Types
+
+### Student
+- Registers with college name and college ID
+- Browses and registers for events
+- Gets a QR code for attendance at each event
+- Downloads attendance certificates after the event
+- Can edit their name from the profile page
+- Can change their password
+
+### Working Professional
+- Registers with designation and optional company name
+- Same event access as students
+- QR attendance and certificates included
+
+### General / Individual
+- For anyone who is not a student or professional
+- No company or designation required
+- Full event browsing and registration access
+
+### Admin / Organizer
+- Requires approval from the platform owner before access is granted
+- Creates and manages events
+- Scans QR codes to mark attendance
+- Views all registrations for their events
+- Enables certificates for events
+- Manages waitlists and cancellations
+- Gets real-time notifications when someone registers
+
+---
+
+## 🔐 Authentication
+
+- **Email signup** — OTP email verification required
+- **Google login** — new users complete their profile after OAuth
+- **Microsoft login** — new users complete their profile after OAuth
+- **Forgot password** — secure reset link sent to email (60 min expiry)
+- **Change password** — from the profile page (authenticated)
+- All routes are protected by JWT tokens
 
 ---
 
@@ -86,219 +72,250 @@ The platform covers the complete event lifecycle — from publishing and student
 
 ```
 Campus-Event-Finder/
-├── backend/
-│   ├── config/          # Database connection
-│   ├── controllers/     # Business logic (auth, events, registrations, attendance)
-│   ├── cronJobs/        # Scheduled background tasks
-│   ├── middleware/      # JWT auth, role validation
-│   ├── models/          # Mongoose schemas (User, Event, Registration)
-│   ├── routes/          # Express API route declarations
-│   ├── services/        # Email service, reminder scheduler
-│   ├── tests/           # Jest test suites
-│   ├── uploads/         # QR codes and uploaded assets
-│   ├── .env.example     # Environment variable template
-│   └── server.js        # Express + Socket.IO entrypoint
-│
-├── frontend/
+├── frontend/                  # React + TypeScript app
+│   ├── public/
+│   │   └── auth-redirect.html # MSAL popup redirect page
 │   ├── src/
-│   │   ├── components/  # Reusable UI (Navbar, QR Scanner, Modals, Alerts)
-│   │   ├── context/     # Auth, Theme, Socket providers
-│   │   ├── pages/       # All pages (Landing, Dashboards, Auth, Profile)
-│   │   ├── routes/      # React Router + Protected Routes
-│   │   ├── services/    # Axios API client modules
-│   │   ├── types/       # TypeScript interfaces
-│   │   └── utils/       # Helpers and error utilities
-│   ├── vercel.json      # SPA fallback rewrites for Vercel
-│   └── vite.config.ts   # Vite config + dev proxy
+│   │   ├── components/        # Reusable UI components
+│   │   ├── context/           # React context providers
+│   │   ├── pages/             # Full page components
+│   │   ├── routes/            # App routing
+│   │   ├── services/          # API call functions
+│   │   ├── types/             # TypeScript type definitions
+│   │   └── utils/             # Helper utilities
+│   ├── vercel.json            # Vercel SPA routing config
+│   └── .env                   # Frontend environment variables
 │
-└── README.md
+└── backend/                   # Node.js + Express API
+    ├── config/
+    │   └── db.js              # MongoDB connection
+    ├── controllers/           # Route handler logic
+    ├── cronJobs/              # Scheduled background tasks
+    ├── middleware/            # Auth, role, upload middleware
+    ├── models/                # MongoDB schemas
+    ├── routes/                # API route definitions
+    ├── scripts/               # One-off utility scripts
+    ├── services/              # Email, scheduler services
+    ├── tests/                 # Backend test files
+    └── server.js              # App entry point
 ```
 
 ---
 
-## ⚙️ Environment Setup
+## 🧩 Frontend Files
 
-### Backend (`backend/.env`)
+### Pages (`frontend/src/pages/`)
 
-Copy `backend/.env.example` to `backend/.env` and fill in your values:
+| File | What it does |
+|---|---|
+| `LandingPage.tsx` | Home page shown to visitors who are not logged in |
+| `LoginPage.tsx` | Email login form with Google and Microsoft OAuth buttons |
+| `SignupPage.tsx` | Account creation form — OTP verification step included |
+| `ForgotPasswordPage.tsx` | Enter email to receive a password reset link |
+| `ResetPasswordPage.tsx` | Set a new password using the reset link from email |
+| `UserDashboardPage.tsx` | Main dashboard for students and professionals — browse and register for events |
+| `UserProfilePage.tsx` | View profile info, edit name, change password |
+| `MyRegistrationsPage.tsx` | View all event registrations, show QR codes, download certificates |
+| `EventsPage.tsx` | Public event listing page |
+| `EventDetailsPage.tsx` | Single event details page |
+| `AdminDashboardPage.tsx` | Full organizer dashboard — events, attendance, registrations, notifications |
+| `AdminEventsPage.tsx` | List of all events created by the organizer |
+| `AdminEventFormPage.tsx` | Create or edit an event |
+| `AdminEventRegistrationsPage.tsx` | View all registrations for a specific event |
+| `OrganizerApprovalPage.tsx` | Page shown when platform owner clicks approve/reject link from email |
+| `NotFoundPage.tsx` | 404 page |
 
-```env
-PORT=5000
+### Components (`frontend/src/components/`)
 
-# MongoDB Atlas connection string
-MONGO_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/campus-events
+| File | What it does |
+|---|---|
+| `SocialAuthButtons.tsx` | Google and Microsoft OAuth buttons with profile completion modal |
+| `AppNavbar.tsx` | Top navigation bar shown inside the app |
+| `Navbar.tsx` | Navigation bar shown on public pages |
+| `ProtectedRoute.tsx` | Blocks pages from unauthenticated or wrong-role users |
+| `QrScannerModal.tsx` | Admin QR scanner — camera scan, image upload, and manual ID entry |
+| `NotificationBell.tsx` | Real-time notification bell in the admin navbar |
+| `EventCard.tsx` | Single event card shown in listings |
+| `EventCarousel.tsx` | Featured events horizontal carousel |
+| `Alert.tsx` | Success and error alert banners |
+| `LoadingSpinner.tsx` | Loading indicator |
+| `SkeletonCard.tsx` | Placeholder card shown while events are loading |
+| `EmptyState.tsx` | Shown when a list has no items |
+| `ErrorBoundary.tsx` | Catches unexpected React errors gracefully |
+| `DashboardLayout.tsx` | Shared layout wrapper for dashboard pages |
+| `GoogleAuthButton.tsx` | Standalone Google login button (legacy component) |
 
-# JWT secret — generate with: node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
-JWT_SECRET=your_long_random_secret
+### Context (`frontend/src/context/`)
 
-# Platform owner email (receives organizer approval requests)
-PLATFORM_OWNER_EMAIL=your_email@example.com
-SUPER_ADMIN_EMAIL=your_email@example.com
+| File | What it does |
+|---|---|
+| `AuthContext.tsx` | Stores logged-in user, JWT token, login/logout/signup/updateName functions |
+| `ThemeContext.tsx` | Light and dark mode state and toggle |
+| `SocketContext.tsx` | Socket.IO connection for real-time events |
 
-# Google OAuth
-GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+### Services (`frontend/src/services/`)
 
-# Microsoft OAuth (Azure App Registration)
-MICROSOFT_CLIENT_ID=your_microsoft_client_id
-
-# Email provider — set to "brevo" to skip Resend
-EMAIL_PROVIDER=brevo
-
-# Gmail SMTP (fallback)
-EMAIL_USER=your_email@gmail.com
-EMAIL_PASS=your_16char_app_password
-EMAIL_FROM=Campus Event Finder <noreply@campuseventfinder.com>
-
-# Brevo API (primary — get key at https://app.brevo.com/settings/keys/api)
-BREVO_API_KEY=your_brevo_api_key
-BREVO_SENDER=your_verified_sender@example.com
-
-# Resend API (optional fallback)
-RESEND_API_KEY=your_resend_api_key
-RESEND_FROM=Campus Event Finder <noreply@yourdomain.com>
-
-# Production URLs
-FRONTEND_URL=https://your-app.vercel.app
-APP_URL=https://your-app.vercel.app
-BACKEND_URL=https://your-backend.onrender.com
-```
-
-### Frontend (`frontend/.env`)
-
-```env
-VITE_GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
-VITE_MICROSOFT_CLIENT_ID=your_microsoft_client_id
-VITE_API_URL=https://your-backend.onrender.com/api
-```
+| File | What it does |
+|---|---|
+| `authService.ts` | Login, signup, Google auth, Microsoft auth, update name, change password |
+| `api.ts` | Central Axios instance — attaches JWT token to every request |
+| `registrationService.ts` | Register for event, cancel registration, get my registrations |
+| `attendanceService.ts` | Scan QR, get attendance list, get my QR, download certificate |
+| `feedbackService.ts` | Submit and retrieve event feedback/ratings |
+| `commentService.ts` | Post, get, and delete Q&A comments on events |
 
 ---
 
-## 🚀 Local Development
+## 🧩 Backend Files
 
-### 1. Clone
+### Entry Point
 
-```bash
-git clone https://github.com/SUSHANT-M-GIT/CAMPUS-EVENT-FINDER-.git
-cd Campus-event-Finder-and-Manager-clean-branch
-```
+| File | What it does |
+|---|---|
+| `server.js` | Starts Express, connects DB, sets up middleware, mounts all routes, starts Socket.IO and cron jobs |
 
-### 2. Install dependencies
+### Routes (`backend/routes/`)
 
-```bash
-cd backend && npm install
-cd ../frontend && npm install
-```
+| File | API prefix | What it handles |
+|---|---|---|
+| `authRoutes.js` | `/api/auth` | Register, login, verify email, forgot/reset password, Google/Microsoft OAuth, get current user, update name |
+| `eventRoutes.js` | `/api/events` | Get all events, get one event, create, update, delete |
+| `registrationRoutes.js` | `/api` | Register for event, cancel, get my registrations, regenerate QR |
+| `adminRoutes.js` | `/api/admin` | Admin user management, stats, audit logs |
+| `attendanceRoutes.js` | `/api/attendance` | Scan QR, manual attendance, get attendance list, enable certificates, serve QR image |
+| `feedbackRoutes.js` | `/api/feedback` | Submit feedback, get event feedback, get my feedback |
+| `commentRoutes.js` | `/api/comments` | Add, get, delete comments (Q&A) |
+| `uploadRoutes.js` | `/api/upload` | Upload event banner images |
+| `debugRoutes.js` | `/api` | Health check and debug endpoints |
 
-### 3. Configure environment
+### Controllers (`backend/controllers/`)
 
-```bash
-cp backend/.env.example backend/.env
-# Edit backend/.env with your values
-```
+| File | What it does |
+|---|---|
+| `authController.js` | All auth logic — registration, login, OTP, password reset, Google/Microsoft OAuth, name update, organizer approval |
+| `eventController.js` | Create, read, update, delete events — with search and filtering |
+| `registrationController.js` | Register users for events, generate QR codes, handle waitlists, send confirmation emails |
+| `attendanceController.js` | Mark attendance via QR scan or manual ID, generate certificates, serve QR images |
+| `adminController.js` | Platform-level admin actions — user management, stats, audit logs |
+| `feedbackController.js` | Submit and retrieve star ratings and comments for events |
+| `commentController.js` | Event Q&A thread — post and delete comments |
 
-Create `frontend/.env`:
-```env
-VITE_GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
-VITE_API_URL=http://localhost:5000/api
-```
+### Models (`backend/models/`)
 
-### 4. Run dev servers
+| File | What it stores |
+|---|---|
+| `User.js` | All user accounts — name, email, role, college info, professional info, OAuth info, approval status |
+| `Event.js` | Event details — title, date, location, type, capacity, banner, tags, certificates |
+| `Registration.js` | Who registered for what — QR code, attendance status, waitlist position, certificate ID |
+| `Feedback.js` | Star ratings and text reviews for events |
+| `Comment.js` | Q&A comments and replies on event pages |
+| `AuditLog.js` | Admin action history for accountability |
 
-**Terminal 1 — Backend (port 5000):**
+### Services (`backend/services/`)
+
+| File | What it does |
+|---|---|
+| `emailService.js` | Sends all emails — registration confirmation (with inline QR), reminders, password reset, organizer approval/rejection |
+| `reminderScheduler.js` | Checks for events happening in 24 hours and sends reminder emails |
+
+### Cron Jobs (`backend/cronJobs/`)
+
+| File | What it does |
+|---|---|
+| `reminderJob.js` | Runs daily — triggers reminder emails for tomorrow's events |
+| `feedbackJob.js` | Runs after events end — prompts attendees to submit feedback |
+
+### Middleware (`backend/middleware/`)
+
+| File | What it does |
+|---|---|
+| `auth.js` | Verifies JWT token on protected routes |
+| `role.js` | Checks if the user has the required role |
+| `superAdmin.js` | Restricts routes to the platform super admin only |
+| `projectOwner.js` | Restricts routes to the platform owner only |
+| `upload.js` | Handles file uploads using Multer |
+
+---
+
+## 🗄️ Database — MongoDB Atlas
+
+**Database:** `campus-events`
+
+**Collections:**
+
+| Collection | What's in it |
+|---|---|
+| `users` | All accounts — students, professionals, admins |
+| `events` | All events created by organizers |
+| `registrations` | All event registrations with QR codes |
+| `feedbacks` | Star ratings and reviews |
+| `comments` | Q&A threads on events |
+| `auditlogs` | Admin action history |
+
+---
+
+## 🌍 Environment Variables
+
+### Backend (set on Render)
+
+| Variable | Purpose |
+|---|---|
+| `PORT` | Server port (default 5000) |
+| `MONGO_URI` | MongoDB Atlas connection string |
+| `JWT_SECRET` | Secret key for signing JWT tokens |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `FRONTEND_URL` | Deployed frontend URL — used in password reset emails |
+| `BACKEND_URL` | Deployed backend URL — used for QR image URLs |
+| `PLATFORM_OWNER_EMAIL` | Email that receives organizer approval requests |
+| `BREVO_API_KEY` | Brevo transactional email API key |
+| `BREVO_SENDER` | Sender email address for Brevo |
+| `EMAIL_PROVIDER` | Set to `brevo` to use Brevo |
+
+### Frontend (set on Vercel)
+
+| Variable | Purpose |
+|---|---|
+| `VITE_API_URL` | Backend API URL — `https://campus-event-finder-r2j3.onrender.com/api` |
+| `VITE_GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `VITE_MICROSOFT_CLIENT_ID` | Microsoft Azure app client ID |
+
+---
+
+## 🚀 Running Locally
+
+### Backend
 ```bash
 cd backend
+npm install
+# create .env with the variables listed above
+npm start
+```
+
+### Frontend
+```bash
+cd frontend
+npm install
+# create .env with VITE_* variables
 npm run dev
 ```
 
-**Terminal 2 — Frontend (port 5173):**
-```bash
-cd frontend
-npm run dev
-```
-
-The Vite dev proxy routes `/api/*` to `http://localhost:5000` automatically.
+Frontend runs on `http://localhost:5173`
+Backend runs on `http://localhost:5000`
 
 ---
 
-## 🧪 Tests
+## 🔒 Security
 
-```bash
-# Backend tests (auth, QR, attendance, OAuth flows)
-cd backend
-npm test
-
-# Frontend TypeScript build check
-cd frontend
-npm run build
-```
-
----
-
-## 🚢 Production Deployment
-
-### Render (Backend)
-
-1. Connect GitHub repo → set **Root Directory** to `backend`
-2. **Start command**: `npm start`
-3. Add all environment variables from `backend/.env.example` in the Render dashboard
-4. Key variables to set:
-   - `FRONTEND_URL` = `https://c-e-s.vercel.app`
-   - `BACKEND_URL` = `https://campus-event-finder-r2j3.onrender.com`
-   - `EMAIL_PROVIDER` = `brevo`
-   - `MONGO_URI`, `JWT_SECRET`, `BREVO_API_KEY`, `GOOGLE_CLIENT_ID`
-
-### Vercel (Frontend)
-
-1. Connect GitHub repo → set **Root Directory** to `frontend`
-2. Framework: **Vite**
-3. Add environment variables:
-   - `VITE_API_URL` = `https://campus-event-finder-r2j3.onrender.com/api`
-   - `VITE_GOOGLE_CLIENT_ID` = your Google client ID
-4. The included `vercel.json` handles SPA routing automatically
-
-### Google OAuth (Console)
-
-In [Google Cloud Console](https://console.cloud.google.com) → Credentials → your OAuth client:
-- **Authorized JavaScript origins**: `https://c-e-s.vercel.app`
-- **Authorized redirect URIs**: `https://c-e-s.vercel.app`
+- Passwords hashed with bcrypt
+- JWT tokens expire in 24 hours
+- OTP email verification for new accounts
+- NoSQL injection protection via express-mongo-sanitize
+- Rate limiting — 100 requests per minute per IP
+- Security headers via Helmet
+- Organizer accounts require platform owner approval before access
+- Name update endpoint cannot change role or permissions
+- OAuth identity verified server-side (Google token / Microsoft Graph API)
 
 ---
 
-## 📡 API Reference
-
-| Method | Endpoint | Description | Access |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/api/auth/register` | Register with OTP | Public |
-| `POST` | `/api/auth/verify-email` | Verify OTP | Public |
-| `POST` | `/api/auth/login` | Login, receive JWT | Public |
-| `POST` | `/api/auth/google` | Google OAuth | Public |
-| `POST` | `/api/auth/microsoft` | Microsoft OAuth | Public |
-| `POST` | `/api/auth/forgot-password` | Send reset email | Public |
-| `POST` | `/api/auth/reset-password` | Set new password | Public |
-| `GET` | `/api/auth/me` | Get profile | Authenticated |
-| `GET` | `/api/auth/organizer-approval/approve/:token` | Approve organizer | Token |
-| `GET` | `/api/auth/organizer-approval/reject/:token` | Reject organizer | Token |
-| `GET` | `/api/events` | List events | Public |
-| `POST` | `/api/events` | Create event | Admin |
-| `POST` | `/api/registrations/:eventId` | Register for event | Student/Pro |
-| `GET` | `/api/my-registrations` | My registrations | Student/Pro |
-| `POST` | `/api/attendance/scan` | Scan QR attendance | Admin |
-| `GET` | `/api/attendance/qr-image/:id` | Serve QR PNG | Public |
-| `GET` | `/api/attendance/certificate/:id` | Download certificate | Attendee |
-
----
-
-## 🛡️ Security
-
-- SHA-256 one-time tokens for organizer approval and password reset
-- JWT authentication with role-based middleware
-- Rate limiting (100 req/min per IP)
-- NoSQL injection protection (`express-mongo-sanitize`)
-- Security headers (`helmet`)
-- Environment variable isolation — no secrets in source code
-
----
-
-## 📄 License
-
-MIT License — open source and free to use.
+*Built by Sushant Mishra*
