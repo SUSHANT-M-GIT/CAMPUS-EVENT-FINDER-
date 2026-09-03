@@ -175,8 +175,18 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
       // Get the singleton — safe to call multiple times
       const instance = await getMsalInstance(clientId);
 
-      // Handle any pending redirect before starting a new interaction
+      // Clear any stale interaction state from previous timed-out/cancelled attempts
       await instance.handleRedirectPromise().catch(() => null);
+
+      // Clear any in-progress interaction left in sessionStorage by a previous timeout
+      try {
+        const keys = Object.keys(sessionStorage);
+        keys.forEach((k) => {
+          if (k.includes('interaction.status') || k.includes('request.initiated')) {
+            sessionStorage.removeItem(k);
+          }
+        });
+      } catch { /* ignore */ }
 
       const loginResult = await instance.loginPopup({
         scopes: ['user.read', 'openid', 'profile', 'email'],
@@ -211,6 +221,20 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
         (e.message && e.message.includes('user_cancelled'))
       ) {
         // silent — user deliberately closed
+      } else if (
+        e.errorCode === 'timed_out' ||
+        (e.message && e.message.includes('timed_out'))
+      ) {
+        // Popup timed out — clear stale MSAL state so next click works
+        try {
+          const keys = Object.keys(sessionStorage);
+          keys.forEach((k) => {
+            if (k.includes('msal') || k.includes('interaction') || k.includes('request')) {
+              sessionStorage.removeItem(k);
+            }
+          });
+        } catch { /* ignore */ }
+        if (onError) onError('Microsoft sign-in timed out. Please try again.');
       } else if (
         e.errorCode === 'interaction_in_progress' ||
         (e.message && e.message.includes('interaction_in_progress'))
