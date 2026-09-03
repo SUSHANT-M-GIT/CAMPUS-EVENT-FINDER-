@@ -5,6 +5,9 @@ A modern, full-stack campus event discovery, management, and attendance platform
 The platform covers the complete event lifecycle — from publishing and student registration to QR-based attendance scanning, live dashboards, PDF certificates, and a secure 1-click organizer approval system.
 
 ---
+## APP URL  
+
+**https://c-e-s.vercel.app** 
 
 ## 🌐 Live Deployment
 
