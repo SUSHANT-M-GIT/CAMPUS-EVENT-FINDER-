@@ -23,19 +23,34 @@ async function getMsalInstance(clientId: string) {
   }
 
   const { PublicClientApplication } = await import('@azure/msal-browser');
+
+  // Use a dedicated redirect page so the MSAL popup iframe never hijacks
+  // the main browser tab.  Without this, browsers that block blank popups
+  // cause MSAL to fall back to a full-page redirect → #code lands on the
+  // main tab → app reloads with no auth state → landing page loop.
+  const redirectUri = `${window.location.origin}/auth-redirect.html`;
+
   const instance = new PublicClientApplication({
     auth: {
       clientId,
       authority: 'https://login.microsoftonline.com/common',
-      redirectUri: window.location.origin,
+      redirectUri,
+      postLogoutRedirectUri: window.location.origin,
+      // If MSAL ever tries a redirect, intercept it and block it.
+      // We are strictly popup-only; a redirect would land the user on
+      // the home page and discard auth state.
+      onRedirectNavigate: () => false,
     },
     cache: { cacheLocation: 'sessionStorage' },
   });
 
-  _msalInitPromise = instance.initialize().then(() => {
+  _msalInitPromise = instance.initialize().then(async () => {
     _msalInstance = instance;
     _msalInitialized = true;
     _msalInitPromise = null;
+    // Drain any accidental redirect response on init so it never blocks
+    // subsequent popup calls
+    await instance.handleRedirectPromise().catch(() => null);
   });
 
   await _msalInitPromise;

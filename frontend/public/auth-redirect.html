@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Authentication redirect</title>
+</head>
+<body>
+  <!-- 
+    This page is used exclusively as the MSAL popup redirect URI.
+    MSAL will open this page inside the popup window to complete the
+    OAuth flow, then close the popup and return the result to the
+    parent window via postMessage.
+    DO NOT add any other content or scripts here.
+  -->
+  <script>
+    // Signal MSAL in the parent window that the popup has landed
+    if (window.opener) {
+      window.opener.postMessage(window.location.href, window.location.origin);
+    }
+  </script>
+</body>
+</html>
