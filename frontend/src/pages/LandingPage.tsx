@@ -1,36 +1,32 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import {
-  Search,
   Zap,
-  Bell,
-  ShieldCheck,
-  BarChart2,
-  Smartphone,
-  UserPlus,
-  CalendarSearch,
-  ClipboardCheck,
-  Award,
   ArrowRight,
-  LogIn,
-  ChevronRight,
   Calendar,
   MapPin,
-  Heart,
+  QrCode,
+  Bell,
+  Award,
+  Users,
+  Menu,
+  X,
 } from 'lucide-react';
+import api from '../services/api';
 import type { EventItem } from '../types';
 
+// ── Scroll detection ──────────────────────────────────────────────────────────
 function useScrolled(threshold = 40) {
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > threshold);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    const fn = () => setScrolled(window.scrollY > threshold);
+    window.addEventListener('scroll', fn, { passive: true });
+    return () => window.removeEventListener('scroll', fn);
   }, [threshold]);
   return scrolled;
 }
 
+// ── Fade-in on scroll ─────────────────────────────────────────────────────────
 function useFadeIn() {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -43,7 +39,7 @@ function useFadeIn() {
           el.style.transform = 'translateY(0)';
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.08 }
     );
     obs.observe(el);
     return () => obs.disconnect();
@@ -51,210 +47,243 @@ function useFadeIn() {
   return ref;
 }
 
+const FADE: React.CSSProperties = {
+  opacity: 0,
+  transform: 'translateY(24px)',
+  transition: 'opacity 0.55s ease, transform 0.55s ease',
+};
+
+// ── Platform features (3 clear value props) ───────────────────────────────────
 const FEATURES = [
   {
-    Icon: Search,
-    bg: 'linear-gradient(135deg,#eef2ff,#e0e7ff)',
-    iconColor: '#4f46e5',
-    title: 'Discover Events',
-    desc: 'Browse hackathons, seminars, tech talks, and more — all in one place.',
+    Icon: Calendar,
+    accent: '#6366f1',
+    bg: 'rgba(99,102,241,0.08)',
+    title: 'Discover & Register',
+    desc: 'Browse hackathons, seminars, workshops, and cultural events. Register in one click and get an instant confirmation.',
   },
   {
-    Icon: Zap,
-    bg: 'linear-gradient(135deg,#fffbeb,#fef3c7)',
-    iconColor: '#d97706',
-    title: 'Instant Registration',
-    desc: 'Register for events in seconds. Get confirmation emails automatically.',
+    Icon: QrCode,
+    accent: '#0ea5e9',
+    bg: 'rgba(14,165,233,0.08)',
+    title: 'QR Attendance',
+    desc: 'Show your unique QR code at the venue. Attendance is marked instantly — no manual rolls, no queues.',
+  },
+  {
+    Icon: Award,
+    accent: '#10b981',
+    bg: 'rgba(16,185,129,0.08)',
+    title: 'Certificates',
+    desc: 'Attended an event? Download a verified certificate straight from your dashboard.',
   },
   {
     Icon: Bell,
-    bg: 'linear-gradient(135deg,#f0fdf4,#dcfce7)',
-    iconColor: '#16a34a',
+    accent: '#f59e0b',
+    bg: 'rgba(245,158,11,0.08)',
     title: 'Smart Reminders',
-    desc: 'Never miss an event. Automated reminders 24 hours before it starts.',
+    desc: 'Automated email reminders 24 hours before every event you registered for. Never forget.',
   },
   {
-    Icon: ShieldCheck,
-    bg: 'linear-gradient(135deg,#fdf4ff,#f3e8ff)',
-    iconColor: '#9333ea',
-    title: 'Admin Control',
-    desc: 'Admins create and manage their own events with full ownership control.',
+    Icon: Users,
+    accent: '#8b5cf6',
+    bg: 'rgba(139,92,246,0.08)',
+    title: 'Organizer Dashboard',
+    desc: 'Create events, track registrations, manage waitlists, and scan attendance — all in one place.',
   },
   {
-    Icon: BarChart2,
-    bg: 'linear-gradient(135deg,#fff7ed,#ffedd5)',
-    iconColor: '#ea580c',
-    title: 'Analytics & Insights',
-    desc: 'Track registrations, attendance, revenue and generate certificates.',
-  },
-  {
-    Icon: Smartphone,
-    bg: 'linear-gradient(135deg,#f0f9ff,#e0f2fe)',
-    iconColor: '#0284c7',
-    title: 'Works Everywhere',
-    desc: 'Fully responsive — use it on desktop, tablet, or mobile seamlessly.',
+    Icon: Zap,
+    accent: '#ec4899',
+    bg: 'rgba(236,72,153,0.08)',
+    title: 'Real-time Updates',
+    desc: 'Live notifications when new events are posted. Stay up to date without refreshing.',
   },
 ];
 
-const HOW_IT_WORKS = [
-  {
-    step: '01',
-    Icon: UserPlus,
-    title: 'Create Account',
-    desc: 'Sign up with your institutional email in under 30 seconds.',
-  },
-  {
-    step: '02',
-    Icon: CalendarSearch,
-    title: 'Browse Events',
-    desc: 'Search and filter events by category, date, or keyword.',
-  },
-  {
-    step: '03',
-    Icon: ClipboardCheck,
-    title: 'Register',
-    desc: 'One-click registration with instant email confirmation.',
-  },
-  {
-    step: '04',
-    Icon: Award,
-    title: 'Attend & Earn',
-    desc: 'Show your QR at the venue and download your certificate.',
-  },
-];
-
-const EVENT_IMAGES = [
+// ── Event image fallbacks ─────────────────────────────────────────────────────
+const FALLBACK_IMGS = [
   'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600',
   'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=600',
   'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=600',
 ];
 
+// ── Main component ─────────────────────────────────────────────────────────────
 export default function LandingPage() {
   const navigate = useNavigate();
   const scrolled = useScrolled();
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const featRef = useFadeIn();
-  const howRef = useFadeIn();
   const eventsRef = useFadeIn();
   const ctaRef = useFadeIn();
 
-  useEffect(() => {
-    axios
-      .get('http://127.0.0.1:5000/api/events')
-      .then((res) => setEvents(Array.isArray(res.data) ? res.data.slice(0, 3) : []))
-      .catch(() => {});
-  }, []);
-
+  // Auth state — read from localStorage (same pattern as the rest of the app)
   const token = localStorage.getItem('token');
   const storedUser = localStorage.getItem('user');
   const isLoggedIn = Boolean(token && storedUser);
   let userRole: string | null = null;
   if (storedUser) {
-    try {
-      userRole = JSON.parse(storedUser).role ?? null;
-    } catch {
-      localStorage.removeItem('user');
-    }
+    try { userRole = JSON.parse(storedUser).role ?? null; } catch { localStorage.removeItem('user'); }
   }
 
-  const fadeStyle: React.CSSProperties = {
-    opacity: 0,
-    transform: 'translateY(28px)',
-    transition: 'opacity 0.6s ease, transform 0.6s ease',
+  // Fetch real upcoming events
+  useEffect(() => {
+    api.get('/events')
+      .then(res => setEvents(Array.isArray(res.data) ? res.data.slice(0, 3) : []))
+      .catch(() => {});
+  }, []);
+
+  // "Host an Event" routing:
+  // - already logged-in admin → admin dashboard
+  // - logged-in non-admin → signup (they'll choose Admin/Organizer role)
+  // - not logged in → signup
+  const handleHostEvent = () => {
+    if (isLoggedIn && userRole === 'admin') {
+      navigate('/admin');
+    } else {
+      navigate('/signup');
+    }
+  };
+
+  // "Browse Events" routing:
+  // - logged-in non-admin → user dashboard
+  // - anyone else → login
+  const handleBrowseEvents = () => {
+    if (isLoggedIn && userRole !== 'admin') navigate('/user');
+    else navigate('/login');
   };
 
   return (
-    <div style={{ overflowX: 'hidden' }}>
-      {/* NAVBAR */}
+    <div style={{ overflowX: 'hidden', background: 'var(--bg)' }}>
+
+      {/* ── NAVBAR ─────────────────────────────────────────────────────────── */}
       <nav className={`land-nav${scrolled ? ' scrolled' : ''}`}>
         <div className="app-container land-nav-inner">
+          {/* Logo */}
           <Link to="/" className="land-nav-logo">
-            <span
-              style={{
-                width: 30,
-                height: 30,
-                borderRadius: 8,
-                background: 'linear-gradient(135deg,#4f46e5,#8b5cf6)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '0.9rem',
-              }}
-            >
-              <Zap size={16} color="#fff" fill="#fff" />
+            <span style={{ width: 28, height: 28, borderRadius: 7, background: 'linear-gradient(135deg,#4f46e5,#8b5cf6)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Zap size={15} color="#fff" fill="#fff" />
             </span>
             <span>Campus</span>EventFinder
           </Link>
-          <div className="land-nav-links">
-            <a href="#features" className="land-nav-link">
-              Features
-            </a>
-            <a href="#how" className="land-nav-link">
-              How it works
-            </a>
-            <a href="#events" className="land-nav-link">
+
+          {/* Desktop nav — minimal: Events | Sign In | Host an Event */}
+          <div className="land-nav-links" style={{ gap: 6 }}>
+            <button
+              type="button"
+              onClick={() => document.getElementById('events')?.scrollIntoView({ behavior: 'smooth' })}
+              className="land-nav-link"
+              style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+            >
               Events
-            </a>
-            <Link to="/login" className="land-nav-link">
-              Login
-            </Link>
-            <Link to="/signup" className="land-nav-cta">
-              Get Started <ArrowRight size={14} style={{ verticalAlign: 'middle' }} />
-            </Link>
+            </button>
+            {isLoggedIn ? (
+              <button
+                type="button"
+                className="land-nav-link"
+                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                onClick={() => navigate(userRole === 'admin' ? '/admin' : '/user')}
+              >
+                Dashboard
+              </button>
+            ) : (
+              <Link to="/login" className="land-nav-link">Sign In</Link>
+            )}
+            <button
+              type="button"
+              className="land-nav-cta"
+              onClick={handleHostEvent}
+            >
+              Host an Event <ArrowRight size={13} style={{ verticalAlign: 'middle', marginLeft: 3 }} />
+            </button>
           </div>
+
+          {/* Mobile hamburger */}
+          <button
+            type="button"
+            onClick={() => setMobileOpen(o => !o)}
+            style={{ display: 'none', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', padding: 4 }}
+            className="land-mobile-toggle"
+            aria-label="Toggle menu"
+          >
+            {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
         </div>
+
+        {/* Mobile dropdown */}
+        {mobileOpen && (
+          <div style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)', padding: '12px 20px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <button type="button" onClick={() => { document.getElementById('events')?.scrollIntoView({ behavior: 'smooth' }); setMobileOpen(false); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', textAlign: 'left', fontWeight: 500, fontSize: '0.95rem', padding: '6px 0' }}>
+              Events
+            </button>
+            {isLoggedIn ? (
+              <button type="button" onClick={() => { navigate(userRole === 'admin' ? '/admin' : '/user'); setMobileOpen(false); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', textAlign: 'left', fontWeight: 500, fontSize: '0.95rem', padding: '6px 0' }}>
+                Dashboard
+              </button>
+            ) : (
+              <Link to="/login" onClick={() => setMobileOpen(false)} style={{ color: 'var(--text)', fontWeight: 500, fontSize: '0.95rem', padding: '6px 0', textDecoration: 'none' }}>
+                Sign In
+              </Link>
+            )}
+            <button type="button" onClick={() => { handleHostEvent(); setMobileOpen(false); }} className="btn btn-gradient" style={{ padding: '10px 16px', fontSize: '0.9rem', marginTop: 4 }}>
+              Host an Event
+            </button>
+          </div>
+        )}
       </nav>
 
-      {/* HERO */}
+      {/* ── HERO ──────────────────────────────────────────────────────────── */}
       <section className="land-hero">
         <div className="land-hero-bg" />
         <div className="land-hero-glow" />
         <div className="land-hero-glow2" />
+
         <div className="app-container land-hero-content">
-          <div className="land-hero-badge">
-            <Zap size={13} style={{ verticalAlign: 'middle', marginRight: 5 }} /> The #1 Campus
-            Event Platform
+          {/* Pill badge */}
+          <div className="land-hero-badge" style={{ marginBottom: 24 }}>
+            <Zap size={12} style={{ verticalAlign: 'middle', marginRight: 5 }} />
+            Campus events — discovered, registered, attended
           </div>
-          <h1 className="land-hero-title">
-            Discover &amp; Manage
-            <br />
-            Campus Events
+
+          {/* Heading */}
+          <h1 className="land-hero-title" style={{ maxWidth: 680 }}>
+            Find and manage campus events in one place
           </h1>
-          <p className="land-hero-sub">
-            The all-in-one platform for students to find events and admins to manage them with
-            instant registration, smart reminders, QR attendance, and beautiful dashboards.
+
+          <p className="land-hero-sub" style={{ maxWidth: 520 }}>
+            Students discover and register for events. Organizers create, manage, and track attendance — all from a single platform.
           </p>
+
+          {/* Two clear CTAs */}
           <div className="land-hero-actions">
-            <Link
-              to="/signup"
+            <button
+              type="button"
               className="btn btn-gradient"
-              style={{
-                padding: '14px 32px',
-                fontSize: '1rem',
-                boxShadow: '0 8px 24px rgba(99,102,241,0.5)',
-              }}
+              style={{ padding: '13px 28px', fontSize: '0.97rem', boxShadow: '0 6px 20px rgba(99,102,241,0.4)' }}
+              onClick={handleBrowseEvents}
             >
-              Get Started Free{' '}
-              <ArrowRight size={16} style={{ verticalAlign: 'middle', marginLeft: 4 }} />
-            </Link>
-            <Link
-              to="/login"
+              Browse Events <ArrowRight size={15} style={{ verticalAlign: 'middle', marginLeft: 4 }} />
+            </button>
+            <button
+              type="button"
               className="btn btn-outline"
-              style={{ padding: '14px 32px', fontSize: '1rem' }}
+              style={{ padding: '13px 28px', fontSize: '0.97rem' }}
+              onClick={handleHostEvent}
             >
-              Sign In
-            </Link>
+              Host an Event ↗
+            </button>
           </div>
-          <div className="land-hero-stats">
+
+          {/* Honest, minimal stats — just a few context lines, no fake numbers */}
+          <div className="land-hero-stats" style={{ marginTop: 44 }}>
             {[
-              ['500+', 'Events Hosted'],
-              ['2k+', 'Students'],
-              ['50+', 'Admins'],
-              ['99%', 'Satisfaction'],
+              ['QR', 'Attendance'],
+              ['Auto', 'Certificates'],
+              ['Live', 'Notifications'],
+              ['Free', 'To Join'],
             ].map(([n, l]) => (
               <div key={l} className="land-stat">
-                <div className="land-stat-num">{n}</div>
+                <div className="land-stat-num" style={{ fontSize: '1.1rem', letterSpacing: 0 }}>{n}</div>
                 <div className="land-stat-label">{l}</div>
               </div>
             ))}
@@ -262,19 +291,19 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* FEATURES */}
-      <section className="land-features" id="features">
+      {/* ── FEATURES ──────────────────────────────────────────────────────── */}
+      <section className="land-features" id="features" style={{ paddingTop: 80, paddingBottom: 80 }}>
         <div className="app-container">
-          <p className="land-section-label">Why Choose Us</p>
-          <h2 className="land-section-title">Everything you need, nothing you don't</h2>
+          <p className="land-section-label">What you get</p>
+          <h2 className="land-section-title">Built for campus life</h2>
           <p className="land-section-sub">
-            Built for campus life simple for students, powerful for admins.
+            Simple for students. Powerful for organizers.
           </p>
-          <div ref={featRef} className="land-features-grid" style={fadeStyle}>
-            {FEATURES.map((f) => (
+          <div ref={featRef} className="land-features-grid" style={FADE}>
+            {FEATURES.map(f => (
               <div key={f.title} className="land-feature-card">
-                <div className="land-feature-icon" style={{ background: f.bg }}>
-                  <f.Icon size={24} color={f.iconColor} />
+                <div className="land-feature-icon" style={{ background: f.bg, border: `1px solid ${f.accent}22` }}>
+                  <f.Icon size={22} color={f.accent} />
                 </div>
                 <h4>{f.title}</h4>
                 <p>{f.desc}</p>
@@ -284,275 +313,152 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* HOW IT WORKS */}
+      {/* ── LIVE EVENTS ───────────────────────────────────────────────────── */}
       <section
-        id="how"
-        style={{
-          padding: '100px 0',
-          background: 'linear-gradient(135deg,#0f0c29 0%,#302b63 100%)',
-          color: '#fff',
-        }}
+        id="events"
+        style={{ padding: '72px 0', background: 'var(--surface)' }}
       >
         <div className="app-container">
-          <p className="land-section-label" style={{ color: '#a5b4fc' }}>
-            Simple Process
-          </p>
-          <h2 className="land-section-title" style={{ color: '#fff' }}>
-            From signup to certificate in 4 steps
-          </h2>
-          <div
-            ref={howRef}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))',
-              gap: 24,
-              marginTop: 48,
-              ...fadeStyle,
-            }}
-          >
-            {HOW_IT_WORKS.map((s) => (
-              <div
-                key={s.step}
-                style={{
-                  textAlign: 'center',
-                  padding: '32px 24px',
-                  borderRadius: 20,
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(99,102,241,0.25)',
-                  transition: 'transform 0.25s, box-shadow 0.25s',
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-6px)';
-                  (e.currentTarget as HTMLDivElement).style.boxShadow =
-                    '0 20px 40px rgba(0,0,0,0.3)';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.transform = '';
-                  (e.currentTarget as HTMLDivElement).style.boxShadow = '';
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: '0.7rem',
-                    fontWeight: 800,
-                    color: '#818cf8',
-                    letterSpacing: '0.1em',
-                    marginBottom: 16,
-                  }}
-                >
-                  {s.step}
-                </div>
-                <div
-                  style={{
-                    width: 60,
-                    height: 60,
-                    borderRadius: '50%',
-                    background: 'linear-gradient(135deg,#4f46e5,#8b5cf6)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 16px',
-                  }}
-                >
-                  <s.Icon size={26} color="#fff" />
-                </div>
-                <h4 style={{ margin: '0 0 8px', color: '#fff', fontSize: '1rem' }}>{s.title}</h4>
-                <p
-                  style={{
-                    margin: 0,
-                    color: 'rgba(255,255,255,0.7)',
-                    fontSize: '0.875rem',
-                    lineHeight: 1.65,
-                  }}
-                >
-                  {s.desc}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* EVENTS PREVIEW */}
-      <section className="land-events" id="events">
-        <div className="app-container">
-          <p className="land-section-label">Live Events</p>
-          <h2 className="land-section-title">Upcoming on Campus</h2>
+          <p className="land-section-label">Upcoming</p>
+          <h2 className="land-section-title">Events on the platform</h2>
           <p className="land-section-sub">
             {events.length > 0
-              ? 'Real events from the platform  register to join.'
-              : 'Events will appear here once admins post them.'}
+              ? 'Real events posted by organizers. Sign in to register.'
+              : 'Events will appear here once organizers post them.'}
           </p>
-          <div ref={eventsRef} className="land-event-grid" style={fadeStyle}>
+
+          <div ref={eventsRef} className="land-event-grid" style={{ ...FADE, marginTop: 36 }}>
             {(events.length > 0
               ? events
               : ([
-                  {
-                    _id: '1',
-                    title: 'Hackathon 2025',
-                    description: 'Build something amazing in 24 hours with your team.',
-                    type: 'hackathon',
-                    date: new Date().toISOString(),
-                    time: '',
-                    registrationDeadline: '',
-                    location: 'Campus',
-                  },
-                  {
-                    _id: '2',
-                    title: 'Tech Seminar',
-                    description: 'Learn about the latest trends in AI and machine learning.',
-                    type: 'tech',
-                    date: new Date().toISOString(),
-                    time: '',
-                    registrationDeadline: '',
-                    location: 'Campus',
-                  },
-                  {
-                    _id: '3',
-                    title: 'Cultural Night',
-                    description: 'Celebrate diversity with performances, food, and fun.',
-                    type: 'other',
-                    date: new Date().toISOString(),
-                    time: '',
-                    registrationDeadline: '',
-                    location: 'Campus',
-                  },
+                  { _id: 'p1', title: 'Hackathon', description: 'Build something new in 24 hours with your team.', type: 'hackathon', date: new Date().toISOString(), time: '', registrationDeadline: '', location: 'College Auditorium' },
+                  { _id: 'p2', title: 'Tech Seminar', description: 'Explore the latest in AI, ML, and cloud computing.', type: 'tech', date: new Date().toISOString(), time: '', registrationDeadline: '', location: 'Seminar Hall' },
+                  { _id: 'p3', title: 'Cultural Fest', description: 'Performances, food stalls, and creative showcases.', type: 'other', date: new Date().toISOString(), time: '', registrationDeadline: '', location: 'Open Ground' },
                 ] as EventItem[])
             ).map((ev, i) => (
               <div key={ev._id} className="land-event-card">
                 <img
-                  src={EVENT_IMAGES[i % 3]}
+                  src={FALLBACK_IMGS[i % 3]}
                   alt={ev.title}
                   className="land-event-img"
-                  style={{ filter: 'brightness(0.9)' }}
+                  style={{ filter: 'brightness(0.88)' }}
+                  onError={e => { (e.target as HTMLImageElement).src = FALLBACK_IMGS[0]; }}
                 />
                 <div className="land-event-body">
                   <span className="land-event-tag">{ev.type}</span>
                   <h4>{ev.title}</h4>
-                  <p>
-                    {(ev.description ?? '').slice(0, 90)}
-                    {(ev.description?.length ?? 0) > 90 ? '…' : ''}
-                  </p>
+                  <p>{(ev.description ?? '').slice(0, 88)}{(ev.description?.length ?? 0) > 88 ? '…' : ''}</p>
                   <div className="land-event-meta">
                     <span>
-                      <Calendar size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-                      {new Date(ev.date).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
+                      <Calendar size={12} style={{ verticalAlign: 'middle', marginRight: 3 }} />
+                      {new Date(ev.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </span>
                     <span>
-                      <MapPin size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                      <MapPin size={12} style={{ verticalAlign: 'middle', marginRight: 3 }} />
                       {ev.location}
                     </span>
                   </div>
                   <button
                     type="button"
                     className="btn btn-gradient full-width"
-                    style={{ fontSize: '0.875rem', padding: '10px' }}
-                    onClick={() =>
-                      navigate(isLoggedIn && userRole !== 'admin' ? '/user' : '/login')
-                    }
+                    style={{ fontSize: '0.85rem', padding: '10px', marginTop: 4 }}
+                    onClick={handleBrowseEvents}
                   >
-                    {events.length > 0 ? (
-                      isLoggedIn && userRole !== 'admin' ? (
-                        <>
-                          Register Now{' '}
-                          <ChevronRight size={14} style={{ verticalAlign: 'middle' }} />
-                        </>
-                      ) : (
-                        <>
-                          <LogIn size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-                          Login to Register
-                        </>
-                      )
-                    ) : (
-                      <>
-                        Sign Up to Explore{' '}
-                        <ArrowRight size={14} style={{ verticalAlign: 'middle' }} />
-                      </>
-                    )}
+                    {isLoggedIn && userRole !== 'admin' ? 'Go to Dashboard' : 'Sign In to Register'}
                   </button>
                 </div>
               </div>
             ))}
           </div>
-          <div className="land-events-cta">
-            <Link to="/login" className="btn btn-gradient" style={{ padding: '13px 32px' }}>
-              View All Events{' '}
-              <ArrowRight size={15} style={{ verticalAlign: 'middle', marginLeft: 4 }} />
-            </Link>
+
+          {events.length > 0 && (
+            <div style={{ textAlign: 'center', marginTop: 36 }}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ padding: '12px 28px', fontSize: '0.92rem' }}
+                onClick={handleBrowseEvents}
+              >
+                View All Events <ArrowRight size={14} style={{ verticalAlign: 'middle', marginLeft: 4 }} />
+              </button>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── HOST AN EVENT CTA STRIP ────────────────────────────────────────── */}
+      <section
+        ref={ctaRef}
+        style={{
+          ...FADE,
+          padding: '64px 0',
+          background: 'linear-gradient(135deg,#1e1b4b 0%,#312e81 50%,#1e1b4b 100%)',
+        }}
+      >
+        <div className="app-container" style={{ textAlign: 'center' }}>
+          <h2 style={{ margin: '0 0 12px', fontSize: 'clamp(1.5rem, 4vw, 2rem)', fontWeight: 800, color: '#fff', letterSpacing: '-0.02em' }}>
+            Organising a campus event?
+          </h2>
+          <p style={{ margin: '0 0 28px', color: 'rgba(255,255,255,0.72)', fontSize: '1rem', maxWidth: 480, marginLeft: 'auto', marginRight: 'auto' }}>
+            Create your organizer account, get approved, and start posting events with full attendance and certificate management.
+          </p>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={handleHostEvent}
+              style={{ padding: '13px 28px', borderRadius: 10, background: '#fff', color: '#4f46e5', fontWeight: 700, fontSize: '0.95rem', border: 'none', cursor: 'pointer', transition: 'transform 0.15s, box-shadow 0.15s', boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.3)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.2)'; }}
+            >
+              Host an Event ↗
+            </button>
+            {!isLoggedIn && (
+              <Link
+                to="/login"
+                style={{ padding: '13px 28px', borderRadius: 10, background: 'transparent', color: 'rgba(255,255,255,0.85)', fontWeight: 600, fontSize: '0.95rem', border: '1px solid rgba(255,255,255,0.3)', textDecoration: 'none', display: 'inline-block', transition: 'border-color 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.7)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)'; }}
+              >
+                Sign In
+              </Link>
+            )}
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="land-cta">
-        <div ref={ctaRef} className="land-cta-inner app-container" style={fadeStyle}>
-          <h2>Ready to never miss an event?</h2>
-          <p>Join thousands of students already using Campus Event Finder.</p>
-          <div className="land-cta-btns">
-            <Link
-              to="/signup"
-              className="btn btn-white"
-              style={{ padding: '14px 32px', fontSize: '1rem' }}
-            >
-              Create Free Account
-            </Link>
-            <Link
-              to="/login"
-              className="btn btn-ghost"
-              style={{ padding: '14px 32px', fontSize: '1rem' }}
-            >
-              Sign In
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* FOOTER */}
+      {/* ── FOOTER ────────────────────────────────────────────────────────── */}
       <footer className="land-footer">
         <div className="app-container">
           <div className="land-footer-grid">
             <div>
               <p className="land-footer-brand">
-                <Zap
-                  size={14}
-                  style={{ verticalAlign: 'middle', marginRight: 5, color: '#818cf8' }}
-                />{' '}
+                <Zap size={13} style={{ verticalAlign: 'middle', marginRight: 4, color: '#818cf8' }} />
                 CampusEventFinder
               </p>
               <p className="land-footer-desc">
-                The modern platform for discovering, registering, and managing campus events. Built
-                for students and admins alike.
+                Discover, register, and manage campus events. Built for students and organizers.
               </p>
             </div>
             <div className="land-footer-col">
               <h5>Platform</h5>
-              <Link to="/login">Login</Link>
-              <Link to="/signup">Sign Up</Link>
-              <a href="#features">Features</a>
-              <a href="#events">Events</a>
+              <Link to="/login">Sign In</Link>
+              <Link to="/signup">Create Account</Link>
+              <button type="button" onClick={handleHostEvent} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left', color: 'inherit', fontSize: 'inherit' }}>
+                Host an Event
+              </button>
             </div>
             <div className="land-footer-col">
-              <h5>Support</h5>
-              <a href="#">Help Center</a>
-              <a href="#">Contact Us</a>
-              <a href="#">Privacy Policy</a>
-              <a href="#">Terms of Service</a>
+              <h5>Account</h5>
+              <Link to="/signup">Student Signup</Link>
+              <Link to="/forgot-password">Reset Password</Link>
+              <button type="button" onClick={handleHostEvent} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left', color: 'inherit', fontSize: 'inherit' }}>
+                Organizer Signup
+              </button>
             </div>
           </div>
           <div className="land-footer-bottom">
             <span>© {new Date().getFullYear()} CampusEventFinder. All rights reserved.</span>
-            <span>
-              Made with{' '}
-              <Heart
-                size={12}
-                style={{ verticalAlign: 'middle', color: '#f43f5e', fill: '#f43f5e' }}
-              />{' '}
-              for campus communities
-            </span>
+            <span>Made for campus communities</span>
           </div>
         </div>
       </footer>

@@ -2788,3 +2788,12 @@ select.input {
   --transition-slow: var(--t-slow);
   --info: #38bdf8;
 }
+
+/* ── Mobile navbar toggle (landing page) ──────────────────────────────────── */
+.land-mobile-toggle { display: none !important; }
+
+@media (max-width: 640px) {
+  /* Show hamburger, hide desktop link row */
+  .land-mobile-toggle { display: block !important; }
+  .land-nav-links { display: none !important; }
+}
