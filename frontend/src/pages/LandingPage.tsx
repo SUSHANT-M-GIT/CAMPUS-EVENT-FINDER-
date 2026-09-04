@@ -239,43 +239,42 @@ export default function LandingPage() {
         <div className="land-hero-glow2" />
 
         <div className="app-container land-hero-content">
-          {/* Pill badge */}
-          <div className="land-hero-badge" style={{ marginBottom: 24 }}>
-            <Zap size={12} style={{ verticalAlign: 'middle', marginRight: 5 }} />
-            Campus events — discovered, registered, attended
-          </div>
+          <div className="land-hero-copy">
+            <div className="land-hero-badge">
+              <Zap size={12} />
+              Campus events, made simple
+            </div>
 
-          {/* Heading */}
-          <h1 className="land-hero-title" style={{ maxWidth: 680 }}>
-            Find and manage campus events in one place
-          </h1>
+            <h1 className="land-hero-title">
+              Discover events. Register easily. Manage everything in one place.
+            </h1>
 
-          <p className="land-hero-sub" style={{ maxWidth: 520 }}>
-            Students discover and register for events. Organizers create, manage, and track attendance — all from a single platform.
-          </p>
+            <p className="land-hero-sub">
+              Find college events that match your interests, register in a few clicks, and stay updated. Organizers can create events, manage registrations, and track attendance from one simple platform.
+            </p>
 
-          {/* Two clear CTAs */}
-          <div className="land-hero-actions">
-            <button
-              type="button"
-              className="btn btn-gradient"
-              style={{ padding: '13px 28px', fontSize: '0.97rem', boxShadow: '0 6px 20px rgba(99,102,241,0.4)' }}
-              onClick={handleBrowseEvents}
-            >
-              Browse Events <ArrowRight size={15} style={{ verticalAlign: 'middle', marginLeft: 4 }} />
-            </button>
-            <button
-              type="button"
-              className="btn btn-outline"
-              style={{ padding: '13px 28px', fontSize: '0.97rem' }}
-              onClick={handleHostEvent}
-            >
-              Host an Event ↗
-            </button>
+            <div className="land-hero-actions">
+              <button
+                type="button"
+                className="btn btn-gradient"
+                style={{ padding: '13px 28px', fontSize: '0.97rem', boxShadow: '0 6px 20px rgba(99,102,241,0.4)' }}
+                onClick={handleBrowseEvents}
+              >
+                Browse Events <ArrowRight size={15} />
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ padding: '13px 28px', fontSize: '0.97rem' }}
+                onClick={handleHostEvent}
+              >
+                Host an Event <ArrowRight size={15} />
+              </button>
+            </div>
           </div>
 
           {/* Honest, minimal stats — just a few context lines, no fake numbers */}
-          <div className="land-hero-stats" style={{ marginTop: 44 }}>
+          <div className="land-hero-stats">
             {[
               ['QR', 'Attendance'],
               ['Auto', 'Certificates'],
