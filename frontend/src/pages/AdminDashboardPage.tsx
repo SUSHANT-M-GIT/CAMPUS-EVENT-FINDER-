@@ -8,8 +8,6 @@ import {
   QrCode,
   LogOut,
   GraduationCap,
-  Sun,
-  Moon,
   Star,
   MapPin,
   Clock,
@@ -33,7 +31,6 @@ import {
 } from 'recharts';
 import Alert from '../components/Alert';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
 import { SkeletonStat } from '../components/SkeletonCard';
 import EmptyState from '../components/EmptyState';
 import { createEvent, deleteEvent, getEvents, updateEvent } from '../services/eventService';
@@ -616,7 +613,6 @@ export default function AdminDashboardPage() {
     </button>
   );
 
-  const { toggleTheme, isDark } = useTheme();
 
   return (
     <div className="admin-layout">
@@ -676,15 +672,6 @@ export default function AdminDashboardPage() {
             type="button"
           >
             <User size={16} />
-          </button>
-          <button
-            onClick={toggleTheme}
-            className="theme-toggle"
-            title="Toggle theme"
-            style={{ flex: 'none' }}
-            type="button"
-          >
-            {isDark ? <Sun size={16} /> : <Moon size={16} />}
           </button>
           <button
             onClick={handleLogout}

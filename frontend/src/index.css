@@ -1161,13 +1161,13 @@ tbody tr:last-child {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: rgba(108, 99, 255, 0.18);
+  background: rgba(67, 56, 202, 0.28);
   border: 1px solid rgba(108, 99, 255, 0.35);
   border-radius: var(--r-full);
   padding: 6px 18px;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #a5b4fc;
+  color: #818cf8;
   margin-bottom: 24px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2324,6 +2324,13 @@ tbody tr:last-child {
   justify-content: center;
   transition: all var(--t-base);
 }
+.global-theme-toggle {
+  position: fixed;
+  top: 76px;
+  right: 16px;
+  z-index: 90;
+  box-shadow: var(--shadow-sm);
+}
 .theme-toggle:hover {
   background: rgba(108, 99, 255, 0.15);
   color: var(--primary);
@@ -2596,6 +2603,11 @@ select.input {
 [data-theme='light'] .land-hero-glow2 {
   background: radial-gradient(circle, rgba(168, 85, 247, 0.1) 0%, transparent 65%);
 }
+[data-theme='light'] .land-hero-badge {
+  background: rgba(224, 231, 255, 0.92);
+  border-color: rgba(79, 70, 229, 0.28);
+  color: #4338ca;
+}
 /* Auth card text — dark mode: near-white (card is always dark-glass) */
 .auth-card label {
   color: #e2e8f0 !important;
@@ -2768,6 +2780,108 @@ select.input {
   }
   .admin-main {
     padding: 12px;
+  }
+}
+
+/* Keep shared UI inside narrow viewports. */
+@media (max-width: 768px) {
+  .dashboard-nav-inner {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .dashboard-nav-links {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .dashboard-nav-links a,
+  .dashboard-nav-links button {
+    padding: 6px 9px;
+    font-size: 0.8rem;
+  }
+  .dashboard-banner-overlay {
+    padding: 22px;
+  }
+  .dashboard-banner-overlay h1 {
+    font-size: 1.65rem;
+  }
+  .dashboard-banner img {
+    height: 230px;
+  }
+  .admin-main {
+    min-width: 0;
+  }
+  .modal-backdrop {
+    overflow-y: auto;
+    align-items: start;
+  }
+  .modal-card {
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+  }
+  .land-hero-content {
+    padding-top: 120px;
+    padding-bottom: 72px;
+  }
+  .land-hero-actions .btn {
+    max-width: 100%;
+  }
+  .land-footer-bottom {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-container {
+    width: calc(100% - 24px);
+  }
+  .auth-page {
+    padding: 16px 12px;
+  }
+  .auth-card {
+    width: 100%;
+    max-width: 500px;
+  }
+  .land-hero-title {
+    font-size: clamp(2.35rem, 11vw, 2.8rem);
+    overflow-wrap: anywhere;
+  }
+  .land-hero-sub {
+    font-size: 0.98rem;
+    line-height: 1.65;
+  }
+  .land-hero-actions {
+    width: 100%;
+    align-items: stretch;
+  }
+  .land-hero-actions .btn {
+    width: 100%;
+  }
+  .land-hero-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 16px;
+  }
+  .land-stat {
+    min-width: 0;
+  }
+  .carousel-slide img {
+    height: 240px;
+  }
+  .carousel-overlay {
+    padding: 20px;
+  }
+  .stepper {
+    margin-bottom: 20px;
+  }
+  .stepper-connector {
+    margin-bottom: 0;
+  }
+  .notif-panel {
+    width: calc(100vw - 24px);
+    right: -4px;
   }
 }
 

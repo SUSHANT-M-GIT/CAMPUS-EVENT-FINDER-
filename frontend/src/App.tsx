@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import { ThemeProvider } from './context/ThemeContext';
 import ErrorBoundary from './components/ErrorBoundary';
+import ThemeToggle from './components/ThemeToggle';
 import AppRoutes from './routes/AppRoutes';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
@@ -17,6 +18,7 @@ export default function App() {
             <AuthProvider>
               <SocketProvider>
                 <div className="app-root">
+                  <ThemeToggle />
                   <ErrorBoundary>
                     <AppRoutes />
                   </ErrorBoundary>

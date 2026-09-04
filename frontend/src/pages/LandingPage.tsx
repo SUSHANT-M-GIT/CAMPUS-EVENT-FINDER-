@@ -242,7 +242,7 @@ export default function LandingPage() {
           <div className="land-hero-copy">
             <div className="land-hero-badge">
               <Zap size={12} />
-              Campus events, made simple
+              CAMPUS EVENTS, MADE SIMPLE
             </div>
 
             <h1 className="land-hero-title">

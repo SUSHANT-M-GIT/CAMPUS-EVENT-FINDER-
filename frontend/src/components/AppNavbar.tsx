@@ -1,7 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Zap, Sun, Moon, User } from 'lucide-react';
+import { Zap, User } from 'lucide-react';
 import NotificationBell from './NotificationBell';
-import { useTheme } from '../context/ThemeContext';
 
 interface NavbarLink {
   label: string;
@@ -23,7 +22,6 @@ export default function AppNavbar({
   userName,
   userInitial,
 }: AppNavbarProps) {
-  const { toggleTheme, isDark } = useTheme();
   const location = useLocation();
 
   return (
@@ -96,29 +94,6 @@ export default function AppNavbar({
               </button>
             );
           })}
-
-          {/* Dark / Light mode toggle */}
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="theme-toggle"
-            aria-label="Toggle theme"
-            style={{
-              width: 36,
-              height: 36,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: '8px',
-              border: '1px solid var(--border)',
-              background: 'var(--card-bg)',
-              color: 'var(--text)',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-            }}
-          >
-            {isDark ? <Sun size={17} /> : <Moon size={17} />}
-          </button>
 
           {/* Notification Bell */}
           {showBell && <NotificationBell />}
