@@ -31,6 +31,7 @@ const eventSchema = new mongoose.Schema(
     bannerSource: { type: String, enum: ['local', 'gdrive', ''], default: '' },
 
     // ── Certificate control ───────────────────────────────────────────────────
+    attendanceEnabled: { type: Boolean, default: true },
     certificatesEnabled: { type: Boolean, default: false },
   },
   { timestamps: true }

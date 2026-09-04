@@ -65,9 +65,7 @@ const defaultForm = {
   maxRegistrations: 100,
   eligibility: 'all' as 'all' | 'own_college',
   tags: [] as string[],
-  imageFile: null as File | null,
-  gdriveLink: '',
-  // Certificate
+  attendanceEnabled: true,
   certificatesEnabled: false,
 };
 
@@ -517,8 +515,7 @@ export default function AdminDashboardPage() {
       maxRegistrations: ev.maxRegistrations ?? 100,
       eligibility: ev.eligibility ?? 'all',
       tags: ev.tags ?? [],
-      imageFile: null,
-      gdriveLink: ev.bannerSource === 'gdrive' ? (ev.bannerImage ?? '') : '',
+      attendanceEnabled: ev.attendanceEnabled ?? true,
       certificatesEnabled: ev.certificatesEnabled ?? false,
     });
     setActiveTab('create');
@@ -1197,80 +1194,30 @@ export default function AdminDashboardPage() {
                 </span>
               </Field>
 
-              {/*  Banner image  */}
-              <Field label="Event Banner Image">
-                <div style={{ display: 'grid', gap: 10 }}>
-                  {/* Option A: upload from computer */}
-                  <div>
-                    <label
-                      style={{
-                        fontSize: '0.78rem',
-                        color: 'var(--text-muted)',
-                        display: 'block',
-                        marginBottom: 4,
-                      }}
-                    >
-                      Upload from computer (JPG, PNG, WebP max 5 MB)
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0] ?? null;
-                        setForm((prev) => ({
-                          ...prev,
-                          imageFile: file,
-                          gdriveLink: file ? '' : prev.gdriveLink,
-                        }));
-                      }}
-                      style={{ ...inputStyle, padding: '7px 12px', cursor: 'pointer' }}
-                    />
-                    {form.imageFile && (
-                      <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#10b981' }}>
-                        {form.imageFile.name} ({(form.imageFile.size / 1024).toFixed(0)} KB)
-                      </p>
-                    )}
-                  </div>
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+                <label
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={form.attendanceEnabled}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        attendanceEnabled: e.target.checked,
+                        certificatesEnabled: e.target.checked ? prev.certificatesEnabled : false,
+                      }))
+                    }
+                    style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#7c3aed' }}
+                  />
+                  <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text)' }}>
+                    Enable attendance for this event
+                  </span>
+                </label>
+              </div>
 
-                  <div
-                    style={{ textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.8rem' }}
-                  >
-                    — or —
-                  </div>
-
-                  {/* Option B: Google Drive link */}
-                  <div>
-                    <label
-                      style={{
-                        fontSize: '0.78rem',
-                        color: 'var(--text-muted)',
-                        display: 'block',
-                        marginBottom: 4,
-                      }}
-                    >
-                      Google Drive share link
-                    </label>
-                    <input
-                      type="text"
-                      value={form.gdriveLink}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          gdriveLink: e.target.value,
-                          imageFile: e.target.value ? null : prev.imageFile,
-                        }))
-                      }
-                      placeholder="https://drive.google.com/file/d/FILE_ID/view"
-                      style={inputStyle}
-                    />
-                    <p style={{ margin: '4px 0 0', fontSize: '0.72rem', color: 'var(--text-dim)' }}>
-                      Share the file publicly in Google Drive, then paste the link here.
-                    </p>
-                  </div>
-                </div>
-              </Field>
-
-              {/*  Certificate Setting  */}
+              {form.attendanceEnabled && (
+                /*  Certificate Setting  */
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
                 <h4 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '0.95rem' }}>
                   🎓 Certificates
@@ -1296,6 +1243,7 @@ export default function AdminDashboardPage() {
                   </div>
                 </label>
               </div>
+              )}
 
               <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
                 <button
@@ -1773,7 +1721,7 @@ export default function AdminDashboardPage() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.87rem' }}>
                   <thead style={{ position: 'sticky', top: 0, background: 'var(--surface-2)' }}>
                     <tr style={{ borderBottom: `2px solid ${C.light}` }}>
-                      {['Name', 'College ID', 'College', 'Department'].map((h) => (
+                      {['Name', 'College ID', 'College', 'Department', 'P/A'].map((h) => (
                         <th
                           key={h}
                           style={{
@@ -1809,6 +1757,9 @@ export default function AdminDashboardPage() {
                         <td style={{ padding: '10px 12px', color: 'var(--text-2)' }}>
                           {r.department || 'N/A'}
                         </td>
+                          <td style={{ padding: '10px 12px', fontWeight: 700 }}>
+                            {r.attendanceStatus === 'present' ? 'P' : 'A'}
+                          </td>
                       </tr>
                     ))}
                   </tbody>

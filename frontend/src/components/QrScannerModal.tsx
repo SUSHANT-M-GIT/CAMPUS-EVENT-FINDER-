@@ -7,7 +7,7 @@
  */
 import { useRef, useState, useEffect, useCallback } from 'react';
 import jsQR from 'jsqr';
-import { scanQr, getAttendanceList, enableCertificates } from '../services/attendanceService';
+import { scanQr, getAttendanceList } from '../services/attendanceService';
 import { extractErrorMessage } from '../utils/error';
 import type { AttendanceRecord } from '../services/attendanceService';
 
@@ -33,10 +33,7 @@ export default function QrScannerModal({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [attendanceList, setAttendanceList] = useState<AttendanceRecord[]>([]);
   const [listLoading, setListLoading] = useState(false);
-  const [certLoading, setCertLoading] = useState(false);
   const [manualId, setManualId] = useState('');
-  // Local state so it updates after enabling without needing to re-open modal
-  const [certificatesEnabled, setCertificatesEnabled] = useState(certEnabledProp ?? false);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -228,20 +225,6 @@ export default function QrScannerModal({
       setScanResult({ msg, type: msg.includes('already') ? 'warn' : 'error' });
     } finally {
       setScanning(false);
-    }
-  };
-
-  const handleEnableCerts = async () => {
-    setCertLoading(true);
-    try {
-      const res = await enableCertificates(eventId);
-      setCertificatesEnabled(true);
-      setScanResult({ msg: res.msg, type: 'success' });
-    } catch (error: unknown) {
-      const msg = extractErrorMessage(error, 'Failed');
-      setScanResult({ msg, type: 'error' });
-    } finally {
-      setCertLoading(false);
     }
   };
 
@@ -600,27 +583,7 @@ export default function QrScannerModal({
             >
               {listLoading ? 'Loading...' : 'Refresh Attendance List'}
             </button>
-            {!certificatesEnabled && (
-              <button
-                type="button"
-                onClick={handleEnableCerts}
-                disabled={certLoading}
-                style={{
-                  flex: 1,
-                  background: '#7c3aed',
-                  color: '#fff',
-                  border: 0,
-                  borderRadius: 9,
-                  padding: '9px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  fontSize: '0.85rem',
-                }}
-              >
-                {certLoading ? 'Enabling...' : 'Enable Certificates'}
-              </button>
-            )}
-            {certificatesEnabled && (
+            {certEnabledProp === true && (
               <div
                 style={{
                   flex: 1,

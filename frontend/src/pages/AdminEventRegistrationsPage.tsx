@@ -43,6 +43,7 @@ export default function AdminEventRegistrationsPage() {
               <tr>
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">P/A</th>
                 <th className="px-4 py-3">Registered At</th>
               </tr>
             </thead>
@@ -53,6 +54,9 @@ export default function AdminEventRegistrationsPage() {
                   <tr key={registration._id} className="border-t border-slate-200">
                     <td className="px-4 py-3">{user?.name ?? 'Unknown'}</td>
                     <td className="px-4 py-3">{user?.email ?? '-'}</td>
+                    <td className="px-4 py-3">
+                      {registration.attendanceStatus === 'present' ? 'P' : 'A'}
+                    </td>
                     <td className="px-4 py-3">
                       {new Date(registration.registeredAt).toLocaleString()}
                     </td>

@@ -45,6 +45,7 @@ export interface EventItem {
   createdAt?: string;
   updatedAt?: string;
   // Certificate
+  attendanceEnabled?: boolean;
   certificatesEnabled?: boolean;
 }
 

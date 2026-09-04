@@ -19,9 +19,8 @@ export interface EventPayload {
   maxRegistrations: number;
   eligibility: 'all' | 'own_college';
   tags: string[];
-  // Banner: either a local File or a Google Drive share link
-  imageFile?: File | null;
-  gdriveLink?: string;
+  attendanceEnabled?: boolean;
+  certificatesEnabled?: boolean;
 }
 
 export async function getEvents(query: EventsQuery = {}) {
@@ -47,8 +46,8 @@ function buildFormData(payload: EventPayload): FormData {
   fd.append('maxRegistrations', String(payload.maxRegistrations));
   fd.append('eligibility', payload.eligibility);
   payload.tags.forEach((t) => fd.append('tags[]', t));
-  if (payload.imageFile) fd.append('image', payload.imageFile);
-  if (payload.gdriveLink) fd.append('gdriveLink', payload.gdriveLink);
+  fd.append('attendanceEnabled', String(payload.attendanceEnabled ?? true));
+  fd.append('certificatesEnabled', String(payload.certificatesEnabled ?? false));
   return fd;
 }
 
