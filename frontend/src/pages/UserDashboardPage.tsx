@@ -747,20 +747,25 @@ export default function UserDashboardPage() {
 
                       {/* Tags */}
                       {event.tags && event.tags.length > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                           {event.tags.map((tag) => (
                             <span
                               key={tag}
                               style={{
-                                background: 'rgba(108,99,255,0.15)',
-                                color: '#4f46e5',
-                                borderRadius: 99,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                background: 'var(--tag-bg, rgba(99,102,241,0.08))',
+                                color: 'var(--tag-text, #6366f1)',
+                                border: '1px solid var(--tag-border, rgba(99,102,241,0.22))',
+                                borderRadius: '6px',
                                 padding: '2px 8px',
-                                fontSize: '0.7rem',
+                                fontSize: '0.72rem',
                                 fontWeight: 600,
+                                letterSpacing: '0.01em',
+                                whiteSpace: 'nowrap',
                               }}
                             >
-                              #{tag}
+                              #{tag.startsWith('#') ? tag.slice(1) : tag}
                             </span>
                           ))}
                         </div>

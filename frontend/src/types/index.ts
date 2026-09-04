@@ -13,6 +13,7 @@ export interface AuthUser {
   department?: string;
   company?: string;
   designation?: string;
+  phone?: string;
   isVerified?: boolean;
   clubName?: string;
   officialEmail?: string;

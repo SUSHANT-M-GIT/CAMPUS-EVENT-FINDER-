@@ -60,6 +60,11 @@ exports.createEvent = async (req, res) => {
     const bodyFields = { ...req.body };
     delete bodyFields.gdriveLink;
 
+    // ── Tag limit ──────────────────────────────────────────────────────────
+    if (Array.isArray(bodyFields.tags) && bodyFields.tags.length > 5) {
+      return res.status(400).json({ msg: 'Maximum 5 tags allowed per event.' });
+    }
+
     const e = new Event({ ...bodyFields, ...banner, createdBy: req.user.id });
     await e.save();
     res.json(e);
@@ -192,6 +197,12 @@ exports.updateEvent = async (req, res) => {
     } else if (bodyFields.tags && !Array.isArray(bodyFields.tags)) {
       bodyFields.tags = [bodyFields.tags];
     }
+
+    // ── Tag limit ──────────────────────────────────────────────────────────
+    if (Array.isArray(bodyFields.tags) && bodyFields.tags.length > 5) {
+      return res.status(400).json({ msg: 'Maximum 5 tags allowed per event.' });
+    }
+
     const updated = await Event.findByIdAndUpdate(
       req.params.id,
       { ...bodyFields, ...banner },

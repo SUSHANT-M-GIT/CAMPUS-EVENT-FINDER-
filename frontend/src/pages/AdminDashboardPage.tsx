@@ -99,19 +99,29 @@ const PRESET_TAGS = [
 ];
 
 //  tag picker component
+const MAX_TAGS = 5;
+
 function TagPicker({ tags, onChange }: { tags: string[]; onChange: (t: string[]) => void }) {
   const [custom, setCustom] = useState('');
+  const atMax = tags.length >= MAX_TAGS;
 
   const toggle = (tag: string) => {
     const lower = tag.toLowerCase();
-    onChange(tags.includes(lower) ? tags.filter((t) => t !== lower) : [...tags, lower]);
+    if (tags.includes(lower)) {
+      // always allow removal
+      onChange(tags.filter((t) => t !== lower));
+    } else {
+      if (atMax) return; // silently block — UI already shows disabled state
+      onChange([...tags, lower]);
+    }
   };
 
   const addCustom = () => {
     const t = custom.trim().toLowerCase();
-    if (t && !tags.includes(t)) {
-      onChange([...tags, t]);
-    }
+    if (!t) return;
+    if (tags.includes(t)) { setCustom(''); return; }
+    if (atMax) return;
+    onChange([...tags, t]);
     setCustom('');
   };
 
@@ -122,53 +132,62 @@ function TagPicker({ tags, onChange }: { tags: string[]; onChange: (t: string[])
         {PRESET_TAGS.map((tag) => {
           const lower = tag.toLowerCase();
           const active = tags.includes(lower);
+          const disabled = atMax && !active;
           return (
             <button
               key={tag}
               type="button"
               onClick={() => toggle(tag)}
+              disabled={disabled}
               style={{
                 padding: '4px 12px',
                 borderRadius: 99,
                 fontSize: '0.78rem',
                 fontWeight: 600,
-                border: `1.5px solid ${active ? C.cyan : '#cde8f5'}`,
-                background: active ? C.cyan : '#f0f7fb',
-                color: active ? '#fff' : C.dark,
-                cursor: 'pointer',
+                border: `1.5px solid ${active ? C.cyan : disabled ? 'var(--border)' : '#cde8f5'}`,
+                background: active ? C.cyan : disabled ? 'var(--card-bg)' : '#f0f7fb',
+                color: active ? '#fff' : disabled ? 'var(--text-dim)' : C.dark,
+                cursor: disabled ? 'not-allowed' : 'pointer',
+                opacity: disabled ? 0.45 : 1,
                 transition: 'all 0.15s',
               }}
             >
-              {active ? ' ' : ''}
-              {tag}
+              {active ? '✓ ' : ''}{tag}
             </button>
           );
         })}
       </div>
+
+      {/* max tags notice */}
+      {atMax && (
+        <p style={{ margin: '0 0 8px', fontSize: '0.78rem', color: '#f59e0b', fontWeight: 600 }}>
+          Maximum 5 tags selected. Remove a tag to add another.
+        </p>
+      )}
+
       {/* custom tag input */}
       <div style={{ display: 'flex', gap: 8 }}>
         <input
           value={custom}
           onChange={(e) => setCustom(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              addCustom();
-            }
+            if (e.key === 'Enter') { e.preventDefault(); addCustom(); }
           }}
-          placeholder="Add custom tag"
-          style={{ ...inputStyle, flex: 1 }}
+          placeholder={atMax ? 'Remove a tag to add more' : 'Add custom tag'}
+          disabled={atMax}
+          style={{ ...inputStyle, flex: 1, opacity: atMax ? 0.5 : 1 }}
         />
         <button
           type="button"
           onClick={addCustom}
+          disabled={atMax}
           style={{
-            background: 'var(--grad-primary)',
-            color: '#fff',
+            background: atMax ? 'var(--border)' : 'var(--grad-primary)',
+            color: atMax ? 'var(--text-dim)' : '#fff',
             border: 0,
             borderRadius: 9,
             padding: '0 16px',
-            cursor: 'pointer',
+            cursor: atMax ? 'not-allowed' : 'pointer',
             fontWeight: 600,
             fontSize: '0.88rem',
           }}
@@ -176,25 +195,27 @@ function TagPicker({ tags, onChange }: { tags: string[]; onChange: (t: string[])
           + Add
         </button>
       </div>
+
       {/* selected tags */}
       {tags.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: 10 }}>
           {tags.map((t) => (
             <span
               key={t}
               style={{
-                background: 'rgba(108,99,255,0.15)',
-                color: '#4f46e5',
-                borderRadius: 99,
-                padding: '3px 10px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                background: 'var(--tag-bg, rgba(99,102,241,0.08))',
+                color: 'var(--tag-text, #6366f1)',
+                border: '1px solid var(--tag-border, rgba(99,102,241,0.22))',
+                borderRadius: '6px',
+                padding: '3px 8px',
                 fontSize: '0.78rem',
                 fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
               }}
             >
-              #{t}
+              #{t.startsWith('#') ? t.slice(1) : t}
               <button
                 type="button"
                 onClick={() => onChange(tags.filter((x) => x !== t))}
@@ -202,11 +223,13 @@ function TagPicker({ tags, onChange }: { tags: string[]; onChange: (t: string[])
                   background: 'none',
                   border: 0,
                   cursor: 'pointer',
-                  color: '#6366f1',
+                  color: 'var(--tag-text, #6366f1)',
                   fontWeight: 700,
                   padding: 0,
                   lineHeight: 1,
+                  fontSize: '0.85rem',
                 }}
+                aria-label={`Remove ${t}`}
               >
                 ✕
               </button>
@@ -1406,20 +1429,25 @@ export default function AdminDashboardPage() {
                       {ev.title}
                     </h4>
                     {ev.tags && ev.tags.length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: 8 }}>
                         {ev.tags.map((t) => (
                           <span
                             key={t}
                             style={{
-                              background: 'rgba(108,99,255,0.15)',
-                              color: '#4f46e5',
-                              borderRadius: 99,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              background: 'var(--tag-bg, rgba(99,102,241,0.08))',
+                              color: 'var(--tag-text, #6366f1)',
+                              border: '1px solid var(--tag-border, rgba(99,102,241,0.22))',
+                              borderRadius: '6px',
                               padding: '2px 8px',
                               fontSize: '0.72rem',
                               fontWeight: 600,
+                              letterSpacing: '0.01em',
+                              whiteSpace: 'nowrap',
                             }}
                           >
-                            #{t}
+                            #{t.startsWith('#') ? t.slice(1) : t}
                           </span>
                         ))}
                       </div>
