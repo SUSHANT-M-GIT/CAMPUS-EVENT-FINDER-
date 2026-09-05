@@ -333,6 +333,13 @@ const inputStyle: React.CSSProperties = {
   background: 'var(--surface-2)',
 };
 
+const selectStyle: React.CSSProperties = {
+  ...inputStyle,
+  appearance: 'auto',
+  paddingRight: 32,
+  cursor: 'pointer',
+};
+
 export default function AdminDashboardPage() {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
@@ -1132,7 +1139,7 @@ export default function AdminDashboardPage() {
               </Field>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <Field label="Category">
-                  <select name="type" value={form.type} onChange={handleChange} style={inputStyle}>
+                  <select name="type" value={form.type} onChange={handleChange} style={selectStyle}>
                     {['hackathon', 'tech', 'seminar', 'games', 'movie', 'other'].map((t) => (
                       <option key={t} value={t}>
                         {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -1151,7 +1158,7 @@ export default function AdminDashboardPage() {
                   />
                 </Field>
                 <Field label="Event Type">
-                  <select name="eventType" value={form.eventType} onChange={handleChange} style={inputStyle}>
+                  <select name="eventType" value={form.eventType} onChange={handleChange} style={selectStyle}>
                     <option value="individual">Individual</option>
                     <option value="team">Team</option>
                   </select>
@@ -1217,7 +1224,7 @@ export default function AdminDashboardPage() {
                     name="eligibility"
                     value={form.eligibility}
                     onChange={handleChange}
-                    style={inputStyle}
+                    style={selectStyle}
                   >
                     <option value="all"> Open to all colleges</option>
                     <option value="own_college"> My college students only</option>
