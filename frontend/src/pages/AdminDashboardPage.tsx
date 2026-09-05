@@ -1771,38 +1771,17 @@ export default function AdminDashboardPage() {
                 </div>
               ) : (
                 <>
-                  {(() => {
-                    const team = viewRegs.find((registration) => registration.team && typeof registration.team !== 'string')?.team;
-                    if (!team || typeof team === 'string') return null;
-                    const leader = typeof team.leader === 'string' ? 'Unknown' : team.leader.name;
-                    return (
-                      <div
-                        style={{
-                          marginBottom: 14,
-                          border: '1px solid rgba(108,99,255,0.35)',
-                          borderRadius: 12,
-                          background: 'rgba(108,99,255,0.1)',
-                          padding: '14px 16px',
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-                          <div>
-                            <p style={{ margin: 0, color: '#818cf8', fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Team</p>
-                            <h4 style={{ margin: '3px 0 0', color: 'var(--text)', fontSize: '1.05rem' }}>{team.teamName}</h4>
-                            <p style={{ margin: '5px 0 0', color: 'var(--text-muted)', fontSize: '0.8rem' }}>Leader: <strong style={{ color: 'var(--text-2)' }}>{leader}</strong></p>
-                          </div>
-                          <div style={{ textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                            <p style={{ margin: 0 }}>Members: <strong style={{ color: 'var(--text-2)' }}>{team.members.length}/{team.maxTeamSize}</strong></p>
-                            <p style={{ margin: '4px 0 0', color: team.status === 'ready' ? 'var(--success)' : '#f59e0b', fontWeight: 800, textTransform: 'uppercase', fontSize: '0.7rem' }}>{team.status}</p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.87rem' }}>
                   <thead style={{ position: 'sticky', top: 0, background: 'var(--surface-2)' }}>
                     <tr style={{ borderBottom: `2px solid ${C.light}` }}>
-                      {['Name', 'College ID', 'College', 'Department', 'P/A'].map((h) => (
+                      {[
+                        'Name',
+                        ...(viewRegs.some((registration) => registration.team && typeof registration.team !== 'string') ? ['Team Name'] : []),
+                        'College ID',
+                        'College',
+                        'Department',
+                        'P/A',
+                      ].map((h) => (
                         <th
                           key={h}
                           style={{
@@ -1829,6 +1808,11 @@ export default function AdminDashboardPage() {
                         <td style={{ padding: '10px 12px', color: 'var(--text-2)' }}>
                           {r.name || 'N/A'}
                         </td>
+                        {viewRegs.some((registration) => registration.team && typeof registration.team !== 'string') && (
+                          <td style={{ padding: '10px 12px', color: 'var(--text-2)', fontWeight: 600 }}>
+                            {r.team && typeof r.team !== 'string' ? r.team.teamName : 'N/A'}
+                          </td>
+                        )}
                         <td style={{ padding: '10px 12px', color: 'var(--text-2)' }}>
                           {r.collegeId || 'N/A'}
                         </td>
