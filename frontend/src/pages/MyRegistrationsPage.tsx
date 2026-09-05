@@ -16,16 +16,18 @@ import { getMyRegistrations } from '../services/registrationService';
 import { downloadCertificatePdf } from '../services/attendanceService';
 import type { EventItem, RegistrationItem } from '../types';
 
-function toQrImageUrl(value?: string | null) {
+function toQrImageUrl(value: string | null | undefined, registrationId?: string) {
   if (!value) return '';
   // base64 data URI — use as-is
   if (value.startsWith('data:')) return value;
-  // absolute URL — use as-is
-  if (value.startsWith('http://') || value.startsWith('https://')) return value;
-  // relative path — build URL from VITE_API_URL backend base
+  // File URLs may point to an ephemeral filesystem in production. Use the existing
+  // API endpoint when a registration ID is available so the QR can be regenerated.
   const backendBase = (import.meta.env.VITE_API_URL as string || 'http://127.0.0.1:5000/api')
     .replace(/\/api\/?$/, '');
-  return `${backendBase}${value.startsWith('/') ? value : `/${value}`}`;
+  if (registrationId) return `${backendBase}/api/attendance/qr-image/${registrationId}`;
+  return value.startsWith('http://') || value.startsWith('https://')
+    ? value
+    : `${backendBase}${value.startsWith('/') ? value : `/${value}`}`;
 }
 
 export default function MyRegistrationsPage() {
@@ -408,7 +410,7 @@ export default function MyRegistrationsPage() {
                         </div>
                       ) : (
                         <img
-                          src={toQrImageUrl(reg.attendanceQrBase64 || reg.attendanceQr)}
+                          src={toQrImageUrl(reg.attendanceQrBase64 || reg.attendanceQr, reg._id)}
                           alt="Attendance QR"
                           onError={() => setQrLoadError((prev) => ({ ...prev, [reg._id]: true }))}
                           style={{
@@ -435,7 +437,7 @@ export default function MyRegistrationsPage() {
                       {/* Only show download link for non-base64 URLs (can't download data URI easily) */}
                       {!(reg.attendanceQrBase64 || reg.attendanceQr || '').startsWith('data:') && (
                         <a
-                          href={toQrImageUrl(reg.attendanceQr)}
+                          href={toQrImageUrl(reg.attendanceQr, reg._id)}
                           download={`qr-${reg.registrationCode || reg._id}.png`}
                           style={{
                             display: 'inline-flex',

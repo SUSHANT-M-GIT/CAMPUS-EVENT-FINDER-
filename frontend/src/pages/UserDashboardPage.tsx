@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Calendar,
   CheckCircle2,
@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import AppNavbar from '../components/AppNavbar';
 import Alert from '../components/Alert';
-import EventCarousel from '../components/EventCarousel';
 import { SkeletonCard } from '../components/SkeletonCard';
 import EmptyState from '../components/EmptyState';
 import { useAuth } from '../context/AuthContext';
@@ -612,27 +611,6 @@ export default function UserDashboardPage() {
               )}
             </div>
           )}
-          {/* Featured carousel  show top 3 events */}
-          {!searchInput && !typeFilter && events.length > 0 && !eventsLoading && (
-            <div style={{ marginBottom: 24 }}>
-              <p
-                style={{
-                  fontSize: '0.78rem',
-                  fontWeight: 700,
-                  color: 'var(--brand-600)',
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  marginBottom: 10,
-                }}
-              >
-                Featured
-              </p>
-              <EventCarousel
-                events={events.slice(0, 5)}
-                onRegister={(id) => setSelectedEventId(id)}
-              />
-            </div>
-          )}
           {/* Skeleton loading */}
           {eventsLoading && (
             <div className="event-grid stagger">
@@ -673,6 +651,17 @@ export default function UserDashboardPage() {
                 const isFull =
                   event.maxRegistrations != null &&
                   (event.registrationCount ?? 0) >= event.maxRegistrations;
+                const now = new Date();
+                const eventDate = new Date(event.date);
+                const isOngoing = eventDate.toDateString() === now.toDateString();
+                const isClosed = (eventDate < now && !isOngoing) || new Date(event.registrationDeadline) < now;
+                const status = isOngoing ? 'ONGOING' : isClosed ? 'CLOSED' : 'OPEN';
+                const maximum = event.maxRegistrations ?? 0;
+                const openSlots = Math.max(maximum - (event.registrationCount ?? 0), 0);
+                const descriptionWords = event.description.trim().split(/\s+/);
+                const shortDescription = descriptionWords.length > 50
+                  ? `${descriptionWords.slice(0, 50).join(' ')}...`
+                  : event.description;
                 return (
                   <article key={event._id} className="event-card">
                     {/* Image with overlay type badge */}
@@ -693,7 +682,7 @@ export default function UserDashboardPage() {
                             'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600';
                         }}
                       />
-                      {/* Type badge */}
+                      {/* Category and status badges */}
                       <span
                         style={{
                           position: 'absolute',
@@ -711,24 +700,21 @@ export default function UserDashboardPage() {
                       >
                         {event.type}
                       </span>
-                      {/* Paid badge */}
-                      {isFull && (
-                        <span
-                          style={{
-                            position: 'absolute',
-                            bottom: 10,
-                            right: 10,
-                            background: 'rgba(124,58,237,0.9)',
-                            color: '#fff',
-                            borderRadius: 99,
-                            padding: '3px 10px',
-                            fontSize: '0.7rem',
-                            fontWeight: 700,
-                          }}
-                        >
-                          Full
-                        </span>
-                      )}
+                      <span
+                        style={{
+                          position: 'absolute',
+                          top: 10,
+                          right: 10,
+                          background: isClosed ? 'rgba(220,38,38,0.9)' : 'rgba(22,163,74,0.9)',
+                          color: '#fff',
+                          borderRadius: 99,
+                          padding: '3px 10px',
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {status}
+                      </span>
                     </div>
 
                     <div className="event-card-body">
@@ -745,10 +731,15 @@ export default function UserDashboardPage() {
                         {event.title}
                       </h4>
 
+                      <div style={{ display: 'grid', gap: 4, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        <span><strong style={{ color: 'var(--text-2)' }}>Administration:</strong> {event.administrationName || 'Not provided'}</span>
+                        <span><strong style={{ color: 'var(--text-2)' }}>Admin:</strong> {event.adminName || 'Not provided'}</span>
+                      </div>
+
                       {/* Tags */}
                       {event.tags && event.tags.length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                          {event.tags.map((tag) => (
+                          {event.tags.slice(0, 5).map((tag) => (
                             <span
                               key={tag}
                               style={{
@@ -784,7 +775,7 @@ export default function UserDashboardPage() {
                           overflow: 'hidden',
                         }}
                       >
-                        {event.description}
+                        {shortDescription}
                       </p>
 
                       {/* Meta */}
@@ -810,6 +801,10 @@ export default function UserDashboardPage() {
                           {' '}
                           <strong style={{ color: 'var(--text-2)' }}>{event.location}</strong>
                         </span>
+                      </div>
+
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        <strong style={{ color: 'var(--text-2)' }}>{openSlots}</strong> / {maximum} Slots Open
                       </div>
 
                       {/* Rating */}
@@ -995,34 +990,42 @@ export default function UserDashboardPage() {
                         </button>
                       )}
 
-                      {/* Share */}
-                      <button
-                        type="button"
-                        onClick={() => void handleShare(event)}
-                        title="Copy event link"
-                        style={{
-                          background: 'rgba(255,255,255,0.06)',
-                          color: 'var(--text-muted)',
-                          border: '1px solid var(--border)',
-                          borderRadius: 8,
-                          padding: '5px 10px',
-                          fontSize: '0.82rem',
-                          cursor: 'pointer',
-                          alignSelf: 'flex-start',
-                          transition: 'background 0.2s',
-                        }}
-                        onMouseEnter={(e) => {
-                          (e.currentTarget as HTMLButtonElement).style.background = '#e0e7ff';
-                          (e.currentTarget as HTMLButtonElement).style.color = '#4f46e5';
-                        }}
-                        onMouseLeave={(e) => {
-                          (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9';
-                          (e.currentTarget as HTMLButtonElement).style.color = '#64748b';
-                        }}
-                      >
-                        <Share2 size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} />{' '}
-                        Share
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+                        <button
+                          type="button"
+                          onClick={() => void handleShare(event)}
+                          title="Copy event link"
+                          style={{
+                            background: 'rgba(255,255,255,0.06)',
+                            color: 'var(--text-muted)',
+                            border: '1px solid var(--border)',
+                            borderRadius: 8,
+                            padding: '5px 10px',
+                            fontSize: '0.82rem',
+                            cursor: 'pointer',
+                            alignSelf: 'flex-start',
+                            transition: 'background 0.2s',
+                          }}
+                          onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.background = '#e0e7ff';
+                            (e.currentTarget as HTMLButtonElement).style.color = '#4f46e5';
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9';
+                            (e.currentTarget as HTMLButtonElement).style.color = '#64748b';
+                          }}
+                        >
+                          <Share2 size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Share
+                        </button>
+                        <Link
+                          to={`/events/${event._id}`}
+                          aria-label={`More information about ${event.title}`}
+                          title="More information"
+                          style={{ width: 30, height: 30, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: '50%', color: 'var(--text-muted)', textDecoration: 'none', fontWeight: 700 }}
+                        >
+                          i
+                        </Link>
+                      </div>
                     </div>
 
                     {/*  Q&A panel  */}
