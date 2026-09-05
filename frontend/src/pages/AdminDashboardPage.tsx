@@ -1311,9 +1311,9 @@ export default function AdminDashboardPage() {
                     type="button"
                     onClick={clearForm}
                     style={{
-                      background: '#e2e8f0',
-                      color: 'var(--text)',
-                      border: 0,
+                      background: '#f8fafc',
+                      color: '#1e293b',
+                      border: '1px solid #cbd5e1',
                       borderRadius: 10,
                       padding: '12px 20px',
                       fontWeight: 600,
