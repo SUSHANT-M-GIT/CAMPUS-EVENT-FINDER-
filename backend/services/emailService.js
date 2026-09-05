@@ -312,23 +312,16 @@ async function sendConfirmationEmail(to, event, registration, backendBaseUrl) {
   else if (process.env.RAILWAY_PUBLIC_DOMAIN) resolvedBackendUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
   else if (process.env.RENDER_EXTERNAL_URL) resolvedBackendUrl = process.env.RENDER_EXTERNAL_URL.replace(/\/$/, '');
 
-  // Prefer base64 inline image (always works, no backend wake-up needed).
-  // Fall back to a URL only if base64 is genuinely absent.
-  const qrBase64 = registration.attendanceQrBase64 || '';
+  // Gmail and most email clients BLOCK data: URI images — never use base64 inline in email HTML.
+  // Always use a hosted HTTPS URL via our own /api/attendance/qr-image/:id endpoint.
+  // That endpoint regenerates the QR on-the-fly if needed, so it always works.
   let qrImgSrc = '';
-  if (qrBase64.startsWith('data:image')) {
-    // Already a proper data URI — use directly
-    qrImgSrc = qrBase64;
-  } else if (qrBase64) {
-    // Raw base64 without the data URI prefix
-    qrImgSrc = `data:image/png;base64,${qrBase64}`;
-  } else if (registrationId && resolvedBackendUrl) {
-    // Last resort: URL (requires backend to be awake)
+  if (registrationId && resolvedBackendUrl) {
     qrImgSrc = `${resolvedBackendUrl}/api/attendance/qr-image/${registrationId}`;
   }
 
   const hasQr = !!qrImgSrc;
-  console.log(`[Email] QR: ${qrBase64 ? 'inline base64 ✅' : qrImgSrc ? `url ${qrImgSrc.slice(0, 60)}` : 'none — BACKEND_URL not set'}`);
+  console.log(`[Email] QR image URL: ${qrImgSrc || 'none — BACKEND_URL not set on Render'}`);
 
   const qrSection = `
     <div style="text-align:center;margin:24px 0;padding:20px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
