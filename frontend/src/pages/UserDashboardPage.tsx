@@ -2276,30 +2276,44 @@ export default function UserDashboardPage() {
                     ? `${API_BASE}/api/attendance/qr-image/${teamInfo.memberRegistration._id}`
                     : '');
                 return (
-                  <>
-                    <h3>{teamInfo.teamName}</h3>
-                    <p style={{ color: 'var(--success)', fontWeight: 700 }}>Registration confirmed</p>
-                    <p style={{ color: 'var(--text-muted)' }}>Team Code: <strong>{teamInfo.teamCode}</strong></p>
-                    <p style={{ color: 'var(--text-muted)' }}>Leader: <strong>{leader}</strong></p>
-                    <p style={{ color: 'var(--text-muted)' }}>Members: <strong>{teamInfo.members.length}/{teamInfo.maxTeamSize}</strong></p>
-                    <ul style={{ color: 'var(--text-2)', paddingLeft: 20 }}>
-                      {teamInfo.members.map((member) => <li key={typeof member === 'string' ? member : member._id}>{typeof member === 'string' ? member : member.name}</li>)}
-                    </ul>
+                  <div className="team-info-card">
+                    <div className="team-info-header">
+                      <div>
+                        <p className="team-info-eyebrow">Team registration</p>
+                        <h3>{teamInfo.teamName}</h3>
+                      </div>
+                      <span className="team-info-status">Confirmed</span>
+                    </div>
+                    <div className="team-info-code">
+                      <span>Team code</span>
+                      <strong>{teamInfo.teamCode}</strong>
+                    </div>
+                    <div className="team-info-grid">
+                      <p><span>Leader</span><strong>{leader}</strong></p>
+                      <p><span>Capacity</span><strong>{teamInfo.members.length}/{teamInfo.maxTeamSize}</strong></p>
+                    </div>
+                    <div className="team-info-members">
+                      <span className="team-info-label">Members</span>
+                      <ul>
+                        {teamInfo.members.map((member) => <li key={typeof member === 'string' ? member : member._id}>{typeof member === 'string' ? member : member.name}</li>)}
+                      </ul>
+                    </div>
                     {teamInfo.memberRegistration?.registrationCode && (
-                      <p style={{ color: 'var(--text-muted)' }}>
-                        Registration Code: <strong>{teamInfo.memberRegistration.registrationCode}</strong>
-                      </p>
+                      <div className="team-registration-code">
+                        <span>Registration code</span>
+                        <strong>{teamInfo.memberRegistration.registrationCode}</strong>
+                      </div>
                     )}
                     {memberQr ? (
-                      <div style={{ textAlign: 'center', margin: '14px 0' }}>
-                        <p style={{ color: 'var(--text-muted)', marginBottom: 8 }}>Your attendance QR</p>
-                        <img src={memberQr} alt="Your attendance QR code" style={{ width: 180, height: 180, objectFit: 'contain', background: '#fff', borderRadius: 8, padding: 8 }} />
+                      <div className="team-qr-block">
+                        <p>Your attendance QR</p>
+                        <img src={memberQr} alt="Your attendance QR code" />
                       </div>
                     ) : (
-                      <p style={{ color: 'var(--text-muted)' }}>Your QR code is being prepared. Check My Registrations shortly.</p>
+                      <p className="team-qr-pending">Your QR code is being prepared. Check My Registrations shortly.</p>
                     )}
-                    <button type="button" className="btn btn-secondary" onClick={() => setSelectedEventId(null)}>Close</button>
-                  </>
+                    <button type="button" className="team-info-close" onClick={() => setSelectedEventId(null)}>Close</button>
+                  </div>
                 );
               }
               if (isTeamEvent && teamMode === 'join') {
