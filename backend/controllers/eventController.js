@@ -62,6 +62,26 @@ function addOrganizerDisplayFields(event) {
   };
 }
 
+function normalizeEventBody(body) {
+  const fields = { ...body };
+
+  if (fields.maxRegistrations !== undefined)
+    fields.maxRegistrations = Number(fields.maxRegistrations) || 100;
+
+  if (fields['tags[]']) {
+    fields.tags = Array.isArray(fields['tags[]']) ? fields['tags[]'] : [fields['tags[]']];
+    delete fields['tags[]'];
+  } else if (fields.tags && !Array.isArray(fields.tags)) {
+    fields.tags = [fields.tags];
+  }
+
+  for (const field of ['attendanceEnabled', 'certificatesEnabled']) {
+    if (fields[field] !== undefined) fields[field] = fields[field] === 'true' || fields[field] === true;
+  }
+
+  return fields;
+}
+
 // ── CREATE EVENT ──────────────────────────────────────────────────────────────
 exports.createEvent = async (req, res) => {
   try {
@@ -69,7 +89,7 @@ exports.createEvent = async (req, res) => {
     if (banner._gdriveError) return res.status(400).json({ msg: banner._gdriveError });
 
     // Strip non-model fields from body before spreading
-    const bodyFields = { ...req.body };
+    const bodyFields = normalizeEventBody(req.body);
     delete bodyFields.gdriveLink;
 
     // ── Tag limit ──────────────────────────────────────────────────────────
@@ -202,21 +222,8 @@ exports.updateEvent = async (req, res) => {
       });
     }
 
-    const bodyFields = { ...req.body };
+    const bodyFields = normalizeEventBody(req.body);
     delete bodyFields.gdriveLink;
-    // Parse numeric fields from FormData strings
-    if (bodyFields.maxRegistrations !== undefined)
-      bodyFields.maxRegistrations = Number(bodyFields.maxRegistrations) || 100;
-    // Handle tags[] from FormData — ensure it's always an array
-    if (bodyFields['tags[]']) {
-      bodyFields.tags = Array.isArray(bodyFields['tags[]'])
-        ? bodyFields['tags[]']
-        : [bodyFields['tags[]']];
-      delete bodyFields['tags[]'];
-    } else if (bodyFields.tags && !Array.isArray(bodyFields.tags)) {
-      bodyFields.tags = [bodyFields.tags];
-    }
-
     // ── Tag limit ──────────────────────────────────────────────────────────
     if (Array.isArray(bodyFields.tags) && bodyFields.tags.length > 5) {
       return res.status(400).json({ msg: 'Maximum 5 tags allowed per event.' });
