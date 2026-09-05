@@ -338,7 +338,7 @@ exports.getMyQr = async (req, res) => {
 exports.getQrImage = async (req, res) => {
   try {
     const reg = await Registration.findById(req.params.registrationId)
-      .select('attendanceQrBase64 attendanceQr registrationCode')
+      .select('attendanceQrBase64 attendanceQr registrationCode eventId')
       .lean();
     if (!reg) return res.status(404).send('Not found');
 
@@ -349,11 +349,16 @@ exports.getQrImage = async (req, res) => {
       pngBuffer = Buffer.from(base64Data, 'base64');
     }
 
-    if (!pngBuffer || pngBuffer.length === 0) {
+    const isPng =
+      pngBuffer &&
+      pngBuffer.length >= 8 &&
+      pngBuffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+
+    if (!isPng) {
       // Regenerate on-the-fly from the registration code if base64 is missing
       const QRCode = require('qrcode');
       const crypto = require('crypto');
-      const payload = reg.registrationCode || req.params.registrationId;
+      const payload = `${reg.registrationCode || req.params.registrationId}|${req.params.registrationId}|${reg.eventId || ''}`;
       pngBuffer = await QRCode.toBuffer(payload, {
         width: 300, margin: 2,
         color: { dark: '#0f172a', light: '#ffffff' },

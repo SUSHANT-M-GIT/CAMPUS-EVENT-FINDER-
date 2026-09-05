@@ -18,19 +18,19 @@ import api from '../services/api';
 import type { EventItem, RegistrationItem } from '../types';
 
 function toQrImageUrl(value: string | null | undefined, registrationId?: string) {
-  if (!value) return '';
-  // base64 data URI — use as-is
-  if (value.startsWith('data:')) return value;
-  // File URLs may point to an ephemeral filesystem in production. Use the existing
-  // API endpoint when a registration ID is available so the QR can be regenerated.
+  const normalizedValue = value || '';
+  if (!normalizedValue && !registrationId) return '';
+  // Use the existing backend image endpoint so stored or regenerated QR data is
+  // validated and served consistently across local and deployed environments.
   const backendBase = String(api.defaults.baseURL || 'http://127.0.0.1:5000/api').replace(
     /\/api\/?$/,
     ''
   );
-  if (registrationId) return `${backendBase}/api/attendance/qr-image/${registrationId}`;
-  return value.startsWith('http://') || value.startsWith('https://')
-    ? value
-    : `${backendBase}${value.startsWith('/') ? value : `/${value}`}`;
+  if (registrationId) return `${backendBase}/api/attendance/qr-image/${registrationId}?v=${registrationId}`;
+  if (normalizedValue.startsWith('data:')) return normalizedValue;
+  return normalizedValue.startsWith('http://') || normalizedValue.startsWith('https://')
+    ? normalizedValue
+    : `${backendBase}${normalizedValue.startsWith('/') ? normalizedValue : `/${normalizedValue}`}`;
 }
 
 export default function MyRegistrationsPage() {
