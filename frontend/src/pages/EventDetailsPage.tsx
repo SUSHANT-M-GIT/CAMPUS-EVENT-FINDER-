@@ -13,7 +13,6 @@ import {
   CalendarCheck,
 } from 'lucide-react';
 import AppNavbar from '../components/AppNavbar';
-import Alert from '../components/Alert';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
 import { getEventById } from '../services/eventService';
@@ -86,6 +85,9 @@ export default function EventDetailsPage() {
   const handleRegister = () => {
     navigate('/', { state: { registerEventId: id } });
   };
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  void handleRegister;
 
   const navLinks = user
     ? [
@@ -369,55 +371,7 @@ export default function EventDetailsPage() {
             </>
           )}
 
-          {/* Register CTA */}
-          {(user?.role === 'student' || user?.role === 'professional') && (
-            <>
-              <div style={{ borderTop: '1px solid var(--border)', margin: '0 28px' }} />
-              <div style={{ padding: '20px 28px' }}>
-                {error && <Alert type="error" message={error} />}
-                {eventClosed ? (
-                  <div style={{
-                    background: 'rgba(239,68,68,0.08)',
-                    border: '1px solid rgba(239,68,68,0.2)',
-                    borderRadius: 10,
-                    padding: '12px 16px',
-                    color: '#f87171',
-                    fontSize: '0.88rem',
-                    fontWeight: 500,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                  }}>
-                    <AlertCircle size={16} />
-                    Registration is closed for this event.
-                  </div>
-                ) : (
-                  <button
-                    onClick={handleRegister}
-                    className="btn btn-gradient"
-                    style={{ width: '100%', padding: '13px', fontSize: '1rem', fontWeight: 700 }}
-                  >
-                    Register for this Event
-                  </button>
-                )}
-              </div>
-            </>
-          )}
-
-          {/* Not logged in CTA */}
-          {!user && (
-            <>
-              <div style={{ borderTop: '1px solid var(--border)', margin: '0 28px' }} />
-              <div style={{ padding: '20px 28px', textAlign: 'center' }}>
-                <p style={{ color: 'var(--text-muted)', marginBottom: 14, fontSize: '0.9rem' }}>
-                  Log in to register for this event
-                </p>
-                <Link to="/login" className="btn btn-gradient" style={{ padding: '11px 32px' }}>
-                  Log In
-                </Link>
-              </div>
-            </>
-          )}
+          {/* Register CTA and login prompt removed — registration is done from the main dashboard */}
         </div>
       </main>
     </div>
