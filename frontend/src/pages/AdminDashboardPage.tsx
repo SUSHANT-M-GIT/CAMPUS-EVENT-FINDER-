@@ -1725,10 +1725,11 @@ export default function AdminDashboardPage() {
           <div
             style={{
               width: 'min(700px,100%)',
-              background: 'var(--surface-2)',
+              background: '#17213a',
               borderRadius: 16,
               padding: 24,
-              boxShadow: '0 24px 60px rgba(2,48,71,0.25)',
+              border: '1px solid #33456d',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.45)',
               maxHeight: '85vh',
               display: 'flex',
               flexDirection: 'column',
@@ -1744,21 +1745,21 @@ export default function AdminDashboardPage() {
               }}
             >
               <div>
-                <h3 style={{ margin: 0, color: 'var(--text)' }}>{viewEvent.title}</h3>
-                <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '1.1rem', fontWeight: 800 }}>{viewEvent.title}</h3>
+                <p style={{ margin: '5px 0 0', color: '#a8b4cc', fontSize: '0.78rem' }}>
                   {viewRegs.length} registrant(s)
                 </p>
               </div>
               <button
                 onClick={() => setViewEvent(null)}
                 style={{
-                  background: 'rgba(255,255,255,0.08)',
-                  border: 0,
+                  background: '#263555',
+                  border: '1px solid #49618f',
                   borderRadius: 8,
                   padding: '6px 14px',
                   cursor: 'pointer',
                   fontWeight: 600,
-                  color: 'var(--text-2)',
+                  color: '#e2e8f0',
                 }}
               >
                 ✕ Close
@@ -1771,9 +1772,9 @@ export default function AdminDashboardPage() {
                 </div>
               ) : (
                 <>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.87rem' }}>
-                  <thead style={{ position: 'sticky', top: 0, background: 'var(--surface-2)' }}>
-                    <tr style={{ borderBottom: `2px solid ${C.light}` }}>
+                <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: '0.82rem', overflow: 'hidden', border: '1px solid #cbd5e1', borderRadius: 10 }}>
+                  <thead style={{ position: 'sticky', top: 0, background: '#263858' }}>
+                    <tr style={{ borderBottom: '2px solid #64748b' }}>
                       {[
                         'Name',
                         ...(viewRegs.some((registration) => registration.team && typeof registration.team !== 'string') ? ['Team Name'] : []),
@@ -1785,10 +1786,13 @@ export default function AdminDashboardPage() {
                         <th
                           key={h}
                           style={{
-                            padding: '10px 12px',
+                            padding: '11px 12px',
                             textAlign: 'left',
-                            color: 'var(--text)',
-                            fontWeight: 600,
+                            color: '#f8fafc',
+                            fontWeight: 800,
+                            fontSize: '0.68rem',
+                            letterSpacing: '0.04em',
+                            textTransform: 'uppercase',
                           }}
                         >
                           {h}
@@ -1801,29 +1805,29 @@ export default function AdminDashboardPage() {
                       <tr
                         key={r._id || i}
                         style={{
-                          borderBottom: '1px solid var(--border)',
-                          background: i % 2 === 0 ? '#fff' : '#f8fafc',
+                          borderBottom: '1px solid #d7dee9',
+                          background: i % 2 === 0 ? '#ffffff' : '#f1f5f9',
                         }}
                       >
-                        <td style={{ padding: '10px 12px', color: 'var(--text-2)' }}>
+                        <td style={{ padding: '11px 12px', color: '#172033', fontWeight: 700 }}>
                           {r.name || 'N/A'}
                         </td>
                         {viewRegs.some((registration) => registration.team && typeof registration.team !== 'string') && (
-                          <td style={{ padding: '10px 12px', color: 'var(--text-2)', fontWeight: 600 }}>
+                          <td style={{ padding: '11px 12px', color: '#334155', fontWeight: 800 }}>
                             {r.team && typeof r.team !== 'string' ? r.team.teamName : 'N/A'}
                           </td>
                         )}
-                        <td style={{ padding: '10px 12px', color: 'var(--text-2)' }}>
+                        <td style={{ padding: '11px 12px', color: '#334155', fontWeight: 600 }}>
                           {r.collegeId || 'N/A'}
                         </td>
-                        <td style={{ padding: '10px 12px', color: 'var(--text-2)' }}>
+                        <td style={{ padding: '11px 12px', color: '#334155', fontWeight: 600 }}>
                           {r.collegeName || 'N/A'}
                         </td>
-                        <td style={{ padding: '10px 12px', color: 'var(--text-2)' }}>
+                        <td style={{ padding: '11px 12px', color: '#334155', fontWeight: 600 }}>
                           {r.department || 'N/A'}
                         </td>
-                          <td style={{ padding: '10px 12px', fontWeight: 700 }}>
-                            {r.attendanceStatus === 'present' ? 'P' : 'A'}
+                          <td style={{ padding: '11px 12px', fontWeight: 800, color: r.attendanceStatus === 'present' ? '#15803d' : '#b91c1c' }}>
+                            {r.attendanceStatus === 'present' ? 'PRESENT' : 'ABSENT'}
                           </td>
                       </tr>
                     ))}
