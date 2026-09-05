@@ -575,6 +575,14 @@ exports.myRegistrations = async (req, res) => {
 
 // ── EVENT REGISTRATIONS (admin) ───────────────────────────────────────────────
 exports.eventRegistrations = async (req, res) => {
-  const r = await Registration.find({ eventId: req.params.id }).populate('userId').populate('team');
+  const r = await Registration.find({ eventId: req.params.id })
+    .populate('userId')
+    .populate({
+      path: 'team',
+      populate: [
+        { path: 'leader', select: 'name email collegeName' },
+        { path: 'members', select: 'name email collegeName' },
+      ],
+    });
   res.json(r);
 };
