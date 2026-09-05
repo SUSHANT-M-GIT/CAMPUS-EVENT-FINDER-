@@ -19,18 +19,21 @@ import type { EventItem, RegistrationItem } from '../types';
 
 function toQrImageUrl(value: string | null | undefined, registrationId?: string) {
   const normalizedValue = value || '';
-  if (!normalizedValue && !registrationId) return '';
-  // Use the existing backend image endpoint so stored or regenerated QR data is
-  // validated and served consistently across local and deployed environments.
+  if (normalizedValue.startsWith('data:image/')) return normalizedValue;
+  if (normalizedValue.startsWith('http://') || normalizedValue.startsWith('https://')) {
+    return normalizedValue;
+  }
+
   const backendBase = String(api.defaults.baseURL || 'http://127.0.0.1:5000/api').replace(
     /\/api\/?$/,
     ''
   );
-  if (registrationId) return `${backendBase}/api/attendance/qr-image/${registrationId}?v=${registrationId}`;
-  if (normalizedValue.startsWith('data:')) return normalizedValue;
-  return normalizedValue.startsWith('http://') || normalizedValue.startsWith('https://')
-    ? normalizedValue
-    : `${backendBase}${normalizedValue.startsWith('/') ? normalizedValue : `/${normalizedValue}`}`;
+  if (normalizedValue) {
+    return `${backendBase}${normalizedValue.startsWith('/') ? normalizedValue : `/${normalizedValue}`}`;
+  }
+  return registrationId
+    ? `${backendBase}/api/attendance/qr-image/${registrationId}?v=${registrationId}`
+    : '';
 }
 
 export default function MyRegistrationsPage() {
@@ -40,6 +43,7 @@ export default function MyRegistrationsPage() {
 
   const [certLoading, setCertLoading] = useState<string | null>(null);
   const [qrOpen, setQrOpen] = useState<string | null>(null); // registrationId
+  const [qrFallback, setQrFallback] = useState<Record<string, boolean>>({});
   const [qrLoadError, setQrLoadError] = useState<Record<string, boolean>>({});
 
   const load = async () => {
@@ -413,9 +417,20 @@ export default function MyRegistrationsPage() {
                         </div>
                       ) : (
                         <img
-                          src={toQrImageUrl(reg.attendanceQrBase64 || reg.attendanceQr, reg._id)}
+                          src={toQrImageUrl(
+                            qrFallback[reg._id]
+                              ? ''
+                              : reg.attendanceQrBase64 || reg.attendanceQr,
+                            reg._id
+                          )}
                           alt="Attendance QR"
-                          onError={() => setQrLoadError((prev) => ({ ...prev, [reg._id]: true }))}
+                          onError={() => {
+                            if (!qrFallback[reg._id] && (reg.attendanceQrBase64 || reg.attendanceQr)) {
+                              setQrFallback((prev) => ({ ...prev, [reg._id]: true }));
+                            } else {
+                              setQrLoadError((prev) => ({ ...prev, [reg._id]: true }));
+                            }
+                          }}
                           style={{
                             width: 200,
                             height: 200,
