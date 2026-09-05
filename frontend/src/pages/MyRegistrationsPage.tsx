@@ -14,6 +14,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { extractErrorMessage } from '../utils/error';
 import { getMyRegistrations } from '../services/registrationService';
 import { downloadCertificatePdf } from '../services/attendanceService';
+import api from '../services/api';
 import type { EventItem, RegistrationItem } from '../types';
 
 function toQrImageUrl(value: string | null | undefined, registrationId?: string) {
@@ -22,8 +23,10 @@ function toQrImageUrl(value: string | null | undefined, registrationId?: string)
   if (value.startsWith('data:')) return value;
   // File URLs may point to an ephemeral filesystem in production. Use the existing
   // API endpoint when a registration ID is available so the QR can be regenerated.
-  const backendBase = (import.meta.env.VITE_API_URL as string || 'http://127.0.0.1:5000/api')
-    .replace(/\/api\/?$/, '');
+  const backendBase = String(api.defaults.baseURL || 'http://127.0.0.1:5000/api').replace(
+    /\/api\/?$/,
+    ''
+  );
   if (registrationId) return `${backendBase}/api/attendance/qr-image/${registrationId}`;
   return value.startsWith('http://') || value.startsWith('https://')
     ? value
