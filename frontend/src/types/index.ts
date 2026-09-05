@@ -71,6 +71,14 @@ export interface TeamItem {
     attendanceQr?: string;
     attendanceQrBase64?: string;
   } | null;
+  memberRegistrations?: Array<{
+    _id: string;
+    userId: string | { _id: string; name: string };
+    name?: string;
+    attendanceStatus?: 'absent' | 'present';
+    status?: 'confirmed' | 'waitlisted';
+    registrationCode?: string;
+  }>;
 }
 
 export interface FeedbackItem {

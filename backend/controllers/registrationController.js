@@ -541,7 +541,35 @@ exports.rejectCancellation = async (req, res) => {
 
 // ── MY REGISTRATIONS ──────────────────────────────────────────────────────────
 exports.myRegistrations = async (req, res) => {
-  const r = await Registration.find({ userId: req.user.id }).populate('eventId').populate('team');
+  const r = await Registration.find({ userId: req.user.id })
+    .populate('eventId')
+    .populate({
+      path: 'team',
+      populate: [
+        { path: 'leader', select: 'name email collegeName' },
+        { path: 'members', select: 'name email collegeName' },
+      ],
+    })
+    .lean();
+  const teamIds = r.map((registration) => registration.team?._id).filter(Boolean);
+  if (teamIds.length > 0) {
+    const teamRegistrations = await Registration.find({ team: { $in: teamIds } })
+      .populate('userId', 'name email collegeName')
+      .select('team userId name attendanceStatus status registrationCode')
+      .lean();
+    const registrationsByTeam = new Map();
+    teamRegistrations.forEach((registration) => {
+      const key = registration.team.toString();
+      const current = registrationsByTeam.get(key) || [];
+      current.push(registration);
+      registrationsByTeam.set(key, current);
+    });
+    r.forEach((registration) => {
+      if (registration.team) {
+        registration.team.memberRegistrations = registrationsByTeam.get(registration.team._id.toString()) || [];
+      }
+    });
+  }
   res.json(r);
 };
 

@@ -136,6 +136,8 @@ export default function MyRegistrationsPage() {
           {registrations.map((reg) => {
             const event = reg.eventId as EventItem;
             const isPast = event?.date ? new Date(event.date) < now : false;
+            const team = reg.team && typeof reg.team !== 'string' ? reg.team : null;
+            const teamLeader = team?.leader && typeof team.leader !== 'string' ? team.leader.name : 'Unknown';
 
             return (
               <div
@@ -250,6 +252,56 @@ export default function MyRegistrationsPage() {
                       </span>
                     )}
                   </div>
+
+                  {team && (
+                    <div
+                      style={{
+                        border: '1px solid rgba(108,99,255,0.28)',
+                        borderRadius: 12,
+                        background: 'rgba(108,99,255,0.08)',
+                        padding: '13px 14px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                        <div>
+                          <p style={{ margin: 0, color: 'var(--text-dim)', fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Your team</p>
+                          <h3 style={{ margin: '3px 0 0', color: 'var(--text)', fontSize: '1rem' }}>{team.teamName}</h3>
+                        </div>
+                        <span style={{ color: team.status === 'ready' ? 'var(--success)' : '#f59e0b', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase' }}>
+                          {team.status}
+                        </span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, margin: '12px 0' }}>
+                        <div><span style={{ display: 'block', color: 'var(--text-dim)', fontSize: '0.68rem' }}>Team code</span><strong style={{ color: '#a5b4fc', fontFamily: 'monospace' }}>{team.teamCode}</strong></div>
+                        <div><span style={{ display: 'block', color: 'var(--text-dim)', fontSize: '0.68rem' }}>Leader</span><strong style={{ color: 'var(--text-2)', fontSize: '0.82rem' }}>{teamLeader}</strong></div>
+                        <div><span style={{ display: 'block', color: 'var(--text-dim)', fontSize: '0.68rem' }}>Members</span><strong style={{ color: 'var(--text-2)', fontSize: '0.82rem' }}>{team.members.length}/{team.maxTeamSize}</strong></div>
+                      </div>
+                      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 9 }}>
+                        <p style={{ margin: '0 0 7px', color: 'var(--text-dim)', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase' }}>Member registrations</p>
+                        <div style={{ display: 'grid', gap: 5 }}>
+                          {(team.memberRegistrations ?? team.members.map((member) => ({
+                            _id: typeof member === 'string' ? member : member._id,
+                            userId: member,
+                            name: typeof member === 'string' ? 'Member' : member.name,
+                            attendanceStatus: 'absent' as const,
+                          }))).map((memberRegistration) => {
+                            const member = typeof memberRegistration.userId === 'string' ? null : memberRegistration.userId;
+                            return (
+                              <div key={memberRegistration._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, color: 'var(--text-2)', fontSize: '0.8rem' }}>
+                                <span>{member?.name ?? memberRegistration.name ?? 'Member'}</span>
+                                <span style={{ color: memberRegistration.attendanceStatus === 'present' ? 'var(--success)' : 'var(--text-dim)', fontWeight: 700 }}>
+                                  {memberRegistration.attendanceStatus === 'present' ? 'Present' : 'Absent'}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <p style={{ margin: '10px 0 0', color: 'var(--text-dim)', fontSize: '0.74rem' }}>
+                        Event location: <strong style={{ color: 'var(--text-2)' }}>{event?.location || 'TBD'}</strong>
+                      </p>
+                    </div>
+                  )}
 
                   {reg.registrationCode && (
                     <div
