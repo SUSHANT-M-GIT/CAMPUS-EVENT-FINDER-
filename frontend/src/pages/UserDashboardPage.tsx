@@ -1531,6 +1531,8 @@ export default function UserDashboardPage() {
                       {upcoming.map((reg) => {
                         const ev = reg.eventId as EventItem;
                         if (!ev?._id) return null;
+                        const team = reg.team && typeof reg.team !== 'string' ? reg.team : null;
+                        const teamLeader = team?.leader && typeof team.leader !== 'string' ? team.leader.name : 'Unknown';
                         const now = new Date().getTime();
                         const daysUntil = Math.ceil((new Date(ev.date).getTime() - now) / 86400000);
                         return (
@@ -1605,6 +1607,30 @@ export default function UserDashboardPage() {
                                 {ev.time && <span> {ev.time}</span>}
                                 {ev.location && <span> {ev.location}</span>}
                               </div>
+                              {team && (
+                                <div style={{ marginTop: 10, borderTop: '1px solid var(--border)', paddingTop: 9 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                                    <strong style={{ color: 'var(--text-2)', fontSize: '0.8rem' }}>Team: {team.teamName}</strong>
+                                    <span style={{ color: team.status === 'ready' ? 'var(--success)' : '#f59e0b', fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase' }}>{team.status}</span>
+                                  </div>
+                                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 5, color: 'var(--text-muted)', fontSize: '0.74rem' }}>
+                                    <span>Code: <strong style={{ color: '#a5b4fc', fontFamily: 'monospace' }}>{team.teamCode}</strong></span>
+                                    <span>Leader: <strong style={{ color: 'var(--text-2)' }}>{teamLeader}</strong></span>
+                                    <span>Members: <strong style={{ color: 'var(--text-2)' }}>{team.members.length}/{team.maxTeamSize}</strong></span>
+                                  </div>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 7 }}>
+                                    {(team.memberRegistrations ?? team.members.map((member) => ({
+                                      _id: typeof member === 'string' ? member : member._id,
+                                      userId: member,
+                                      name: typeof member === 'string' ? 'Member' : member.name,
+                                      attendanceStatus: 'absent' as const,
+                                    }))).map((memberRegistration) => {
+                                      const member = typeof memberRegistration.userId === 'string' ? null : memberRegistration.userId;
+                                      return <span key={memberRegistration._id} style={{ borderRadius: 99, background: 'rgba(255,255,255,0.05)', color: memberRegistration.attendanceStatus === 'present' ? 'var(--success)' : 'var(--text-muted)', padding: '3px 8px', fontSize: '0.7rem' }}>{member?.name ?? memberRegistration.name ?? 'Member'} · {memberRegistration.attendanceStatus === 'present' ? 'P' : 'A'}</span>;
+                                    })}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                             <div
                               style={{
