@@ -56,7 +56,11 @@ const C = {
 //  default form
 const defaultForm = {
   title: '',
+  about: '',
   description: '',
+  eventType: 'individual' as 'individual' | 'team',
+  minTeamSize: null as number | null,
+  maxTeamSize: null as number | null,
   type: 'other' as EventItem['type'],
   date: '',
   time: '',
@@ -451,7 +455,9 @@ export default function AdminDashboardPage() {
     setForm((prev) => ({
       ...prev,
       [e.target.name]:
-        e.target.name === 'maxRegistrations' ? Number(e.target.value) : e.target.value,
+        ['maxRegistrations', 'minTeamSize', 'maxTeamSize'].includes(e.target.name)
+          ? (e.target.value === '' ? null : Number(e.target.value))
+          : e.target.value,
     }));
 
   const clearForm = () => {
@@ -483,6 +489,16 @@ export default function AdminDashboardPage() {
       alert(' Max registrations must be at least 1');
       return;
     }
+    if (form.about.trim().split(/\s+/).filter(Boolean).length > 30) {
+      alert('About must be 30 words or fewer.');
+      return;
+    }
+    if (form.eventType === 'team' &&
+      (!Number.isInteger(form.minTeamSize) || (form.minTeamSize ?? 0) < 2 ||
+        !Number.isInteger(form.maxTeamSize) || (form.maxTeamSize ?? 0) < (form.minTeamSize ?? 0))) {
+      alert('Team size must have a minimum of 2 and a maximum greater than or equal to the minimum.');
+      return;
+    }
     try {
       if (editingId) {
         await updateEvent(editingId, form);
@@ -506,7 +522,11 @@ export default function AdminDashboardPage() {
     setEditingId(ev._id);
     setForm({
       title: ev.title,
+      about: ev.about ?? '',
       description: ev.description,
+      eventType: ev.eventType ?? 'individual',
+      minTeamSize: ev.minTeamSize ?? null,
+      maxTeamSize: ev.maxTeamSize ?? null,
       type: ev.type,
       date: ev.date.slice(0, 10),
       time: ev.time,
@@ -1101,6 +1121,15 @@ export default function AdminDashboardPage() {
                   required
                 />
               </Field>
+              <Field label="About (maximum 30 words)">
+                <textarea
+                  name="about"
+                  value={form.about}
+                  onChange={handleChange}
+                  placeholder="Short event summary shown on event cards"
+                  style={{ ...inputStyle, minHeight: 64, resize: 'vertical' }}
+                />
+              </Field>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <Field label="Category">
                   <select name="type" value={form.type} onChange={handleChange} style={inputStyle}>
@@ -1121,6 +1150,22 @@ export default function AdminDashboardPage() {
                     required
                   />
                 </Field>
+                <Field label="Event Type">
+                  <select name="eventType" value={form.eventType} onChange={handleChange} style={inputStyle}>
+                    <option value="individual">Individual</option>
+                    <option value="team">Team</option>
+                  </select>
+                </Field>
+                {form.eventType === 'team' && (
+                  <>
+                    <Field label="Minimum Team Size">
+                      <input type="number" name="minTeamSize" min={2} value={form.minTeamSize ?? ''} onChange={handleChange} style={inputStyle} />
+                    </Field>
+                    <Field label="Maximum Team Size">
+                      <input type="number" name="maxTeamSize" min={2} value={form.maxTeamSize ?? ''} onChange={handleChange} style={inputStyle} />
+                    </Field>
+                  </>
+                )}
                 <Field label="Event Date">
                   <input
                     type="date"
