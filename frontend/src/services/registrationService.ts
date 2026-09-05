@@ -1,5 +1,5 @@
 import api from './api';
-import type { RegistrationItem } from '../types';
+import type { RegistrationItem, TeamItem } from '../types';
 
 export interface RegistrationPayload {
   name: string;
@@ -20,6 +20,26 @@ export interface RegisterResponse {
 
 export async function registerForEvent(eventId: string, payload?: RegistrationPayload) {
   const { data } = await api.post<RegisterResponse>(`/registrations/${eventId}`, payload ?? {});
+  return data;
+}
+
+export async function createTeam(eventId: string, payload: RegistrationPayload & { teamName: string }) {
+  const { data } = await api.post<TeamItem>(`/teams/${eventId}`, payload);
+  return data;
+}
+
+export async function joinTeam(eventId: string, teamCode: string) {
+  const { data } = await api.post<TeamItem>(`/teams/${eventId}/join`, { teamCode });
+  return data;
+}
+
+export async function getMyTeam(eventId: string) {
+  const { data } = await api.get<TeamItem>(`/teams/${eventId}/mine`);
+  return data;
+}
+
+export async function leaveTeam(eventId: string) {
+  const { data } = await api.post<{ msg: string }>(`/teams/${eventId}/leave`);
   return data;
 }
 

@@ -3,7 +3,28 @@ const mongoose = require('mongoose');
 const eventSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
+    about: {
+      type: String,
+      trim: true,
+      validate: {
+        validator: (value) => !value || value.split(/\s+/).filter(Boolean).length <= 30,
+        message: 'About must be 30 words or fewer',
+      },
+    },
     description: { type: String, trim: true },
+    eventType: { type: String, enum: ['individual', 'team'], default: 'individual' },
+    minTeamSize: { type: Number, default: null, min: 2 },
+    maxTeamSize: {
+      type: Number,
+      default: null,
+      min: 2,
+      validate: {
+        validator: function (value) {
+          return value == null || this.minTeamSize == null || value >= this.minTeamSize;
+        },
+        message: 'Maximum team size must be greater than or equal to minimum team size',
+      },
+    },
     type: { type: String, enum: ['hackathon', 'tech', 'seminar', 'games', 'movie', 'other'] },
     date: Date,
     time: String,

@@ -27,7 +27,11 @@ export interface AuthUser {
 export interface EventItem {
   _id: string;
   title: string;
+  about?: string;
   description: string;
+  eventType?: 'individual' | 'team';
+  minTeamSize?: number | null;
+  maxTeamSize?: number | null;
   type: 'hackathon' | 'tech' | 'seminar' | 'games' | 'movie' | 'other';
   date: string;
   time: string;
@@ -49,6 +53,18 @@ export interface EventItem {
   // Certificate
   attendanceEnabled?: boolean;
   certificatesEnabled?: boolean;
+}
+
+export interface TeamItem {
+  _id: string;
+  event: string;
+  teamName: string;
+  teamCode: string;
+  leader: { _id: string; name: string; email?: string } | string;
+  members: Array<{ _id: string; name: string; email?: string } | string>;
+  minTeamSize: number;
+  maxTeamSize: number;
+  status: 'forming' | 'ready';
 }
 
 export interface FeedbackItem {
@@ -82,6 +98,7 @@ export interface RegistrationItem {
   cancellationNote?: string;
   // Unique registration code
   registrationCode?: string;
+  team?: TeamItem | string | null;
 }
 
 export interface ApiMessage {

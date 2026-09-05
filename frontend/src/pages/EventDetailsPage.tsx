@@ -254,7 +254,14 @@ export default function EventDetailsPage() {
               )}
             </div>
 
-            {/* Description */}
+            {/* About */}
+            {event.about && (
+              <p style={{ color: 'var(--text-2)', fontSize: '1rem', lineHeight: 1.6, margin: '16px 0 0', fontWeight: 600 }}>
+                {event.about}
+              </p>
+            )}
+
+            {/* Full Description */}
             <p style={{
               color: 'var(--text-muted)',
               fontSize: '0.95rem',

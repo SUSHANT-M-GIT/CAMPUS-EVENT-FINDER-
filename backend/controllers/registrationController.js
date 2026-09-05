@@ -1,5 +1,6 @@
 const Registration = require('../models/Registration');
 const Event = require('../models/Event');
+const Team = require('../models/Team');
 const User = require('../models/User');
 const QRCode = require('qrcode');
 const crypto = require('crypto');
@@ -83,6 +84,8 @@ async function generateAndSaveQr(registration, context = {}) {
   }
 }
 
+exports.generateAndSaveQr = generateAndSaveQr;
+
 // ── REGISTER (or join waitlist) ───────────────────────────────────────────────
 exports.registerEvent = async (req, res) => {
   const event = await Event.findById(req.params.eventId);
@@ -100,6 +103,9 @@ exports.registerEvent = async (req, res) => {
     eventDate < now
   )
     return res.status(400).json({ msg: 'Closed' });
+
+  if (event.eventType === 'team')
+    return res.status(400).json({ msg: 'This is a team event. Create or join a team to register.' });
 
   // College restriction check
   let studentDoc = null;
@@ -320,7 +326,24 @@ exports.cancelRegistration = async (req, res) => {
     const wasConfirmed = reg.status === 'confirmed';
     const cancelledPosition = reg.waitlistPosition;
 
+    let team = null;
+    if (reg.team) {
+      team = await Team.findById(reg.team);
+      if (team && String(team.leader) === String(req.user.id) && team.members.length > 1) {
+        return res.status(400).json({ msg: 'The team leader cannot leave while other members remain.' });
+      }
+    }
+
     await Registration.findByIdAndDelete(reg._id);
+
+    if (team) {
+      if (team.members.length === 1) await Team.findByIdAndDelete(team._id);
+      else {
+        team.members = team.members.filter((member) => String(member) !== String(req.user.id));
+        team.status = team.members.length >= team.minTeamSize ? 'ready' : 'forming';
+        await team.save();
+      }
+    }
 
     if (wasConfirmed) {
       await Event.findByIdAndUpdate(req.params.eventId, { $inc: { registrationCount: -1 } });
@@ -518,12 +541,12 @@ exports.rejectCancellation = async (req, res) => {
 
 // ── MY REGISTRATIONS ──────────────────────────────────────────────────────────
 exports.myRegistrations = async (req, res) => {
-  const r = await Registration.find({ userId: req.user.id }).populate('eventId');
+  const r = await Registration.find({ userId: req.user.id }).populate('eventId').populate('team');
   res.json(r);
 };
 
 // ── EVENT REGISTRATIONS (admin) ───────────────────────────────────────────────
 exports.eventRegistrations = async (req, res) => {
-  const r = await Registration.find({ eventId: req.params.id }).populate('userId');
+  const r = await Registration.find({ eventId: req.params.id }).populate('userId').populate('team');
   res.json(r);
 };

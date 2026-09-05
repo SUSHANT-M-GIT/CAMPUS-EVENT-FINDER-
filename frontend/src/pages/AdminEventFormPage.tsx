@@ -6,7 +6,11 @@ import type { EventPayload } from '../services/eventService';
 
 const defaultFormData: EventPayload = {
   title: '',
+  about: '',
   description: '',
+  eventType: 'individual',
+  minTeamSize: null,
+  maxTeamSize: null,
   type: 'other',
   date: '',
   time: '',
@@ -35,7 +39,11 @@ export default function AdminEventFormPage() {
         const data = await getEventById(id);
         setFormData({
           title: data.title,
+          about: data.about ?? '',
           description: data.description,
+          eventType: data.eventType ?? 'individual',
+          minTeamSize: data.minTeamSize ?? null,
+          maxTeamSize: data.maxTeamSize ?? null,
           type: data.type,
           date: data.date.slice(0, 10),
           time: data.time,
@@ -67,6 +75,19 @@ export default function AdminEventFormPage() {
     if (!formData.date || !formData.registrationDeadline) {
       alert(' Please fill all required dates.');
       return;
+    }
+
+    if ((formData.about ?? '').trim().split(/\s+/).filter(Boolean).length > 30) {
+      alert('About must be 30 words or fewer.');
+      return;
+    }
+    if (formData.eventType === 'team') {
+      const min = Number(formData.minTeamSize);
+      const max = Number(formData.maxTeamSize);
+      if (!Number.isInteger(min) || min < 2 || !Number.isInteger(max) || max < min) {
+        alert('Team size must have a minimum of 2 and a maximum greater than or equal to the minimum.');
+        return;
+      }
     }
 
     const eventDate = new Date(formData.date);
@@ -143,11 +164,19 @@ export default function AdminEventFormPage() {
           />
 
           <textarea
+            name="about"
+            value={formData.about}
+            onChange={handleChange}
+            placeholder="About (short summary, maximum 30 words)"
+            className="h-20 w-full rounded-md border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+          />
+
+          <textarea
             name="description"
             value={formData.description}
             onChange={handleChange}
-            placeholder="Event description"
-            className="h-28 w-full rounded-md border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            placeholder="Full event description"
+            className="h-36 w-full rounded-md border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             required
           />
 
@@ -166,6 +195,16 @@ export default function AdminEventFormPage() {
               <option value="other">Other</option>
             </select>
 
+            <select
+              name="eventType"
+              value={formData.eventType}
+              onChange={handleChange}
+              className="rounded-md border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            >
+              <option value="individual">Individual Event</option>
+              <option value="team">Team Event</option>
+            </select>
+
             <input
               name="location"
               value={formData.location}
@@ -175,6 +214,29 @@ export default function AdminEventFormPage() {
               required
             />
           </div>
+
+          {formData.eventType === 'team' && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <input
+                type="number"
+                name="minTeamSize"
+                min={2}
+                value={formData.minTeamSize ?? ''}
+                onChange={handleChange}
+                placeholder="Minimum team size"
+                className="rounded-md border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+              <input
+                type="number"
+                name="maxTeamSize"
+                min={2}
+                value={formData.maxTeamSize ?? ''}
+                onChange={handleChange}
+                placeholder="Maximum team size"
+                className="rounded-md border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+            </div>
+          )}
 
           <div className="grid gap-4 sm:grid-cols-3">
             <input

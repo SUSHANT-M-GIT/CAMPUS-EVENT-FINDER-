@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const schema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   eventId: { type: mongoose.Schema.Types.ObjectId, ref: 'Event' },
+  team: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
   registeredAt: { type: Date, default: Date.now },
   name: String,
   collegeId: String,

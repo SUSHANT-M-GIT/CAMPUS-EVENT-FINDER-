@@ -3,6 +3,7 @@ const fs = require('fs');
 const Event = require('../models/Event');
 const User = require('../models/User');
 const Registration = require('../models/Registration');
+const Team = require('../models/Team');
 const {
   sendNewEventAnnouncement,
   sendEventCancellationEmail,
@@ -68,6 +69,21 @@ function normalizeEventBody(body) {
   if (fields.maxRegistrations !== undefined)
     fields.maxRegistrations = Number(fields.maxRegistrations) || 100;
 
+  if (fields.minTeamSize !== undefined)
+    fields.minTeamSize = fields.minTeamSize === '' ? null : Number(fields.minTeamSize);
+  if (fields.maxTeamSize !== undefined)
+    fields.maxTeamSize = fields.maxTeamSize === '' ? null : Number(fields.maxTeamSize);
+  if (fields.eventType !== undefined && !['individual', 'team'].includes(fields.eventType))
+    throw new Error('Event type must be individual or team.');
+  if (fields.about !== undefined && fields.about.trim().split(/\s+/).filter(Boolean).length > 30)
+    throw new Error('About must be 30 words or fewer.');
+  if (fields.eventType === 'team') {
+    if (!Number.isInteger(fields.minTeamSize) || fields.minTeamSize < 2)
+      throw new Error('Minimum team size must be at least 2.');
+    if (!Number.isInteger(fields.maxTeamSize) || fields.maxTeamSize < fields.minTeamSize)
+      throw new Error('Maximum team size must be greater than or equal to minimum team size.');
+  }
+
   if (fields['tags[]']) {
     fields.tags = Array.isArray(fields['tags[]']) ? fields['tags[]'] : [fields['tags[]']];
     delete fields['tags[]'];
@@ -95,6 +111,11 @@ exports.createEvent = async (req, res) => {
     // ── Tag limit ──────────────────────────────────────────────────────────
     if (Array.isArray(bodyFields.tags) && bodyFields.tags.length > 5) {
       return res.status(400).json({ msg: 'Maximum 5 tags allowed per event.' });
+    }
+
+    if (bodyFields.eventType !== 'team') {
+      bodyFields.minTeamSize = null;
+      bodyFields.maxTeamSize = null;
     }
 
     const e = new Event({ ...bodyFields, ...banner, createdBy: req.user.id });
@@ -125,7 +146,8 @@ exports.createEvent = async (req, res) => {
     })();
   } catch (err) {
     console.error('createEvent error:', err.message);
-    res.status(500).json({ msg: err.message || 'Server error' });
+    const validationError = /About|Event type|team size|Maximum 5 tags/.test(err.message || '');
+    res.status(validationError ? 400 : 500).json({ msg: err.message || 'Server error' });
   }
 };
 
@@ -198,7 +220,8 @@ exports.getEventById = async (req, res) => {
     if (!e) return res.status(404).json({ msg: 'Not found' });
     res.json(addOrganizerDisplayFields(e));
   } catch (err) {
-    res.status(500).json({ msg: err.message });
+    const validationError = /About|Event type|team size|Maximum 5 tags/.test(err.message || '');
+    res.status(validationError ? 400 : 500).json({ msg: err.message });
   }
 };
 
@@ -227,6 +250,26 @@ exports.updateEvent = async (req, res) => {
     // ── Tag limit ──────────────────────────────────────────────────────────
     if (Array.isArray(bodyFields.tags) && bodyFields.tags.length > 5) {
       return res.status(400).json({ msg: 'Maximum 5 tags allowed per event.' });
+    }
+
+    const currentEventType = e.eventType || 'individual';
+    const nextEventType = bodyFields.eventType || currentEventType;
+    const teamsExist = await Team.exists({ event: e._id });
+    const registrationsExist = await Registration.exists({ eventId: e._id });
+    if (teamsExist && nextEventType !== 'team')
+      return res.status(400).json({ msg: 'Cannot change a team event to individual after teams exist.' });
+    if (registrationsExist && currentEventType === 'individual' && nextEventType === 'team')
+      return res.status(400).json({ msg: 'Cannot change to a team event after registrations exist.' });
+    if (nextEventType === 'team') {
+      const nextMax = bodyFields.maxTeamSize ?? e.maxTeamSize;
+      const teams = await Team.find({ event: e._id }).select('members').lean();
+      const largestMemberCount = teams.reduce((largest, team) => Math.max(largest, team.members.length), 0);
+      if (Number.isInteger(nextMax) && nextMax < largestMemberCount)
+        return res.status(400).json({ msg: 'Maximum team size cannot be below an existing team size.' });
+    }
+    if (nextEventType !== 'team') {
+      bodyFields.minTeamSize = null;
+      bodyFields.maxTeamSize = null;
     }
 
     const updated = await Event.findByIdAndUpdate(

@@ -18,13 +18,15 @@ import { useAuth } from '../context/AuthContext';
 import {
   getMyRegistrations,
   registerForEvent,
+  createTeam,
+  joinTeam,
   cancelRegistration,
 } from '../services/registrationService';
 import { submitFeedback, getMyFeedback } from '../services/feedbackService';
 import { getComments, addComment, deleteComment } from '../services/commentService';
 import axios from 'axios';
 import api from '../services/api';
-import type { EventItem, RegistrationItem, CommentItem } from '../types';
+import type { EventItem, RegistrationItem, CommentItem, TeamItem } from '../types';
 
 const API_BASE = (api.defaults.baseURL ?? '').replace(/\/api\/?$/, '');
 
@@ -42,6 +44,10 @@ export default function UserDashboardPage() {
   );
   const [eventsLoading, setEventsLoading] = useState(true);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [teamMode, setTeamMode] = useState<'individual' | 'choice' | 'create' | 'join' | 'view'>('individual');
+  const [teamName, setTeamName] = useState('');
+  const [teamCode, setTeamCode] = useState('');
+  const [teamInfo, setTeamInfo] = useState<TeamItem | null>(null);
   const [registerForm, setRegisterForm] = useState({
     name: '',
     collegeId: '',
@@ -152,6 +158,7 @@ export default function UserDashboardPage() {
   useEffect(() => {
     if (locationState?.registerEventId && events.length > 0) {
       setSelectedEventId(locationState.registerEventId);
+      setTeamMode(events.find((event) => event._id === locationState.registerEventId)?.eventType === 'team' ? 'choice' : 'individual');
       // Clear the state so refreshing doesn't re-open the modal
       navigate(location.pathname, { replace: true, state: {} });
     }
@@ -242,6 +249,52 @@ export default function UserDashboardPage() {
     } catch (error: unknown) {
       const err = error as { response?: { data?: { msg?: string } } };
       setFeedback({ type: 'error', message: err.response?.data?.msg || 'Registration failed.' });
+    }
+  };
+
+  const handleCreateTeam = async (eventId: string) => {
+    if (!teamName.trim()) {
+      setFeedback({ type: 'error', message: 'Please enter a team name.' });
+      return;
+    }
+    if (!registerForm.name || !registerForm.department || (user?.role !== 'professional' && !registerForm.collegeId)) {
+      setFeedback({ type: 'error', message: 'Please fill all registration details.' });
+      return;
+    }
+    try {
+      const finalDepartment = registerForm.department === 'Others — Please specify below'
+        ? registerForm.customDepartment.trim() || 'Others'
+        : registerForm.department;
+      const team = await createTeam(eventId, {
+        ...registerForm,
+        department: finalDepartment,
+        collegeName: user?.collegeName || '',
+        teamName: teamName.trim(),
+      });
+      setTeamInfo(team);
+      setTeamMode('view');
+      await loadRegistrations();
+      void fetchEvents();
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { msg?: string } } };
+      setFeedback({ type: 'error', message: err.response?.data?.msg || 'Unable to create team.' });
+    }
+  };
+
+  const handleJoinTeam = async (eventId: string) => {
+    if (!teamCode.trim()) {
+      setFeedback({ type: 'error', message: 'Please enter a team code.' });
+      return;
+    }
+    try {
+      const team = await joinTeam(eventId, teamCode.trim());
+      setTeamInfo(team);
+      setTeamMode('view');
+      await loadRegistrations();
+      void fetchEvents();
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { msg?: string } } };
+      setFeedback({ type: 'error', message: err.response?.data?.msg || 'Unable to join team.' });
     }
   };
 
@@ -751,6 +804,12 @@ export default function UserDashboardPage() {
                         )}
                       </div>
 
+                      {event.about && (
+                        <p style={{ margin: 0, color: 'var(--text-2)', fontSize: '0.8rem', lineHeight: 1.45, fontWeight: 600 }}>
+                          {event.about}
+                        </p>
+                      )}
+
                       {/* Tags */}
                       {event.tags && event.tags.length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
@@ -870,7 +929,12 @@ export default function UserDashboardPage() {
                         ) : (
                           <button
                             type="button"
-                            onClick={() => isClosed ? null : setSelectedEventId(event._id)}
+                            onClick={() => {
+                              if (isClosed) return;
+                              setTeamMode(event.eventType === 'team' ? 'choice' : 'individual');
+                              setTeamInfo(null);
+                              setSelectedEventId(event._id);
+                            }}
                             disabled={isClosed}
                             style={{
                               flex: 1, border: 0, borderRadius: 10, padding: '9px 14px',
@@ -2188,9 +2252,52 @@ export default function UserDashboardPage() {
                 ev &&
                 ev.maxRegistrations != null &&
                 (ev.registrationCount ?? 0) >= ev.maxRegistrations;
+              const isTeamEvent = ev?.eventType === 'team';
+              if (isTeamEvent && teamMode === 'choice') {
+                return (
+                  <>
+                    <h3>Register as a Team</h3>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Choose how you want to participate.</p>
+                    <div className="button-row">
+                      <button type="button" className="btn btn-gradient" onClick={() => setTeamMode('create')}>Create Team</button>
+                      <button type="button" className="btn btn-secondary" onClick={() => setTeamMode('join')}>Join Team</button>
+                      <button type="button" className="btn btn-secondary" onClick={() => setSelectedEventId(null)}>Cancel</button>
+                    </div>
+                  </>
+                );
+              }
+              if (isTeamEvent && teamMode === 'view' && teamInfo) {
+                const leader = typeof teamInfo.leader === 'string' ? teamInfo.leader : teamInfo.leader.name;
+                return (
+                  <>
+                    <h3>{teamInfo.teamName}</h3>
+                    <p style={{ color: 'var(--text-muted)' }}>Team Code: <strong>{teamInfo.teamCode}</strong></p>
+                    <p style={{ color: 'var(--text-muted)' }}>Leader: <strong>{leader}</strong></p>
+                    <p style={{ color: 'var(--text-muted)' }}>Members: <strong>{teamInfo.members.length}/{teamInfo.maxTeamSize}</strong></p>
+                    <ul style={{ color: 'var(--text-2)', paddingLeft: 20 }}>
+                      {teamInfo.members.map((member) => <li key={typeof member === 'string' ? member : member._id}>{typeof member === 'string' ? member : member.name}</li>)}
+                    </ul>
+                    <button type="button" className="btn btn-secondary" onClick={() => setSelectedEventId(null)}>Close</button>
+                  </>
+                );
+              }
+              if (isTeamEvent && teamMode === 'join') {
+                return (
+                  <>
+                    <h3>Join Team</h3>
+                    <div className="admin-form">
+                      <input value={teamCode} onChange={(e) => setTeamCode(e.target.value)} placeholder="Team code (e.g. CW-4821)" />
+                      <div className="button-row">
+                        <button type="button" className="btn btn-gradient" onClick={() => void handleJoinTeam(selectedEventId)}>Join Team</button>
+                        <button type="button" className="btn btn-secondary" onClick={() => setTeamMode('choice')}>Back</button>
+                      </div>
+                    </div>
+                  </>
+                );
+              }
               return (
                 <>
-                  <h3>{isFull ? 'Join Waitlist' : 'Register for Event'}</h3>
+                  <h3>{teamMode === 'create' ? 'Create Team' : teamMode === 'join' ? 'Join Team' : isFull ? 'Join Waitlist' : 'Register for Event'}</h3>
                   {isFull && (
                     <div
                       style={{
@@ -2222,6 +2329,12 @@ export default function UserDashboardPage() {
                     </div>
                   )}
                   <div className="admin-form">
+                    {teamMode === 'create' && (
+                      <input value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Team name" />
+                    )}
+                    {teamMode === 'join' && (
+                      <input value={teamCode} onChange={(e) => setTeamCode(e.target.value)} placeholder="Team code (e.g. CW-4821)" />
+                    )}
                     <input
                       value={registerForm.name}
                       onChange={(e) => setRegisterForm((p) => ({ ...p, name: e.target.value }))}
@@ -2340,9 +2453,13 @@ export default function UserDashboardPage() {
                             ? 'linear-gradient(135deg,#7c3aed,#8b5cf6)'
                             : undefined,
                         }}
-                        onClick={() => void handleRegister(selectedEventId)}
+                        onClick={() => void (teamMode === 'create'
+                          ? handleCreateTeam(selectedEventId)
+                          : teamMode === 'join'
+                            ? handleJoinTeam(selectedEventId)
+                            : handleRegister(selectedEventId))}
                       >
-                        {isFull ? 'Join Waitlist' : 'Submit Registration'}
+                        {teamMode === 'create' ? 'Create Team' : teamMode === 'join' ? 'Join Team' : isFull ? 'Join Waitlist' : 'Submit Registration'}
                       </button>
                       <button
                         type="button"

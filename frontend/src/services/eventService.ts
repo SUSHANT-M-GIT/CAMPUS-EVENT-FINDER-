@@ -10,7 +10,11 @@ export interface EventsQuery {
 
 export interface EventPayload {
   title: string;
+  about?: string;
   description: string;
+  eventType?: 'individual' | 'team';
+  minTeamSize?: number | null;
+  maxTeamSize?: number | null;
   type: EventItem['type'];
   date: string;
   time: string;
@@ -37,7 +41,13 @@ export async function getEventById(id: string) {
 function buildFormData(payload: EventPayload): FormData {
   const fd = new FormData();
   fd.append('title', payload.title);
+  fd.append('about', payload.about ?? '');
   fd.append('description', payload.description);
+  fd.append('eventType', payload.eventType ?? 'individual');
+  if (payload.eventType === 'team') {
+    fd.append('minTeamSize', String(payload.minTeamSize ?? ''));
+    fd.append('maxTeamSize', String(payload.maxTeamSize ?? ''));
+  }
   fd.append('type', payload.type);
   fd.append('date', payload.date);
   fd.append('time', payload.time);
