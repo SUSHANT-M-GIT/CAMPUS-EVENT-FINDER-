@@ -65,6 +65,12 @@ export interface TeamItem {
   minTeamSize: number;
   maxTeamSize: number;
   status: 'forming' | 'ready';
+  memberRegistration?: {
+    _id: string;
+    registrationCode?: string;
+    attendanceQr?: string;
+    attendanceQrBase64?: string;
+  } | null;
 }
 
 export interface FeedbackItem {

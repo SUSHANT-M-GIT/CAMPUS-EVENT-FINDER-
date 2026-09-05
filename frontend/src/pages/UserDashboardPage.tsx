@@ -275,6 +275,7 @@ export default function UserDashboardPage() {
       setTeamMode('view');
       await loadRegistrations();
       void fetchEvents();
+      setFeedback({ type: 'success', message: 'Team created and registration confirmed. Your QR code is ready.' });
     } catch (error: unknown) {
       const err = error as { response?: { data?: { msg?: string } } };
       setFeedback({ type: 'error', message: err.response?.data?.msg || 'Unable to create team.' });
@@ -292,6 +293,7 @@ export default function UserDashboardPage() {
       setTeamMode('view');
       await loadRegistrations();
       void fetchEvents();
+      setFeedback({ type: 'success', message: 'You joined the team and your registration is confirmed. Your QR code is ready.' });
     } catch (error: unknown) {
       const err = error as { response?: { data?: { msg?: string } } };
       setFeedback({ type: 'error', message: err.response?.data?.msg || 'Unable to join team.' });
@@ -2268,15 +2270,34 @@ export default function UserDashboardPage() {
               }
               if (isTeamEvent && teamMode === 'view' && teamInfo) {
                 const leader = typeof teamInfo.leader === 'string' ? teamInfo.leader : teamInfo.leader.name;
+                const memberQr = teamInfo.memberRegistration?.attendanceQrBase64
+                  || teamInfo.memberRegistration?.attendanceQr
+                  || (teamInfo.memberRegistration?._id
+                    ? `${API_BASE}/api/attendance/qr-image/${teamInfo.memberRegistration._id}`
+                    : '');
                 return (
                   <>
                     <h3>{teamInfo.teamName}</h3>
+                    <p style={{ color: 'var(--success)', fontWeight: 700 }}>Registration confirmed</p>
                     <p style={{ color: 'var(--text-muted)' }}>Team Code: <strong>{teamInfo.teamCode}</strong></p>
                     <p style={{ color: 'var(--text-muted)' }}>Leader: <strong>{leader}</strong></p>
                     <p style={{ color: 'var(--text-muted)' }}>Members: <strong>{teamInfo.members.length}/{teamInfo.maxTeamSize}</strong></p>
                     <ul style={{ color: 'var(--text-2)', paddingLeft: 20 }}>
                       {teamInfo.members.map((member) => <li key={typeof member === 'string' ? member : member._id}>{typeof member === 'string' ? member : member.name}</li>)}
                     </ul>
+                    {teamInfo.memberRegistration?.registrationCode && (
+                      <p style={{ color: 'var(--text-muted)' }}>
+                        Registration Code: <strong>{teamInfo.memberRegistration.registrationCode}</strong>
+                      </p>
+                    )}
+                    {memberQr ? (
+                      <div style={{ textAlign: 'center', margin: '14px 0' }}>
+                        <p style={{ color: 'var(--text-muted)', marginBottom: 8 }}>Your attendance QR</p>
+                        <img src={memberQr} alt="Your attendance QR code" style={{ width: 180, height: 180, objectFit: 'contain', background: '#fff', borderRadius: 8, padding: 8 }} />
+                      </div>
+                    ) : (
+                      <p style={{ color: 'var(--text-muted)' }}>Your QR code is being prepared. Check My Registrations shortly.</p>
+                    )}
                     <button type="button" className="btn btn-secondary" onClick={() => setSelectedEventId(null)}>Close</button>
                   </>
                 );

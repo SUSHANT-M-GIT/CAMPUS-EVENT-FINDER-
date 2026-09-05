@@ -4,6 +4,10 @@ const Registration = require('../models/Registration');
 const Team = require('../models/Team');
 const User = require('../models/User');
 const { generateAndSaveQr } = require('./registrationController');
+const {
+  sendConfirmationEmail,
+  sendAdminRegistrationAlert,
+} = require('../services/emailService');
 
 function getRegistrationData(req, user) {
   return {
@@ -62,11 +66,62 @@ async function createMemberRegistration(event, req, team) {
   return registration;
 }
 
-function teamResponse(team) {
+function getBackendBaseUrl(req) {
+  const reqProto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+  return process.env.BACKEND_URL
+    || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : '')
+    || (process.env.RENDER_EXTERNAL_URL || '')
+    || `${reqProto}://${req.get('host')}`;
+}
+
+async function sendRegistrationNotifications(event, req, registration) {
+  try {
+    const [student, admin, updatedEvent] = await Promise.all([
+      User.findById(req.user.id).lean(),
+      User.findById(event.createdBy).lean(),
+      Event.findById(event._id).lean(),
+    ]);
+    if (!student) return;
+    const registrationDetails = {
+      _id: registration._id.toString(),
+      name: registration.name || student.name || 'there',
+      attendanceQr: registration.attendanceQr || '',
+      attendanceQrBase64: registration.attendanceQrBase64 || '',
+      registrationCode: registration.registrationCode || '',
+    };
+    if (student.email) {
+      await sendConfirmationEmail(student.email, updatedEvent || event, registrationDetails, getBackendBaseUrl(req));
+    }
+    if (admin?.email) {
+      await sendAdminRegistrationAlert(admin.email, updatedEvent || event, {
+        name: student.name || registration.name || '',
+        email: student.email || '',
+        collegeName: student.collegeName || registration.collegeName || '',
+        department: registration.department || '',
+        collegeId: registration.collegeId || '',
+      });
+    }
+  } catch (error) {
+    console.error('[Team registration] Notification error:', error.message);
+  }
+}
+
+function teamResponse(team, registration) {
   return Team.findById(team._id)
     .populate('leader', 'name email collegeName')
     .populate('members', 'name email collegeName')
-    .lean();
+    .lean()
+    .then((data) => ({
+      ...data,
+      memberRegistration: registration
+        ? {
+            _id: registration._id,
+            registrationCode: registration.registrationCode,
+            attendanceQr: registration.attendanceQr,
+            attendanceQrBase64: registration.attendanceQrBase64,
+          }
+        : null,
+    }));
 }
 
 exports.createTeam = async (req, res) => {
@@ -88,8 +143,9 @@ exports.createTeam = async (req, res) => {
       maxTeamSize,
       status: minTeamSize <= 1 ? 'ready' : 'forming',
     }).save();
-    await createMemberRegistration(event, req, team);
-    res.status(201).json(await teamResponse(team));
+    const registration = await createMemberRegistration(event, req, team);
+    void sendRegistrationNotifications(event, req, registration);
+    res.status(201).json(await teamResponse(team, registration));
   } catch (error) {
     if (team) await Team.findByIdAndDelete(team._id);
     res.status(400).json({ msg: error.message || 'Unable to create team.' });
@@ -113,7 +169,8 @@ exports.joinTeam = async (req, res) => {
       await Event.findByIdAndUpdate(event._id, { $inc: { registrationCount: -1 } });
       throw saveError;
     }
-    res.json(await teamResponse(team));
+    void sendRegistrationNotifications(event, req, registration);
+    res.json(await teamResponse(team, registration));
   } catch (error) {
     res.status(400).json({ msg: error.message || 'Unable to join team.' });
   }
