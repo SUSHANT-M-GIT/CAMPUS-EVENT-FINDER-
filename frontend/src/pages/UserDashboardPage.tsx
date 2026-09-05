@@ -826,9 +826,9 @@ export default function UserDashboardPage() {
                           style={{
                             width: 32, height: 32, display: 'inline-flex', alignItems: 'center',
                             justifyContent: 'center', border: '1px solid var(--border)',
-                            borderRadius: '50%', color: 'var(--text-muted)', textDecoration: 'none',
+                            borderRadius: '50%', color: '#a5b4fc', textDecoration: 'none',
                             fontWeight: 700, fontSize: '0.85rem', flexShrink: 0,
-                            background: 'var(--card-bg)', transition: 'all 0.2s',
+                            background: 'rgba(108,99,255,0.15)', borderColor: 'rgba(108,99,255,0.4)', transition: 'all 0.2s',
                           }}
                           onMouseEnter={(e) => {
                             (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(108,99,255,0.15)';
