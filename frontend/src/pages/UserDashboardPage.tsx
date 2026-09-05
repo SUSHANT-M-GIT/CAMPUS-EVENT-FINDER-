@@ -826,19 +826,19 @@ export default function UserDashboardPage() {
                           style={{
                             width: 32, height: 32, display: 'inline-flex', alignItems: 'center',
                             justifyContent: 'center', border: '1px solid var(--border)',
-                            borderRadius: '50%', color: '#a5b4fc', textDecoration: 'none',
+                            borderRadius: '50%', color: 'var(--success)', textDecoration: 'none',
                             fontWeight: 700, fontSize: '0.85rem', flexShrink: 0,
-                            background: 'rgba(108,99,255,0.15)', borderColor: 'rgba(108,99,255,0.4)', transition: 'all 0.2s',
+                            background: 'rgba(34,197,94,0.15)', borderColor: 'rgba(34,197,94,0.3)', transition: 'all 0.2s',
                           }}
                           onMouseEnter={(e) => {
-                            (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(108,99,255,0.15)';
-                            (e.currentTarget as HTMLAnchorElement).style.color = '#a5b4fc';
-                            (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(108,99,255,0.4)';
+                            (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(34,197,94,0.15)';
+                            (e.currentTarget as HTMLAnchorElement).style.color = 'var(--success)';
+                            (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(34,197,94,0.3)';
                           }}
                           onMouseLeave={(e) => {
-                            (e.currentTarget as HTMLAnchorElement).style.background = 'var(--card-bg)';
-                            (e.currentTarget as HTMLAnchorElement).style.color = 'var(--text-muted)';
-                            (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--border)';
+                            (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(34,197,94,0.15)';
+                            (e.currentTarget as HTMLAnchorElement).style.color = 'var(--success)';
+                            (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(34,197,94,0.3)';
                           }}
                         >
                           i
