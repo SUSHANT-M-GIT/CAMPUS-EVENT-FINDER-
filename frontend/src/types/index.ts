@@ -34,6 +34,8 @@ export interface EventItem {
   registrationDeadline: string;
   location: string;
   createdBy?: string;
+  administrationName?: string;
+  adminName?: string;
   maxRegistrations?: number;
   registrationCount?: number;
   eligibility?: 'all' | 'own_college';

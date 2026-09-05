@@ -50,6 +50,18 @@ function extractBannerFields(req) {
   return {};
 }
 
+function addOrganizerDisplayFields(event) {
+  const data = event.toObject ? event.toObject() : event;
+  const organizer = data.createdBy && typeof data.createdBy === 'object' ? data.createdBy : null;
+
+  return {
+    ...data,
+    createdBy: organizer?._id?.toString() || data.createdBy?.toString?.() || data.createdBy,
+    administrationName: organizer?.clubName || organizer?.collegeName || organizer?.department || '',
+    adminName: organizer?.name || '',
+  };
+}
+
 // ── CREATE EVENT ──────────────────────────────────────────────────────────────
 exports.createEvent = async (req, res) => {
   try {
@@ -115,6 +127,7 @@ exports.getEvents = async (req, res) => {
         $or: [{ title: searchRegex }, { description: searchRegex }, { tags: searchRegex }],
       };
       events = await Event.find(searchFilter)
+        .populate('createdBy', 'name clubName collegeName department')
         .sort({ registrationDeadline: 1 })
         .skip(skip)
         .limit(parseInt(limit));
@@ -125,12 +138,13 @@ exports.getEvents = async (req, res) => {
       }
     } else {
       events = await Event.find(baseFilter)
+        .populate('createdBy', 'name clubName collegeName department')
         .sort({ registrationDeadline: 1 })
         .skip(skip)
         .limit(parseInt(limit));
     }
 
-    res.json(events);
+    res.json(events.map(addOrganizerDisplayFields));
   } catch (err) {
     console.error('getEvents error:', err.message);
     res.status(500).json({ msg: err.message || 'Server error' });
@@ -148,16 +162,21 @@ async function getSimilarEvents(searchTerm, baseFilter, limit = 5) {
     { title: { $regex: kw, $options: 'i' } },
   ]);
   return Event.find({ ...baseFilter, $or: keywordConditions })
+    .populate('createdBy', 'name clubName collegeName department')
     .sort({ registrationDeadline: 1 })
-    .limit(limit);
+    .limit(limit)
+    .then((events) => events.map(addOrganizerDisplayFields));
 }
 
 // ── GET EVENT BY ID ───────────────────────────────────────────────────────────
 exports.getEventById = async (req, res) => {
   try {
-    const e = await Event.findById(req.params.id);
+    const e = await Event.findById(req.params.id).populate(
+      'createdBy',
+      'name clubName collegeName department'
+    );
     if (!e) return res.status(404).json({ msg: 'Not found' });
-    res.json(e);
+    res.json(addOrganizerDisplayFields(e));
   } catch (err) {
     res.status(500).json({ msg: err.message });
   }

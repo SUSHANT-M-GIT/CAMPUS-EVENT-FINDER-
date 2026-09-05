@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom';
 import ProtectedRoute from '../components/ProtectedRoute';
 import AdminDashboardPage from '../pages/AdminDashboardPage';
+import EventDetailsPage from '../pages/EventDetailsPage';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage';
 import LandingPage from '../pages/LandingPage';
 import LoginPage from '../pages/LoginPage';
@@ -19,6 +20,7 @@ export default function AppRoutes() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      <Route path="/events/:id" element={<EventDetailsPage />} />
       <Route path="/organizer-approval/:action/:token" element={<OrganizerApprovalPage />} />
       <Route path="/api/auth/organizer-approval/:action/:token" element={<OrganizerApprovalPage />} />
 
