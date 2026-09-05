@@ -7,7 +7,6 @@ import {
   MapPin,
   GraduationCap,
   Star,
-  Share2,
   CheckCircle,
   Award,
 } from 'lucide-react';
@@ -311,21 +310,6 @@ export default function UserDashboardPage() {
       const err = error as { response?: { data?: { msg?: string } } };
       setFeedback({ type: 'error', message: err.response?.data?.msg || 'Failed to delete.' });
     }
-  };
-
-  const handleShare = async (event: EventItem) => {
-    const url = `${window.location.origin}/events/${event._id}`;
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      const ta = document.createElement('textarea');
-      ta.value = url;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-    }
-    setFeedback({ type: 'success', message: 'Event link copied to clipboard! 📋' });
   };
 
   const handleCancel = async (eventId: string) => {
@@ -658,10 +642,8 @@ export default function UserDashboardPage() {
                 const status = isOngoing ? 'ONGOING' : isClosed ? 'CLOSED' : 'OPEN';
                 const maximum = event.maxRegistrations ?? 0;
                 const openSlots = Math.max(maximum - (event.registrationCount ?? 0), 0);
-                const descriptionWords = event.description.trim().split(/\s+/);
-                const shortDescription = descriptionWords.length > 50
-                  ? `${descriptionWords.slice(0, 50).join(' ')}...`
-                  : event.description;
+                const descriptionWords = event.description?.trim().split(/\s+/) ?? [];
+                void descriptionWords; // kept for potential future use
                 return (
                   <article key={event._id} className="event-card">
                     {/* Image with overlay type badge */}
@@ -718,313 +700,194 @@ export default function UserDashboardPage() {
                     </div>
 
                     <div className="event-card-body">
+                      {/* Type + Status badges */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          <span style={{
+                            background: 'rgba(108,99,255,0.18)', color: '#a5b4fc',
+                            border: '1px solid rgba(108,99,255,0.3)', borderRadius: 99,
+                            padding: '3px 11px', fontSize: '0.68rem', fontWeight: 700,
+                            textTransform: 'uppercase', letterSpacing: '0.06em',
+                          }}>{event.type}</span>
+                          <span style={{
+                            background: isClosed ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)',
+                            color: isClosed ? '#f87171' : '#4ade80',
+                            border: `1px solid ${isClosed ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)'}`,
+                            borderRadius: 99, padding: '3px 11px', fontSize: '0.68rem', fontWeight: 700,
+                            textTransform: 'uppercase', letterSpacing: '0.06em',
+                          }}>{status}</span>
+                        </div>
+                        {/* Slots badge top-right */}
+                        {event.maxRegistrations != null && (
+                          <span style={{
+                            background: 'var(--card-bg)', border: '1px solid var(--border)',
+                            borderRadius: 10, padding: '4px 10px', fontSize: '0.72rem',
+                            fontWeight: 700, color: isFull ? 'var(--danger)' : 'var(--success)',
+                            whiteSpace: 'nowrap',
+                          }}>
+                            {openSlots} / {event.maxRegistrations} Slots Open
+                          </span>
+                        )}
+                      </div>
+
                       {/* Title */}
-                      <h4
-                        style={{
-                          color: 'var(--text)',
-                          fontSize: '1rem',
-                          fontWeight: 700,
-                          margin: 0,
-                          lineHeight: 1.3,
-                        }}
-                      >
+                      <h4 style={{ color: 'var(--text)', fontSize: '1rem', fontWeight: 700, margin: '6px 0 0', lineHeight: 1.3 }}>
                         {event.title}
                       </h4>
 
-                      <div style={{ display: 'grid', gap: 4, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        <span><strong style={{ color: 'var(--text-2)' }}>Administration:</strong> {event.administrationName || 'Not provided'}</span>
-                        <span><strong style={{ color: 'var(--text-2)' }}>Admin:</strong> {event.adminName || 'Not provided'}</span>
+                      {/* Admin info */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        {event.administrationName && (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <span style={{ fontSize: '0.7rem' }}>🏛️</span>
+                            <span style={{ color: 'var(--text-2)', fontWeight: 600 }}>{event.administrationName}</span>
+                          </span>
+                        )}
+                        {event.adminName && (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <span style={{ fontSize: '0.7rem' }}>👤</span>
+                            <span>Admin: <strong style={{ color: 'var(--primary)' }}>{event.adminName}</strong></span>
+                          </span>
+                        )}
                       </div>
 
                       {/* Tags */}
                       {event.tags && event.tags.length > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                          {event.tags.slice(0, 5).map((tag) => (
-                            <span
-                              key={tag}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                background: 'var(--tag-bg, rgba(99,102,241,0.08))',
-                                color: 'var(--tag-text, #6366f1)',
-                                border: '1px solid var(--tag-border, rgba(99,102,241,0.22))',
-                                borderRadius: '6px',
-                                padding: '2px 8px',
-                                fontSize: '0.72rem',
-                                fontWeight: 600,
-                                letterSpacing: '0.01em',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              #{tag.startsWith('#') ? tag.slice(1) : tag}
-                            </span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                          {event.tags.slice(0, 4).map((tag) => (
+                            <span key={tag} style={{
+                              background: 'rgba(108,99,255,0.08)', color: '#818cf8',
+                              border: '1px solid rgba(108,99,255,0.18)', borderRadius: 6,
+                              padding: '2px 8px', fontSize: '0.7rem', fontWeight: 600,
+                            }}>#{tag.startsWith('#') ? tag.slice(1) : tag}</span>
                           ))}
                         </div>
                       )}
 
-                      {/* Description */}
-                      <p
-                        style={{
-                          color: 'var(--text-2)',
-                          fontSize: '0.86rem',
-                          lineHeight: 1.5,
-                          margin: 0,
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                        }}
-                      >
-                        {shortDescription}
-                      </p>
+                      {/* Divider */}
+                      <div style={{ borderTop: '1px solid var(--border)', margin: '2px 0' }} />
 
-                      {/* Meta */}
-                      <div
-                        style={{
-                          display: 'flex',
-                          gap: 12,
-                          fontSize: '0.78rem',
-                          color: 'var(--text-muted)',
-                          flexWrap: 'wrap',
-                        }}
-                      >
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                          {' '}
-                          <strong style={{ color: 'var(--text-2)' }}>
-                            {new Date(event.date).toLocaleDateString('en-IN', {
-                              day: 'numeric',
-                              month: 'short',
-                            })}
-                          </strong>
-                        </span>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                          {' '}
-                          <strong style={{ color: 'var(--text-2)' }}>{event.location}</strong>
-                        </span>
-                      </div>
-
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                        <strong style={{ color: 'var(--text-2)' }}>{openSlots}</strong> / {maximum} Slots Open
-                      </div>
-
-                      {/* Rating */}
-                      {event.avgRating != null && event.avgRating > 0 && (
-                        <div
-                          style={{
-                            fontSize: '0.78rem',
-                            color: '#f59e0b',
-                            fontWeight: 600,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 4,
-                          }}
-                        >
-                          {Array.from({ length: 5 }, (_, i) => (
-                            <Star
-                              key={i}
-                              size={12}
-                              fill={i < Math.round(event.avgRating!) ? '#f59e0b' : 'none'}
-                              color="#f59e0b"
-                            />
-                          ))}
-                          <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
-                            {event.avgRating!.toFixed(1)} ({event.feedbackCount})
-                          </span>
+                      {/* Date / Time / Venue row */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+                        <div>
+                          <p style={{ margin: 0, fontSize: '0.62rem', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</p>
+                          <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-2)', fontWeight: 700 }}>
+                            {new Date(event.date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </p>
                         </div>
-                      )}
+                        <div>
+                          <p style={{ margin: 0, fontSize: '0.62rem', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Time</p>
+                          <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-2)', fontWeight: 700 }}>{event.time || 'TBD'}</p>
+                        </div>
+                        <div>
+                          <p style={{ margin: 0, fontSize: '0.62rem', color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Venue</p>
+                          <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--text-2)', fontWeight: 700 }}>{event.location || 'TBD'}</p>
+                        </div>
+                      </div>
 
                       {/* Capacity bar */}
                       {event.maxRegistrations != null && (
                         <div>
-                          <div
-                            style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              fontSize: '0.73rem',
-                              marginBottom: 4,
-                            }}
-                          >
-                            <span style={{ color: 'var(--text-muted)' }}>
-                              <strong style={{ color: 'var(--text-2)' }}>
-                                {event.registrationCount ?? 0}
-                              </strong>{' '}
-                              registered
-                            </span>
-                            <span
-                              style={{ color: isFull ? '#7c3aed' : '#6b7280', fontWeight: 600 }}
-                            >
-                              {isFull ? 'Full' : `${event.maxRegistrations} max`}
-                            </span>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', marginBottom: 4 }}>
+                            <span style={{ color: 'var(--text-muted)' }}><strong style={{ color: 'var(--text-2)' }}>{event.registrationCount ?? 0}</strong> registered</span>
+                            <span style={{ color: isFull ? '#7c3aed' : 'var(--text-dim)', fontWeight: 600 }}>{isFull ? 'Full' : `${event.maxRegistrations} max`}</span>
                           </div>
-                          <div
-                            style={{
-                              height: 6,
-                              background: 'rgba(108,99,255,0.12)',
-                              borderRadius: 99,
-                              overflow: 'hidden',
-                            }}
-                          >
-                            <div
-                              style={{
-                                height: '100%',
-                                borderRadius: 99,
-                                transition: 'width 0.5s ease',
-                                width: `${Math.min(100, Math.round(((event.registrationCount ?? 0) / event.maxRegistrations) * 100))}%`,
-                                background: isFull
-                                  ? 'linear-gradient(90deg,#7c3aed,#a855f7)'
-                                  : 'linear-gradient(90deg,#4f46e5,#818cf8)',
-                              }}
-                            />
+                          <div style={{ height: 5, background: 'rgba(108,99,255,0.12)', borderRadius: 99, overflow: 'hidden' }}>
+                            <div style={{
+                              height: '100%', borderRadius: 99, transition: 'width 0.5s ease',
+                              width: `${Math.min(100, Math.round(((event.registrationCount ?? 0) / event.maxRegistrations) * 100))}%`,
+                              background: isFull ? 'linear-gradient(90deg,#7c3aed,#a855f7)' : 'linear-gradient(90deg,#4f46e5,#818cf8)',
+                            }} />
                           </div>
-                          {isFull && !myReg && (
-                            <p
-                              style={{
-                                margin: '4px 0 0',
-                                fontSize: '0.73rem',
-                                color: '#7c3aed',
-                                fontWeight: 600,
-                              }}
-                            >
-                              ⚠ Full — join waitlist below
-                            </p>
-                          )}
                         </div>
                       )}
 
-                      {/* Registration status / action buttons */}
-                      {myReg ? (
-                        <div
-                          style={{
-                            display: 'flex',
-                            gap: 7,
-                            alignItems: 'center',
-                            flexWrap: 'wrap',
-                          }}
-                        >
-                          {myReg.status === 'waitlisted' ? (
-                            <span
-                              style={{
-                                background: 'rgba(168,85,247,0.15)',
-                                color: 'var(--secondary)',
-                                borderRadius: 8,
-                                padding: '5px 11px',
-                                fontSize: '0.78rem',
-                                fontWeight: 700,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 4,
-                              }}
-                            >
-                              <Clock size={12} /> Waitlist #{myReg.waitlistPosition}
-                            </span>
-                          ) : (
-                            <span
-                              style={{
-                                background: 'rgba(34,197,94,0.15)',
-                                color: 'var(--success)',
-                                borderRadius: 8,
-                                padding: '5px 11px',
-                                fontSize: '0.78rem',
-                                fontWeight: 700,
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 4,
-                              }}
-                            >
-                              <CheckCircle size={12} /> Registered
-                            </span>
-                          )}
-
-                          {myReg.status !== 'waitlisted' && (
-                            <button
-                              type="button"
-                              onClick={() => void handleCancel(event._id)}
-                              disabled={cancellingId === event._id}
-                              style={{
-                                background: 'var(--surface-2)',
-                                color: '#dc2626',
-                                border: '1.5px solid #fca5a5',
-                                borderRadius: 8,
-                                padding: '5px 11px',
-                                fontSize: '0.75rem',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                              }}
-                            >
-                              {cancellingId === event._id ? '' : 'Cancel'}
-                            </button>
-                          )}
+                      {/* Rating */}
+                      {event.avgRating != null && event.avgRating > 0 && (
+                        <div style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          {Array.from({ length: 5 }, (_, i) => (
+                            <Star key={i} size={11} fill={i < Math.round(event.avgRating!) ? '#f59e0b' : 'none'} color="#f59e0b" />
+                          ))}
+                          <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>{event.avgRating!.toFixed(1)} ({event.feedbackCount})</span>
                         </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedEventId(event._id)}
-                          style={{
-                            width: '100%',
-                            border: 0,
-                            borderRadius: 10,
-                            padding: '11px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            fontSize: '0.9rem',
-                            color: '#fff',
-                            background: isFull
-                              ? 'linear-gradient(135deg,#7c5aed,#a855f7)'
-                              : 'linear-gradient(135deg,#4f46e5,#6366f1)',
-                            boxShadow: isFull
-                              ? '0 4px 14px rgba(124,58,237,0.35)'
-                              : '0 4px 14px rgba(79,70,229,0.35)',
-                            transition: 'opacity 0.2s, transform 0.2s',
-                          }}
-                          onMouseEnter={(e) => {
-                            (e.currentTarget as HTMLButtonElement).style.opacity = '0.9';
-                            (e.currentTarget as HTMLButtonElement).style.transform =
-                              'translateY(-1px)';
-                          }}
-                          onMouseLeave={(e) => {
-                            (e.currentTarget as HTMLButtonElement).style.opacity = '1';
-                            (e.currentTarget as HTMLButtonElement).style.transform = '';
-                          }}
-                        >
-                          {isFull ? 'Join Waitlist' : 'Register'}
-                        </button>
                       )}
 
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-                        <button
-                          type="button"
-                          onClick={() => void handleShare(event)}
-                          title="Copy event link"
-                          style={{
-                            background: 'rgba(255,255,255,0.06)',
-                            color: 'var(--text-muted)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 8,
-                            padding: '5px 10px',
-                            fontSize: '0.82rem',
-                            cursor: 'pointer',
-                            alignSelf: 'flex-start',
-                            transition: 'background 0.2s',
-                          }}
-                          onMouseEnter={(e) => {
-                            (e.currentTarget as HTMLButtonElement).style.background = '#e0e7ff';
-                            (e.currentTarget as HTMLButtonElement).style.color = '#4f46e5';
-                          }}
-                          onMouseLeave={(e) => {
-                            (e.currentTarget as HTMLButtonElement).style.background = '#f1f5f9';
-                            (e.currentTarget as HTMLButtonElement).style.color = '#64748b';
-                          }}
-                        >
-                          <Share2 size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Share
-                        </button>
+                      {/* Divider */}
+                      <div style={{ borderTop: '1px solid var(--border)', margin: '2px 0' }} />
+
+                      {/* Bottom row: registration status OR register btn + i button */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+
+                        {/* LEFT: i button */}
                         <Link
                           to={`/events/${event._id}`}
-                          aria-label={`More information about ${event.title}`}
-                          title="More information"
-                          style={{ width: 30, height: 30, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: '50%', color: 'var(--text-muted)', textDecoration: 'none', fontWeight: 700 }}
+                          aria-label={`View details for ${event.title}`}
+                          title="View full details"
+                          style={{
+                            width: 32, height: 32, display: 'inline-flex', alignItems: 'center',
+                            justifyContent: 'center', border: '1px solid var(--border)',
+                            borderRadius: '50%', color: 'var(--text-muted)', textDecoration: 'none',
+                            fontWeight: 700, fontSize: '0.85rem', flexShrink: 0,
+                            background: 'var(--card-bg)', transition: 'all 0.2s',
+                          }}
+                          onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(108,99,255,0.15)';
+                            (e.currentTarget as HTMLAnchorElement).style.color = '#a5b4fc';
+                            (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(108,99,255,0.4)';
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLAnchorElement).style.background = 'var(--card-bg)';
+                            (e.currentTarget as HTMLAnchorElement).style.color = 'var(--text-muted)';
+                            (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--border)';
+                          }}
                         >
                           i
                         </Link>
+
+                        {/* RIGHT: register / registered status */}
+                        {myReg ? (
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
+                            {myReg.status === 'waitlisted' ? (
+                              <span style={{ background: 'rgba(168,85,247,0.15)', color: 'var(--secondary)', borderRadius: 8, padding: '5px 11px', fontSize: '0.75rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <Clock size={11} /> Waitlist #{myReg.waitlistPosition}
+                              </span>
+                            ) : (
+                              <span style={{ background: 'rgba(34,197,94,0.15)', color: 'var(--success)', borderRadius: 8, padding: '5px 11px', fontSize: '0.75rem', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <CheckCircle size={11} /> Registered
+                              </span>
+                            )}
+                            {myReg.status !== 'waitlisted' && (
+                              <button
+                                type="button"
+                                onClick={() => void handleCancel(event._id)}
+                                disabled={cancellingId === event._id}
+                                style={{ background: 'var(--surface-2)', color: '#dc2626', border: '1.5px solid #fca5a5', borderRadius: 8, padding: '5px 11px', fontSize: '0.73rem', fontWeight: 600, cursor: 'pointer' }}
+                              >
+                                {cancellingId === event._id ? '…' : 'Cancel'}
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => isClosed ? null : setSelectedEventId(event._id)}
+                            disabled={isClosed}
+                            style={{
+                              flex: 1, border: 0, borderRadius: 10, padding: '9px 14px',
+                              fontWeight: 700, cursor: isClosed ? 'not-allowed' : 'pointer',
+                              fontSize: '0.85rem', color: '#fff', opacity: isClosed ? 0.5 : 1,
+                              background: isFull
+                                ? 'linear-gradient(135deg,#7c5aed,#a855f7)'
+                                : 'linear-gradient(135deg,#4f46e5,#6366f1)',
+                              boxShadow: isClosed ? 'none' : '0 4px 14px rgba(79,70,229,0.35)',
+                              transition: 'opacity 0.2s, transform 0.2s',
+                            }}
+                            onMouseEnter={(e) => { if (!isClosed) { (e.currentTarget as HTMLButtonElement).style.opacity = '0.88'; (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; } }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = isClosed ? '0.5' : '1'; (e.currentTarget as HTMLButtonElement).style.transform = ''; }}
+                          >
+                            {isClosed ? 'Closed' : isFull ? 'Join Waitlist' : 'Register'}
+                          </button>
+                        )}
                       </div>
                     </div>
 
