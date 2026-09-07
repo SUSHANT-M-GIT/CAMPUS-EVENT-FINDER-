@@ -470,18 +470,20 @@ export default function SignupPage() {
           </form>
         )}
 
-        <p className="auth-footnote">
-          Already have an account? <Link to="/login">Sign in</Link>
-        </p>
-        <p className="auth-footnote">
-          Forgot your password? <Link to="/forgot-password">Reset it</Link>
-        </p>
-        <p className="auth-footnote" style={{ marginTop: 8 }}>
-          <Link to="/" style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>
-            <ArrowLeft size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-            Back to home
-          </Link>
-        </p>
+        <div className="signup-actions">
+          <p className="auth-footnote">
+            Already have an account? <Link to="/login">Sign in</Link>
+          </p>
+          <p className="auth-footnote">
+            Forgot your password? <Link to="/forgot-password">Reset it</Link>
+          </p>
+          <p className="auth-footnote signup-home-link">
+            <Link to="/">
+              <ArrowLeft size={12} />
+              Back to home
+            </Link>
+          </p>
+        </div>
       </section>
     </main>
   );

@@ -1707,6 +1707,28 @@ tbody tr:last-child {
 .auth-footnote a:hover {
   color: var(--accent);
 }
+.signup-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+  text-align: center;
+}
+.signup-actions .auth-footnote {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+.signup-home-link {
+  margin-top: 4px !important;
+}
+.signup-home-link a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
 
 /* ═══════════════════════════════════════════════════════════
    DASHBOARD NAVBAR
