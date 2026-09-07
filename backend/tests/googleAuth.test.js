@@ -148,6 +148,7 @@ describe('Google Authentication Controller', () => {
     const req = {
       body: {
         idToken: 'valid-google-id-token',
+        password: 'secure123',
         role: 'student',
         collegeName: 'State College',
         collegeId: 'SC12345',
@@ -158,7 +159,8 @@ describe('Google Authentication Controller', () => {
     await controller.googleAuth(req, res);
 
     expect(res.statusCode).toBe(200);
-    expect(res.result).toHaveProperty('token');
+    expect(res.result.needsEmailVerification).toBe(true);
+    expect(res.result.email).toBe('newstudent@example.com');
     expect(res.result.isNewUser).toBe(true);
     expect(mockSave).toHaveBeenCalled();
   });
@@ -176,6 +178,7 @@ describe('Google Authentication Controller', () => {
     const req = {
       body: {
         idToken: 'valid-google-id-token',
+        password: 'secure123',
         role: 'admin',
         collegeName: 'State Tech Club',
         phone: '+91 9876543210',
@@ -186,7 +189,8 @@ describe('Google Authentication Controller', () => {
     await controller.googleAuth(req, res);
 
     expect(res.statusCode).toBe(200);
-    expect(res.result.pendingApproval).toBe(true);
+    expect(res.result.needsEmailVerification).toBe(true);
+    expect(res.result.email).toBe('organizer@example.com');
     expect(res.result.isNewUser).toBe(true);
     expect(mockSave).toHaveBeenCalled();
   });
@@ -204,6 +208,7 @@ describe('Google Authentication Controller', () => {
     const req = {
       body: {
         idToken: 'valid-google-id-token',
+        password: 'secure123',
         role: 'professional',
         designation: 'Senior Developer',
         company: 'Google',
@@ -214,7 +219,8 @@ describe('Google Authentication Controller', () => {
     await controller.googleAuth(req, res);
 
     expect(res.statusCode).toBe(200);
-    expect(res.result).toHaveProperty('token');
+    expect(res.result.needsEmailVerification).toBe(true);
+    expect(res.result.email).toBe('pro@example.com');
     expect(res.result.isNewUser).toBe(true);
     expect(mockSave).toHaveBeenCalled();
   });

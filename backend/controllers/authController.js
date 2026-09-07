@@ -508,7 +508,7 @@ exports.requestAdmin = async (req, res) => {
 // Body: { idToken, role, collegeName, collegeId, company, designation, phone }
 exports.googleAuth = async (req, res) => {
   try {
-    const { idToken, role, collegeName, collegeId, company, designation, phone } = req.body;
+    const { idToken, role, collegeName, collegeId, company, designation, phone, password } = req.body;
     if (!idToken) return res.status(400).json({ msg: 'Google token is required' });
 
     const googleClientId = process.env.GOOGLE_CLIENT_ID;
@@ -658,11 +658,19 @@ exports.googleAuth = async (req, res) => {
     const isGoogleAdmin = effectiveGoogleRole === 'admin';
     const isGoogleProfessional = effectiveGoogleRole === 'professional';
 
-    // Create new account — Google-verified
+    if (!password || password.length < 6) {
+      return res.status(400).json({ msg: 'A password of at least 6 characters is required.' });
+    }
+
+    const otp = generateOtp();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Create new account — Google identity verified, email still pending OTP verification
     u = await new User({
       name: googleName,
       email: googleEmail,
-      password: '',
+      password: passwordHash,
       role: isGoogleAdmin ? 'admin' : isGoogleProfessional ? 'professional' : 'student',
       collegeName: collegeName?.trim() || '',
       collegeId: effectiveGoogleRole === 'student' ? collegeId.trim() : '',
@@ -673,33 +681,31 @@ exports.googleAuth = async (req, res) => {
       verificationStatus: isGoogleAdmin ? 'pending' : 'approved',
       organizerApprovalStatus: isGoogleAdmin ? 'pending' : 'approved',
       accountStatus: 'active',
-      isVerified: true,
+      isVerified: false,
+      otp,
+      otpExpiry,
     }).save();
 
+    const emailSent = await sendOtpEmail(googleEmail, otp, googleName);
+    if (!emailSent) {
+      return res.status(500).json({ msg: 'Failed to send OTP email. Please try again.' });
+    }
+
     if (isGoogleAdmin) {
-      await createAndSendOrganizerApprovalRequest(u, req);
       return res.json({
         isNewUser: true,
-        pendingApproval: true,
-        msg: 'Your organizer account has been created and is waiting for approval by the platform owner.',
+        needsEmailVerification: true,
+        email: googleEmail,
+        msg: 'OTP sent to your email. Verify it to complete registration.',
       });
     }
 
-    const token = jwt.sign(
-      {
-        user: {
-          id: u.id,
-          role: u.role,
-          collegeName: u.collegeName || '',
-          company: u.company || '',
-          designation: u.designation || '',
-        },
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '1d' }
-    );
-
-    res.json({ token, isNewUser: true });
+    res.json({
+      isNewUser: true,
+      needsEmailVerification: true,
+      email: googleEmail,
+      msg: 'OTP sent to your email. Verify it to complete registration.',
+    });
   } catch (e) {
     console.error('googleAuth Error:', e);
     res.status(500).json({ msg: e.message || 'Google sign-in failed' });
@@ -711,7 +717,7 @@ exports.googleAuth = async (req, res) => {
 // Body: { accessToken, idToken, role, collegeName, collegeId, company, designation, phone }
 exports.microsoftAuth = async (req, res) => {
   try {
-    const { accessToken, idToken, role, collegeName, collegeId, company, designation, phone } = req.body;
+    const { accessToken, idToken, role, collegeName, collegeId, company, designation, phone, password } = req.body;
     if (!accessToken && !idToken) {
       return res.status(400).json({ msg: 'Microsoft authentication token is required.' });
     }
@@ -859,11 +865,19 @@ exports.microsoftAuth = async (req, res) => {
     const isMsAdmin = effectiveMsRole === 'admin';
     const isMsProfessional = effectiveMsRole === 'professional';
 
-    // Create new account — Microsoft verified
+    if (!password || password.length < 6) {
+      return res.status(400).json({ msg: 'A password of at least 6 characters is required.' });
+    }
+
+    const otp = generateOtp();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Create new account — Microsoft identity verified, email still pending OTP verification
     u = await new User({
       name: msName,
       email: msEmail,
-      password: '',
+      password: passwordHash,
       role: isMsAdmin ? 'admin' : isMsProfessional ? 'professional' : 'student',
       collegeName: collegeName?.trim() || '',
       collegeId: effectiveMsRole === 'student' ? collegeId.trim() : '',
@@ -874,33 +888,31 @@ exports.microsoftAuth = async (req, res) => {
       verificationStatus: isMsAdmin ? 'pending' : 'approved',
       organizerApprovalStatus: isMsAdmin ? 'pending' : 'approved',
       accountStatus: 'active',
-      isVerified: true,
+      isVerified: false,
+      otp,
+      otpExpiry,
     }).save();
 
+    const emailSent = await sendOtpEmail(msEmail, otp, msName);
+    if (!emailSent) {
+      return res.status(500).json({ msg: 'Failed to send OTP email. Please try again.' });
+    }
+
     if (isMsAdmin) {
-      await createAndSendOrganizerApprovalRequest(u, req);
       return res.json({
         isNewUser: true,
-        pendingApproval: true,
-        msg: 'Your organizer account has been created and is waiting for approval by the platform owner.',
+        needsEmailVerification: true,
+        email: msEmail,
+        msg: 'OTP sent to your email. Verify it to complete registration.',
       });
     }
 
-    const msToken = jwt.sign(
-      {
-        user: {
-          id: u.id,
-          role: u.role,
-          collegeName: u.collegeName || '',
-          company: u.company || '',
-          designation: u.designation || '',
-        },
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '1d' }
-    );
-
-    res.json({ token: msToken, isNewUser: true });
+    res.json({
+      isNewUser: true,
+      needsEmailVerification: true,
+      email: msEmail,
+      msg: 'OTP sent to your email. Verify it to complete registration.',
+    });
   } catch (e) {
     console.error('microsoftAuth Error:', e);
     res.status(500).json({ msg: e.message || 'Microsoft sign-in failed' });

@@ -151,6 +151,7 @@ describe('Microsoft Authentication Controller', () => {
     const req = {
       body: {
         accessToken: 'valid-ms-access-token',
+        password: 'secure123',
         role: 'student',
         collegeName: 'State College of Technology',
         collegeId: 'SCT2026',
@@ -161,7 +162,8 @@ describe('Microsoft Authentication Controller', () => {
     await controller.microsoftAuth(req, res);
 
     expect(res.statusCode).toBe(200);
-    expect(res.result).toHaveProperty('token');
+    expect(res.result.needsEmailVerification).toBe(true);
+    expect(res.result.email).toBe('newstudent@college.edu');
     expect(res.result.isNewUser).toBe(true);
     expect(mockSave).toHaveBeenCalled();
   });
@@ -181,6 +183,7 @@ describe('Microsoft Authentication Controller', () => {
     const req = {
       body: {
         accessToken: 'valid-ms-access-token',
+        password: 'secure123',
         role: 'admin',
         collegeName: 'State Tech Club',
         phone: '+91 9876543210',
@@ -191,7 +194,8 @@ describe('Microsoft Authentication Controller', () => {
     await controller.microsoftAuth(req, res);
 
     expect(res.statusCode).toBe(200);
-    expect(res.result.pendingApproval).toBe(true);
+    expect(res.result.needsEmailVerification).toBe(true);
+    expect(res.result.email).toBe('admin@organization.org');
     expect(res.result.isNewUser).toBe(true);
     expect(mockSave).toHaveBeenCalled();
   });

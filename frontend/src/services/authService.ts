@@ -73,6 +73,7 @@ export async function changePassword(payload: ChangePasswordPayload) {
 
 export interface GoogleAuthPayload {
   idToken: string;
+  password?: string;
   role?: 'student' | 'professional' | 'general' | 'admin';
   collegeName?: string;
   collegeId?: string;
@@ -85,11 +86,13 @@ export interface GoogleAuthResponse {
   token?: string;
   isNewUser?: boolean;
   needsProfileCompletion?: boolean;
+  needsEmailVerification?: boolean;
   needsCollegeName?: boolean;
   pendingApproval?: boolean;
   msg?: string;
   googleEmail?: string;
   googleName?: string;
+  email?: string;
   role?: 'student' | 'professional' | 'general' | 'admin';
 }
 
@@ -101,6 +104,7 @@ export async function googleAuth(payload: GoogleAuthPayload) {
 export interface MicrosoftAuthPayload {
   accessToken?: string;
   idToken?: string;
+  password?: string;
   role?: 'student' | 'professional' | 'general' | 'admin';
   collegeName?: string;
   collegeId?: string;
@@ -113,12 +117,14 @@ export interface MicrosoftAuthResponse {
   token?: string;
   isNewUser?: boolean;
   needsProfileCompletion?: boolean;
+  needsEmailVerification?: boolean;
   pendingApproval?: boolean;
   msg?: string;
   msEmail?: string;
   msName?: string;
   role?: 'student' | 'professional' | 'general' | 'admin';
   provider?: string;
+  email?: string;
 }
 
 export async function microsoftAuth(payload: MicrosoftAuthPayload) {

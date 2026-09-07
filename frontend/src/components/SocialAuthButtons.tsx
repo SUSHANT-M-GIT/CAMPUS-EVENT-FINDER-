@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGoogleLogin } from '@react-oauth/google';
 import { CheckCircle, X, GraduationCap, Briefcase, User as UserIcon, Shield } from 'lucide-react';
-import { googleAuth, microsoftAuth } from '../services/authService';
+import { googleAuth, microsoftAuth, verifyEmail, resendOtp } from '../services/authService';
 import { useAuth } from '../context/AuthContext';
 import Alert from './Alert';
 
@@ -78,6 +78,10 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
 
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [modalError, setModalError] = useState('');
+  const [socialStep, setSocialStep] = useState<'profile' | 'otp'>('profile');
+  const [socialPassword, setSocialPassword] = useState('');
+  const [socialOtp, setSocialOtp] = useState('');
+  const [socialEmail, setSocialEmail] = useState('');
 
   const [userMeta, setUserMeta] = useState<{ email: string; name: string; provider: 'google' | 'microsoft' }>({
     email: '', name: '', provider: 'google',
@@ -131,6 +135,7 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
           setUserMeta({ email: res.googleEmail || '', name: res.googleName || 'User', provider: 'google' });
           setRole('student');
           setCollegeName(''); setCollegeId(''); setCompany(''); setDesignation(''); setPhone('');
+          setSocialPassword(''); setSocialOtp(''); setSocialEmail(res.googleEmail || ''); setSocialStep('profile');
           setModalError('');
           setShowProfileModal(true);
         }
@@ -223,6 +228,7 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
         setUserMeta({ email: res.msEmail || '', name: res.msName || 'User', provider: 'microsoft' });
         setRole('student');
         setCollegeName(''); setCollegeId(''); setCompany(''); setDesignation(''); setPhone('');
+        setSocialPassword(''); setSocialOtp(''); setSocialEmail(res.msEmail || ''); setSocialStep('profile');
         setModalError('');
         setShowProfileModal(true);
       }
@@ -277,6 +283,11 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
     e.preventDefault();
     setModalError('');
 
+    if (socialPassword.length < 6) {
+      setModalError('Password must be at least 6 characters.');
+      return;
+    }
+
     // Validate per role
     if (role === 'student') {
       if (!collegeName.trim()) { setModalError('College / University name is required.'); return; }
@@ -292,6 +303,7 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
     setLoading(true);
     try {
       const payload = {
+        password: socialPassword,
         role,
         collegeName: (role === 'student' || role === 'admin') ? collegeName.trim() : '',
         collegeId: role === 'student' ? collegeId.trim() : '',
@@ -314,6 +326,14 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
         return;
       }
 
+      if (res.needsEmailVerification) {
+        setSocialEmail(res.email || userMeta.email);
+        setSocialOtp('');
+        setSocialStep('otp');
+        setModalError('');
+        return;
+      }
+
       if (res.token) {
         const user = await loginWithToken(res.token);
         setShowProfileModal(false);
@@ -324,6 +344,37 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
     } catch (err: unknown) {
       const e = err as { response?: { data?: { msg?: string } }; message?: string };
       setModalError(e.response?.data?.msg || e.message || 'Failed to complete profile registration.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSocialOtpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setModalError('');
+    setLoading(true);
+    try {
+      const res = await verifyEmail(socialEmail, socialOtp);
+      setShowProfileModal(false);
+      alert(res.msg || 'Email verified successfully. You can now log in.');
+      navigate('/login', { replace: true });
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { msg?: string } }; message?: string };
+      setModalError(e.response?.data?.msg || e.message || 'Invalid or expired OTP.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSocialOtpResend = async () => {
+    setModalError('');
+    setLoading(true);
+    try {
+      const res = await resendOtp(socialEmail);
+      setModalError(res.msg || 'New OTP sent to your email.');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { msg?: string } }; message?: string };
+      setModalError(e.response?.data?.msg || e.message || 'Failed to resend OTP.');
     } finally {
       setLoading(false);
     }
@@ -457,15 +508,26 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
               <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg,#4f46e5,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', color: '#fff' }}>
                 <CheckCircle size={22} />
               </div>
-              <h2 style={{ fontSize: '1.25rem', margin: '0 0 4px', color: 'var(--text)' }}>Complete Your Profile</h2>
+              <h2 style={{ fontSize: '1.25rem', margin: '0 0 4px', color: 'var(--text)' }}>
+                {socialStep === 'profile' ? 'Complete Your Profile' : 'Verify Your Email'}
+              </h2>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0 }}>
-                Welcome, <strong>{userMeta.name}</strong> ({userMeta.email})
+                {socialStep === 'profile'
+                  ? <>Welcome, <strong>{userMeta.name}</strong> ({userMeta.email})</>
+                  : <>OTP sent to <strong>{socialEmail}</strong></>}
               </p>
             </div>
 
             {modalError && <Alert type="error" message={modalError} />}
 
-            <form onSubmit={handleProfileSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <form onSubmit={socialStep === 'profile' ? handleProfileSubmit : handleSocialOtpSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {socialStep === 'profile' ? <>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>
+                  Create a password <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input type="password" className="input" value={socialPassword} onChange={e => setSocialPassword(e.target.value)} placeholder="Min. 6 characters" minLength={6} required autoComplete="new-password" />
+              </div>
               {/* Role selector — 4 options */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-2)', marginBottom: 8 }}>
@@ -558,13 +620,24 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
                 </>
               )}
 
+              </> : <>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>
+                    Confirmation OTP
+                  </label>
+                  <input type="text" className="input" value={socialOtp} onChange={e => setSocialOtp(e.target.value)} placeholder="Enter 6-digit OTP" inputMode="numeric" maxLength={6} required autoComplete="one-time-code" />
+                </div>
+                <button type="button" onClick={handleSocialOtpResend} disabled={loading} style={{ alignSelf: 'flex-end', border: 0, background: 'transparent', color: '#818cf8', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}>
+                  Resend OTP
+                </button>
+              </>}
               <button
                 type="submit"
                 disabled={loading}
                 className="btn btn-gradient full-width"
                 style={{ marginTop: 8, padding: 12, fontSize: '0.95rem' }}
               >
-                {loading ? 'Creating Account…' : 'Continue to Dashboard'}
+                {loading ? 'Please wait…' : socialStep === 'profile' ? 'Send Confirmation OTP' : 'Verify Email'}
               </button>
             </form>
           </div>
