@@ -2489,8 +2489,11 @@ tbody tr:last-child {
 }
 .global-theme-toggle {
   position: fixed;
-  top: 76px;
-  right: 16px;
+  /* Change these two values to reposition the global theme control. */
+  --theme-toggle-top: max(72px, env(safe-area-inset-top) + 56px);
+  --theme-toggle-right: max(16px, env(safe-area-inset-right) + 12px);
+  top: var(--theme-toggle-top);
+  right: var(--theme-toggle-right);
   z-index: 90;
   box-shadow: var(--shadow-sm);
 }
@@ -2498,6 +2501,13 @@ tbody tr:last-child {
   background: rgba(108, 99, 255, 0.15);
   color: var(--primary);
   border-color: var(--border-h);
+}
+
+@media (max-width: 640px) {
+  .global-theme-toggle {
+    --theme-toggle-top: max(78px, env(safe-area-inset-top) + 62px);
+    --theme-toggle-right: max(12px, env(safe-area-inset-right) + 8px);
+  }
 }
 
 /* Chart card dark fix */
