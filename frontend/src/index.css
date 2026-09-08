@@ -2496,6 +2496,13 @@ tbody tr:last-child {
   right: var(--theme-toggle-right);
   z-index: 90;
   box-shadow: var(--shadow-sm);
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+.global-theme-toggle.is-dragging {
+  cursor: grabbing;
+  transition: none;
 }
 .theme-toggle:hover {
   background: rgba(108, 99, 255, 0.15);
