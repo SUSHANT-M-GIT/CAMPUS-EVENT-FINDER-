@@ -18,6 +18,7 @@ export interface EventPayload {
   type: EventItem['type'];
   date: string;
   time: string;
+  eventStatus?: 'live' | 'ongoing' | 'ended';
   registrationDeadline: string;
   location: string;
   maxRegistrations: number;
@@ -51,6 +52,7 @@ function buildFormData(payload: EventPayload): FormData {
   fd.append('type', payload.type);
   fd.append('date', payload.date);
   fd.append('time', payload.time);
+  fd.append('eventStatus', payload.eventStatus ?? 'live');
   fd.append('registrationDeadline', payload.registrationDeadline);
   fd.append('location', payload.location);
   fd.append('maxRegistrations', String(payload.maxRegistrations));

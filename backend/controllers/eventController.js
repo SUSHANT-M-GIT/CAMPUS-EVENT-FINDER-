@@ -75,6 +75,8 @@ function normalizeEventBody(body) {
     fields.maxTeamSize = fields.maxTeamSize === '' ? null : Number(fields.maxTeamSize);
   if (fields.eventType !== undefined && !['individual', 'team'].includes(fields.eventType))
     throw new Error('Event type must be individual or team.');
+  if (fields.eventStatus !== undefined && !['live', 'ongoing', 'ended'].includes(fields.eventStatus))
+    throw new Error('Event status must be live, ongoing, or ended.');
   if (fields.about !== undefined && fields.about.trim().split(/\s+/).filter(Boolean).length > 30)
     throw new Error('About must be 30 words or fewer.');
   if (fields.eventType === 'team') {

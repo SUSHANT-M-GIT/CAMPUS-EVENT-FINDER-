@@ -28,6 +28,11 @@ const eventSchema = new mongoose.Schema(
     type: { type: String, enum: ['hackathon', 'tech', 'seminar', 'games', 'movie', 'other'] },
     date: Date,
     time: String,
+    eventStatus: {
+      type: String,
+      enum: ['live', 'ongoing', 'ended'],
+      default: 'live',
+    },
     registrationDeadline: Date,
     location: { type: String, trim: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

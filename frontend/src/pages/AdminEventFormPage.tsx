@@ -14,6 +14,7 @@ const defaultFormData: EventPayload = {
   type: 'other',
   date: '',
   time: '',
+  eventStatus: 'live',
   registrationDeadline: '',
   location: '',
   maxRegistrations: 100,
@@ -47,6 +48,7 @@ export default function AdminEventFormPage() {
           type: data.type,
           date: data.date.slice(0, 10),
           time: data.time,
+          eventStatus: data.eventStatus ?? 'live',
           registrationDeadline: data.registrationDeadline.slice(0, 16),
           location: data.location,
           maxRegistrations: data.maxRegistrations ?? 100,
@@ -257,6 +259,18 @@ export default function AdminEventFormPage() {
               className="rounded-md border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               required
             />
+
+            <select
+              name="eventStatus"
+              value={formData.eventStatus ?? 'live'}
+              onChange={handleChange}
+              className="rounded-md border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              aria-label="Event status"
+            >
+              <option value="live">Live</option>
+              <option value="ongoing">Ongoing</option>
+              <option value="ended">Ended</option>
+            </select>
 
             <input
               type="datetime-local"

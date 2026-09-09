@@ -134,5 +134,33 @@ describe('QR Attendance Authorization and Scanning', () => {
       expect(res.result.msg).toMatch(/attendance marked/i);
       expect(regMock.attendanceStatus).toBe('present');
     });
+
+    it('blocks attendance when the event status is ended', async () => {
+      const regMock = {
+        _id: 'reg-ended',
+        eventId: { _id: 'event-ended', title: 'Finished Event', createdBy: 'admin1', eventStatus: 'ended' },
+        userId: { _id: 'student1', name: 'John Student' },
+        attendanceStatus: 'absent',
+        save: jest.fn().mockResolvedValue(true),
+      };
+
+      Registration.findOne.mockReturnValue({
+        populate: jest.fn().mockReturnValue({
+          populate: jest.fn().mockResolvedValue(regMock),
+        }),
+      });
+
+      const req = {
+        body: { registrationId: 'REG-ENDED', eventId: 'event-ended' },
+        user: { id: 'admin1', role: 'admin' },
+      };
+      const res = createMockRes();
+
+      await scanAttendance(req, res);
+
+      expect(res.statusCode).toBe(400);
+      expect(res.result.msg).toMatch(/event has ended/i);
+      expect(regMock.save).not.toHaveBeenCalled();
+    });
   });
 });

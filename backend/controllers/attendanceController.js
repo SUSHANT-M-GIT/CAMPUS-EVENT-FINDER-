@@ -46,6 +46,9 @@ exports.scanAttendance = async (req, res) => {
     if (!isAdmin)
       return res.status(403).json({ msg: 'You are not authorized to scan attendance for this event' });
 
+    if (event?.eventStatus === 'ended')
+      return res.status(400).json({ msg: 'Attendance cannot be marked because this event has ended.' });
+
     if (reg.attendanceStatus === 'present')
       return res
         .status(400)

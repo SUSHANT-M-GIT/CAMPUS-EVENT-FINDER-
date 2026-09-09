@@ -35,6 +35,7 @@ export interface EventItem {
   type: 'hackathon' | 'tech' | 'seminar' | 'games' | 'movie' | 'other';
   date: string;
   time: string;
+  eventStatus?: 'live' | 'ongoing' | 'ended';
   registrationDeadline: string;
   location: string;
   createdBy?: string;
