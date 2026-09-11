@@ -7,7 +7,7 @@
  */
 
 /**
- * Normalize role string to standard internal role: 'admin', 'student', 'professional'
+ * Normalize role string to standard internal role: 'admin', 'student', 'professional', 'individual'
  */
 function normalizeRole(role) {
   if (!role) return '';
@@ -28,6 +28,9 @@ function normalizeRole(role) {
     r === 'working professional / general'
   ) {
     return 'professional';
+  }
+  if (r === 'individual' || r === 'general' || r === 'general / individual') {
+    return 'individual';
   }
   if (r === 'student') {
     return 'student';

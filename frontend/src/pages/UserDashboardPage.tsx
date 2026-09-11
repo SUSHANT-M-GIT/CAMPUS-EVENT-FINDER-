@@ -15,6 +15,7 @@ import Alert from '../components/Alert';
 import { SkeletonCard } from '../components/SkeletonCard';
 import EmptyState from '../components/EmptyState';
 import { useAuth } from '../context/AuthContext';
+import { getDashboardLabel } from '../utils/dashboard';
 import {
   getMyRegistrations,
   registerForEvent,
@@ -55,6 +56,7 @@ export default function UserDashboardPage() {
     customDepartment: '',
     company: '',
     designation: '',
+    phone: '',
   });
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [regFilter, setRegFilter] = useState<'all' | 'upcoming' | 'attended' | 'waitlisted'>('all');
@@ -187,12 +189,18 @@ export default function UserDashboardPage() {
   };
 
   const handleRegister = async (eventId: string) => {
-    if (!registerForm.name || !registerForm.department) {
+    const isIndividual = user?.role === 'individual';
+    const registrationName = registerForm.name.trim() || user?.name?.trim() || '';
+    if (!registrationName || (!isIndividual && !registerForm.department)) {
       setFeedback({ type: 'error', message: 'Please fill all registration details.' });
       return;
     }
-    // Students need college ID; professionals need designation
-    if (user?.role === 'professional') {
+    if (isIndividual) {
+      if (!registerForm.phone.trim()) {
+        setFeedback({ type: 'error', message: 'Please enter your phone number.' });
+        return;
+      }
+    } else if (user?.role === 'professional') {
       if (!registerForm.designation?.trim()) {
         setFeedback({ type: 'error', message: 'Please enter your designation/role.' });
         return;
@@ -215,13 +223,15 @@ export default function UserDashboardPage() {
     }
     try {
       const finalDepartment =
-        registerForm.department === 'Others — Please specify below'
+        isIndividual ? '' : registerForm.department === 'Others — Please specify below'
           ? registerForm.customDepartment.trim() || 'Others'
           : registerForm.department;
       const response = await registerForEvent(eventId, {
         ...registerForm,
+        name: registrationName,
         department: finalDepartment,
-        collegeName: user?.collegeName || '',
+        collegeName: isIndividual ? '' : user?.collegeName || '',
+        phone: isIndividual ? registerForm.phone.trim() : '',
       });
 
       if (response.status === 'confirmed') {
@@ -244,6 +254,7 @@ export default function UserDashboardPage() {
         customDepartment: '',
         company: '',
         designation: '',
+        phone: '',
       });
       setFeedback({ type: 'success', message: response.msg });
     } catch (error: unknown) {
@@ -253,22 +264,24 @@ export default function UserDashboardPage() {
   };
 
   const handleCreateTeam = async (eventId: string) => {
+    const isIndividual = user?.role === 'individual';
     if (!teamName.trim()) {
       setFeedback({ type: 'error', message: 'Please enter a team name.' });
       return;
     }
-    if (!registerForm.name || !registerForm.department || (user?.role !== 'professional' && !registerForm.collegeId)) {
+    if ((!registerForm.name.trim() && !user?.name?.trim()) || (!isIndividual && !registerForm.department) || (isIndividual && !registerForm.phone.trim())) {
       setFeedback({ type: 'error', message: 'Please fill all registration details.' });
       return;
     }
     try {
-      const finalDepartment = registerForm.department === 'Others — Please specify below'
+      const finalDepartment = isIndividual ? '' : registerForm.department === 'Others — Please specify below'
         ? registerForm.customDepartment.trim() || 'Others'
         : registerForm.department;
       const team = await createTeam(eventId, {
         ...registerForm,
         department: finalDepartment,
-        collegeName: user?.collegeName || '',
+        collegeName: isIndividual ? '' : user?.collegeName || '',
+        phone: isIndividual ? registerForm.phone.trim() : '',
         teamName: teamName.trim(),
       });
       setTeamInfo(team);
@@ -442,8 +455,8 @@ export default function UserDashboardPage() {
           { label: 'Logout', onClick: handleLogout },
         ]}
         showBell
-        userName={user?.collegeName}
-        userInitial={user?.collegeName?.charAt(0).toUpperCase() ?? 'S'}
+        userName={user?.collegeName || user?.company || user?.name}
+        userInitial={(user?.collegeName || user?.company || user?.name)?.charAt(0).toUpperCase() ?? 'U'}
       />
 
       {/*  PREMIUM HERO BANNER  */}
@@ -466,7 +479,7 @@ export default function UserDashboardPage() {
               👋 Welcome back
             </p>
             <h1 style={{ margin: '0 0 4px' }}>
-              {user?.collegeName ? `${user.collegeName}` : 'Student Dashboard'}
+              {user?.role === 'student' && user.collegeName ? user.collegeName : getDashboardLabel(user?.role)}
             </h1>
             <p style={{ margin: '0 0 20px', color: 'rgba(255,255,255,0.75)', fontSize: '0.9rem' }}>
               {new Date().toLocaleDateString('en-IN', {
@@ -1363,7 +1376,7 @@ export default function UserDashboardPage() {
                 boxShadow: '0 4px 14px rgba(79,70,229,0.4)',
               }}
             >
-              {user?.collegeName ? user.collegeName.charAt(0).toUpperCase() : 'S'}
+              {(user?.collegeName || user?.company || user?.name)?.charAt(0).toUpperCase() ?? 'U'}
             </div>
             <div>
               <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text)', fontWeight: 700 }}>
@@ -2402,8 +2415,35 @@ export default function UserDashboardPage() {
                       placeholder="Your name"
                     />
 
-                    {/* Student: College ID | Professional: Company + Designation */}
-                    {user?.role === 'professional' ? (
+                    {user?.role === 'individual' ? (
+                      <>
+                        <div
+                          style={{
+                            padding: '8px 0',
+                            color: 'var(--text-muted)',
+                            fontSize: '0.85rem',
+                          }}
+                        >
+                          Email: <strong>{user.email}</strong>
+                        </div>
+                        <input
+                          value={registerForm.phone}
+                          onChange={(e) =>
+                            setRegisterForm((p) => ({ ...p, phone: e.target.value }))
+                          }
+                          placeholder="Phone number"
+                          type="tel"
+                          required
+                        />
+                        <input
+                          value={registerForm.company}
+                          onChange={(e) =>
+                            setRegisterForm((p) => ({ ...p, company: e.target.value }))
+                          }
+                          placeholder="Organisation / Company (optional)"
+                        />
+                      </>
+                    ) : user?.role === 'professional' ? (
                       <>
                         <input
                           value={registerForm.company}
@@ -2430,7 +2470,7 @@ export default function UserDashboardPage() {
                         placeholder="College ID / Roll number"
                       />
                     )}
-                    <select
+                    {user?.role !== 'individual' && <select
                       value={registerForm.department}
                       onChange={(e) =>
                         setRegisterForm((p) => ({ ...p, department: e.target.value }))
@@ -2494,8 +2534,8 @@ export default function UserDashboardPage() {
                         <option>Research & Development</option>
                         <option>Others — Please specify below</option>
                       </optgroup>
-                    </select>
-                    {registerForm.department === 'Others — Please specify below' && (
+                    </select>}
+                    {user?.role !== 'individual' && registerForm.department === 'Others — Please specify below' && (
                       <input
                         value={registerForm.customDepartment ?? ''}
                         onChange={(e) =>

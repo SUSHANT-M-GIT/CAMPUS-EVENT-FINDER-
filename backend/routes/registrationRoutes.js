@@ -5,7 +5,7 @@ const c = require('../controllers/registrationController');
 const team = require('../controllers/teamController');
 
 // Students AND professionals can register, cancel, and view their own registrations
-const participantRoles = ['student', 'professional'];
+const participantRoles = ['student', 'professional', 'individual'];
 router.post('/register/:eventId', auth, role(participantRoles), c.registerEvent);
 router.post('/registrations/:eventId', auth, role(participantRoles), c.registerEvent);
 router.delete('/registrations/:eventId', auth, role(participantRoles), c.cancelRegistration);

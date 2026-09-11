@@ -4,6 +4,7 @@ import { useGoogleLogin } from '@react-oauth/google';
 import { CheckCircle, X, GraduationCap, Briefcase, User as UserIcon, Shield } from 'lucide-react';
 import { googleAuth, microsoftAuth, verifyEmail, resendOtp } from '../services/authService';
 import { useAuth } from '../context/AuthContext';
+import { getDashboardPath } from '../utils/dashboard';
 import Alert from './Alert';
 
 // ── Singleton MSAL instance — created once, reused across renders ─────────────
@@ -108,7 +109,7 @@ export default function SocialAuthButtons({ onError, onSuccess }: SocialAuthButt
   const navigateAfterAuth = useCallback(
     (userRole: string) => {
       if (onSuccess) onSuccess();
-      navigate(userRole === 'admin' ? '/admin' : '/user', { replace: true });
+      navigate(getDashboardPath(userRole), { replace: true });
     },
     [navigate, onSuccess]
   );

@@ -6,6 +6,8 @@ export interface RegistrationPayload {
   collegeId: string;
   collegeName: string;
   department: string;
+  phone?: string;
+  company?: string;
 }
 
 export interface RegisterResponse {

@@ -15,6 +15,8 @@ function getRegistrationData(req, user) {
     collegeId: req.body.collegeId || user.collegeId || '',
     collegeName: user.collegeName || '',
     department: req.body.department || user.department || '',
+    phone: req.body.phone || user.phone || '',
+    company: req.body.company || user.company || '',
   };
 }
 

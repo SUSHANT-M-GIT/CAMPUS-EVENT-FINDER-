@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import type { EventItem } from '../types';
+import { getDashboardPath } from '../utils/dashboard';
 
 // ── Scroll detection ──────────────────────────────────────────────────────────
 function useScrolled(threshold = 40) {
@@ -149,7 +150,7 @@ export default function LandingPage() {
   // - logged-in non-admin → user dashboard
   // - anyone else → login
   const handleBrowseEvents = () => {
-    if (isLoggedIn && userRole !== 'admin') navigate('/user');
+    if (isLoggedIn) navigate(getDashboardPath(userRole ?? undefined));
     else navigate('/login');
   };
 
@@ -182,7 +183,7 @@ export default function LandingPage() {
                 type="button"
                 className="land-nav-link"
                 style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                onClick={() => navigate(userRole === 'admin' ? '/admin' : '/user')}
+                onClick={() => navigate(getDashboardPath(userRole ?? undefined))}
               >
                 Dashboard
               </button>
@@ -217,7 +218,7 @@ export default function LandingPage() {
               Events
             </button>
             {isLoggedIn ? (
-              <button type="button" onClick={() => { navigate(userRole === 'admin' ? '/admin' : '/user'); setMobileOpen(false); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', textAlign: 'left', fontWeight: 500, fontSize: '0.95rem', padding: '6px 0' }}>
+              <button type="button" onClick={() => { navigate(getDashboardPath(userRole ?? undefined)); setMobileOpen(false); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text)', textAlign: 'left', fontWeight: 500, fontSize: '0.95rem', padding: '6px 0' }}>
                 Dashboard
               </button>
             ) : (

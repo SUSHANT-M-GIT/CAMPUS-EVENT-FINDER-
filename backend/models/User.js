@@ -6,8 +6,8 @@ const userSchema = new mongoose.Schema(
     email: { type: String, unique: true, lowercase: true, trim: true },
     password: String,
 
-    // role: "student" (default), "professional", or "admin"
-    role: { type: String, enum: ['admin', 'student', 'professional'], default: 'student' },
+    // role: "student" (default), "professional", "individual", or "admin"
+    role: { type: String, enum: ['admin', 'student', 'professional', 'individual'], default: 'student' },
     accountStatus: {
       type: String,
       enum: ['active', 'flagged', 'suspended', 'deactivated'],

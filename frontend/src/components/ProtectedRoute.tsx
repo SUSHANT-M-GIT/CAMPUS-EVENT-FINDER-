@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getDashboardPath } from '../utils/dashboard';
 
 interface ProtectedRouteProps {
-  role: 'admin' | 'student' | 'professional' | 'authenticated';
+  role: 'admin' | 'student' | 'professional' | 'individual' | 'authenticated';
   children: ReactNode;
 }
 
@@ -12,14 +13,10 @@ export default function ProtectedRoute({ role, children }: ProtectedRouteProps) 
 
   if (!isAuthenticated || !user) return <Navigate to="/login" replace />;
 
-  // professionals share the student dashboard
-  const effectiveRole = user.role === 'professional' ? 'student' : user.role;
   if (role === 'authenticated') return <>{children}</>;
 
-  const requiredRole = role === 'professional' ? 'student' : role;
-
-  if (effectiveRole !== requiredRole) {
-    return <Navigate to={user.role === 'admin' ? '/admin' : '/user'} replace />;
+  if (user.role !== role) {
+    return <Navigate to={getDashboardPath(user.role)} replace />;
   }
 
   return <>{children}</>;

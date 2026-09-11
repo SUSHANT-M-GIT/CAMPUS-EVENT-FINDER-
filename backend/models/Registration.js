@@ -9,6 +9,8 @@ const schema = new mongoose.Schema({
   collegeId: String,
   collegeName: String,
   department: String,
+  phone: String,
+  company: String,
   reminderSent: { type: Boolean, default: false },
 
   // Waitlist: "confirmed" = registered, "waitlisted" = in queue

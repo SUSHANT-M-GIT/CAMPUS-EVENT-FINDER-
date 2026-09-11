@@ -15,6 +15,7 @@ import {
 import AppNavbar from '../components/AppNavbar';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
+import { getDashboardPath } from '../utils/dashboard';
 import { getEventById } from '../services/eventService';
 import type { EventItem } from '../types';
 
@@ -91,7 +92,7 @@ export default function EventDetailsPage() {
 
   const navLinks = user
     ? [
-        { label: 'Dashboard', to: user.role === 'admin' ? '/admin' : '/user' },
+        { label: 'Dashboard', to: getDashboardPath(user.role) },
         { label: 'My Registrations', to: '/my-registrations' },
         { label: 'Profile', to: '/profile' },
         { label: 'Logout', onClick: () => { logout(); navigate('/login'); } },

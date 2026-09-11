@@ -124,7 +124,10 @@ exports.registerEvent = async (req, res) => {
   if (!studentDoc) studentDoc = await User.findById(req.user.id).lean();
 
   try {
-    const { name, collegeId, department } = req.body;
+    const { name, collegeId, department, phone, company } = req.body;
+    if (req.user.role === 'individual' && !phone?.trim()) {
+      return res.status(400).json({ msg: 'Phone number is required for individual registration.' });
+    }
     const isFull = event.maxRegistrations && event.registrationCount >= event.maxRegistrations;
 
     let status = 'confirmed';
@@ -161,6 +164,8 @@ exports.registerEvent = async (req, res) => {
       collegeId,
       collegeName: studentDoc?.collegeName || '',
       department,
+      phone: phone?.trim() || '',
+      company: company?.trim() || '',
       status,
       registrationCode,
     }).save();

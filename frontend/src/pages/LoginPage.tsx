@@ -4,6 +4,7 @@ import { Zap, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import Alert from '../components/Alert';
 import SocialAuthButtons from '../components/SocialAuthButtons';
 import { useAuth } from '../context/AuthContext';
+import { getDashboardPath } from '../utils/dashboard';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -40,7 +41,7 @@ export default function LoginPage() {
         setError('Login failed. Please try again.');
         return;
       }
-      navigate(user.role === 'admin' ? '/admin' : '/user', { replace: true });
+      navigate(getDashboardPath(user.role), { replace: true });
     } catch (error: unknown) {
       const err = error as {
         response?: { data?: { needsVerification?: boolean; msg?: string } };

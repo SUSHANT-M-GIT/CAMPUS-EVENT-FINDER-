@@ -34,6 +34,24 @@ export default function AppRoutes() {
       />
 
       <Route
+        path="/professional"
+        element={
+          <ProtectedRoute role="professional">
+            <UserDashboardPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/individual"
+        element={
+          <ProtectedRoute role="individual">
+            <UserDashboardPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/profile"
         element={
           <ProtectedRoute role="authenticated">

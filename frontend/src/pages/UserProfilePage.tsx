@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { getDashboardPath } from '../utils/dashboard';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -144,7 +145,7 @@ export default function UserProfilePage() {
     <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)' }}>
       <AppNavbar
         links={[
-          { label: 'Dashboard', to: user.role === 'admin' ? '/admin' : '/user' },
+          { label: 'Dashboard', to: getDashboardPath(user.role) },
           { label: 'Profile', to: '/profile' },
         ]}
         userName={user.name}
@@ -156,7 +157,7 @@ export default function UserProfilePage() {
         {/* Back + heading */}
         <div style={{ marginBottom: 24 }}>
           <button
-            onClick={() => navigate(user.role === 'admin' ? '/admin' : '/user')}
+            onClick={() => navigate(getDashboardPath(user.role))}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500, padding: 0, marginBottom: 10 }}
             onMouseEnter={e => (e.currentTarget.style.color = '#6366f1')}
             onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}

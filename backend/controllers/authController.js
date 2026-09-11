@@ -190,8 +190,8 @@ exports.register = async (req, res) => {
       return res.status(400).json({ msg: 'Invalid account role.' });
     }
 
-    // 'general' is a UI-label alias for 'professional' (no company/designation required)
-    const effectiveRole = role === 'general' ? 'professional' : role;
+    // 'general' is the UI label for the individual account role.
+    const effectiveRole = role === 'general' ? 'individual' : role;
 
     // Validate required fields per role
     if (effectiveRole === 'student') {
@@ -199,8 +199,8 @@ exports.register = async (req, res) => {
         return res.status(400).json({ msg: 'College / university name is required for students' });
       if (!collegeId?.trim())
         return res.status(400).json({ msg: 'College ID / roll number is required for students' });
-    } else if (effectiveRole === 'professional') {
-      // company is optional, designation is optional for general users
+    } else if (effectiveRole === 'professional' || effectiveRole === 'individual') {
+      // company and designation are optional for individual users
     } else if (effectiveRole === 'admin') {
       if (!collegeName?.trim())
         return res.status(400).json({ msg: 'College / organisation name is required' });
@@ -212,11 +212,12 @@ exports.register = async (req, res) => {
         return res.status(400).json({ msg: 'College / university name is required' });
     }
 
-    if (!collegeName?.trim() && effectiveRole !== 'professional')
+    if (!collegeName?.trim() && !['professional', 'individual'].includes(effectiveRole))
       return res.status(400).json({ msg: 'College / organisation name is required' });
 
     const isAdmin = effectiveRole === 'admin';
     const isProfessional = effectiveRole === 'professional';
+    const isIndividual = effectiveRole === 'individual';
     let u = await User.findOne({ email: new RegExp(`^${email}$`, 'i') });
     if (u && u.isVerified) return res.status(400).json({ msg: 'User already exists' });
 
@@ -227,7 +228,7 @@ exports.register = async (req, res) => {
     if (u) {
       u.name = name;
       u.password = hash;
-      u.role = isAdmin ? 'admin' : isProfessional ? 'professional' : 'student';
+      u.role = isAdmin ? 'admin' : isProfessional ? 'professional' : isIndividual ? 'individual' : 'student';
       u.collegeName = collegeName?.trim() || '';
       if (collegeId) u.collegeId = collegeId.trim();
       if (company) u.company = company.trim();
@@ -246,7 +247,7 @@ exports.register = async (req, res) => {
         name,
         email,
         password: hash,
-        role: isAdmin ? 'admin' : isProfessional ? 'professional' : 'student',
+        role: isAdmin ? 'admin' : isProfessional ? 'professional' : isIndividual ? 'individual' : 'student',
         collegeName: collegeName?.trim() || '',
         collegeId: collegeId?.trim() || '',
         company: company?.trim() || '',
@@ -602,8 +603,8 @@ exports.googleAuth = async (req, res) => {
       });
     }
 
-    // 'general' is a UI alias for 'professional' (no company/designation required)
-    const effectiveGoogleRole = role === 'general' ? 'professional' : role;
+    // 'general' is the UI label for the individual account role.
+    const effectiveGoogleRole = role === 'general' ? 'individual' : role;
 
     // Validate required profile information per selected role
     if (effectiveGoogleRole === 'student') {
@@ -657,6 +658,7 @@ exports.googleAuth = async (req, res) => {
 
     const isGoogleAdmin = effectiveGoogleRole === 'admin';
     const isGoogleProfessional = effectiveGoogleRole === 'professional';
+    const isGoogleIndividual = effectiveGoogleRole === 'individual';
 
     if (!password || password.length < 6) {
       return res.status(400).json({ msg: 'A password of at least 6 characters is required.' });
@@ -671,7 +673,7 @@ exports.googleAuth = async (req, res) => {
       name: googleName,
       email: googleEmail,
       password: passwordHash,
-      role: isGoogleAdmin ? 'admin' : isGoogleProfessional ? 'professional' : 'student',
+      role: isGoogleAdmin ? 'admin' : isGoogleProfessional ? 'professional' : isGoogleIndividual ? 'individual' : 'student',
       collegeName: collegeName?.trim() || '',
       collegeId: effectiveGoogleRole === 'student' ? collegeId.trim() : '',
       company: isGoogleProfessional ? (company?.trim() || '') : '',
@@ -809,8 +811,8 @@ exports.microsoftAuth = async (req, res) => {
       });
     }
 
-    // 'general' is a UI alias for 'professional' (no company/designation required)
-    const effectiveMsRole = role === 'general' ? 'professional' : role;
+    // 'general' is the UI label for the individual account role.
+    const effectiveMsRole = role === 'general' ? 'individual' : role;
 
     // Validate required profile fields for new users
     if (effectiveMsRole === 'student') {
@@ -864,6 +866,7 @@ exports.microsoftAuth = async (req, res) => {
 
     const isMsAdmin = effectiveMsRole === 'admin';
     const isMsProfessional = effectiveMsRole === 'professional';
+    const isMsIndividual = effectiveMsRole === 'individual';
 
     if (!password || password.length < 6) {
       return res.status(400).json({ msg: 'A password of at least 6 characters is required.' });
@@ -878,7 +881,7 @@ exports.microsoftAuth = async (req, res) => {
       name: msName,
       email: msEmail,
       password: passwordHash,
-      role: isMsAdmin ? 'admin' : isMsProfessional ? 'professional' : 'student',
+      role: isMsAdmin ? 'admin' : isMsProfessional ? 'professional' : isMsIndividual ? 'individual' : 'student',
       collegeName: collegeName?.trim() || '',
       collegeId: effectiveMsRole === 'student' ? collegeId.trim() : '',
       company: isMsProfessional ? (company?.trim() || '') : '',
