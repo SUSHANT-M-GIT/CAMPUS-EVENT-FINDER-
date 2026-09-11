@@ -28,6 +28,7 @@ import { getComments, addComment, deleteComment } from '../services/commentServi
 import axios from 'axios';
 import api from '../services/api';
 import type { EventItem, RegistrationItem, CommentItem, TeamItem } from '../types';
+import { getEventBannerUrl, handleEventBannerError } from '../utils/eventBanner';
 
 const API_BASE = (api.defaults.baseURL ?? '').replace(/\/api\/?$/, '');
 
@@ -717,20 +718,14 @@ export default function UserDashboardPage() {
                     {/* Image with overlay type badge */}
                     <div className="event-card-img-wrap">
                       <img
-                        src={
-                          event.bannerImage
-                            ? event.bannerImage.startsWith('/uploads') ||
-                              !event.bannerImage.startsWith('http')
-                              ? `${API_BASE}${event.bannerImage}?v=${event._id?.slice(-6) ?? '1'}`
-                              : event.bannerImage
-                            : 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600'
-                        }
+                        src={`${getEventBannerUrl(event.bannerImage)}${
+                          event.bannerImage && !event.bannerImage.startsWith('http')
+                            ? `?v=${event._id?.slice(-6) ?? '1'}`
+                            : ''
+                        }`}
                         alt={event.title}
                         style={{ width: '100%', height: 175, objectFit: 'cover', display: 'block' }}
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600';
-                        }}
+                        onError={handleEventBannerError}
                       />
                       {/* Category and status badges */}
                       <span

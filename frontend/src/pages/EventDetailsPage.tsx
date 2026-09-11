@@ -18,6 +18,7 @@ import { useAuth } from '../context/AuthContext';
 import { getDashboardPath } from '../utils/dashboard';
 import { getEventById } from '../services/eventService';
 import type { EventItem } from '../types';
+import { getEventBannerUrl, handleEventBannerError } from '../utils/eventBanner';
 
 const TYPE_COLORS: Record<string, string> = {
   hackathon: '#6c63ff',
@@ -136,7 +137,7 @@ export default function EventDetailsPage() {
         </button>
 
         {/* Banner */}
-        {event.bannerImage && (
+        {(
           <div style={{
             borderRadius: 16,
             overflow: 'hidden',
@@ -145,9 +146,10 @@ export default function EventDetailsPage() {
             background: 'var(--surface-2)',
           }}>
             <img
-              src={event.bannerImage}
+              src={getEventBannerUrl(event.bannerImage)}
               alt={event.title}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              onError={handleEventBannerError}
             />
           </div>
         )}

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { EventItem } from '../types';
-
-const API_BASE = 'http://127.0.0.1:5000';
+import { getEventBannerUrl, handleEventBannerError } from '../utils/eventBanner';
 
 interface Props {
   events: EventItem[];
@@ -27,17 +26,14 @@ export default function EventCarousel({ events, onRegister }: Props) {
     <div className="carousel">
       <div className="carousel-track" style={{ transform: `translateX(-${current * 100}%)` }}>
         {events.map((e) => {
-          const src = e.bannerImage
-            ? e.bannerImage.startsWith('/uploads') || !e.bannerImage.startsWith('http')
-              ? `${API_BASE}${e.bannerImage}`
-              : e.bannerImage
-            : 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=900';
+          const src = getEventBannerUrl(e.bannerImage);
           return (
             <div key={e._id} className="carousel-slide">
               <img
                 src={src}
                 alt={e.title}
                 style={{ width: '100%', height: 300, objectFit: 'cover' }}
+                onError={handleEventBannerError}
               />
               <div className="carousel-overlay">
                 <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
