@@ -714,25 +714,19 @@ export default function UserDashboardPage() {
                 void descriptionWords; // kept for potential future use
                 return (
                   <article key={event._id} className="event-card">
-                    {/* Image with overlay type badge */}
-                    <div className="event-card-img-wrap">
-                      <img
-                        src={
-                          event.bannerImage
-                            ? event.bannerImage.startsWith('/uploads') ||
-                              !event.bannerImage.startsWith('http')
+                    {event.bannerImage && (
+                      <div className="event-card-img-wrap">
+                        <img
+                          src={
+                            event.bannerImage.startsWith('/uploads') ||
+                            !event.bannerImage.startsWith('http')
                               ? `${API_BASE}${event.bannerImage}?v=${event._id?.slice(-6) ?? '1'}`
                               : event.bannerImage
-                            : 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600'
-                        }
-                        alt={event.title}
-                        style={{ width: '100%', height: 175, objectFit: 'cover', display: 'block' }}
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600';
-                        }}
-                      />
-                      {/* Category and status badges */}
+                          }
+                          alt={event.title}
+                          style={{ width: '100%', height: 175, objectFit: 'cover', display: 'block' }}
+                        />
+                        {/* Category and status badges */}
                       <span
                         style={{
                           position: 'absolute',
@@ -766,6 +760,7 @@ export default function UserDashboardPage() {
                         {status}
                       </span>
                     </div>
+                    )}
 
                     <div className="event-card-body">
                       {/* Type + Status badges */}
