@@ -412,19 +412,25 @@ async function sendNewEventAnnouncement(emails, event, appUrl) {
   }
   const eventLink = appUrl ? `${appUrl}/events/${event._id}` : null;
   const subject = `🎉 New Event: ${event.title}`;
+  const availableSeats = event.maxRegistrations != null
+    ? Math.max(Number(event.maxRegistrations) - Number(event.registrationCount || 0), 0)
+    : null;
   const html = `
 <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;">
   <div style="background:#10b981;padding:24px;color:#fff;"><h2 style="margin:0;">New Event Posted!</h2></div>
   <div style="padding:24px;">
     <p>A new event has been posted on <strong>Campus Event Finder</strong>:</p>
+    ${event.about ? `<p style="color:#475569;line-height:1.5;">${event.about}</p>` : ''}
     <table style="width:100%;border-collapse:collapse;margin:16px 0;">
       <tr><td style="padding:8px;font-weight:bold;width:140px;">Event</td><td style="padding:8px;">${event.title}</td></tr>
       <tr style="background:#f9f9f9;"><td style="padding:8px;font-weight:bold;">Date</td><td style="padding:8px;">${formatDate(event.date)}</td></tr>
       <tr><td style="padding:8px;font-weight:bold;">Time</td><td style="padding:8px;">${event.time || 'TBD'}</td></tr>
       <tr style="background:#f9f9f9;"><td style="padding:8px;font-weight:bold;">Venue</td><td style="padding:8px;">${event.location || 'TBD'}</td></tr>
+      <tr><td style="padding:8px;font-weight:bold;">Registration Deadline</td><td style="padding:8px;">${formatDate(event.registrationDeadline)}</td></tr>
+      ${event.maxRegistrations != null ? `<tr style="background:#f9f9f9;"><td style="padding:8px;font-weight:bold;">Availability</td><td style="padding:8px;">${availableSeats} of ${event.maxRegistrations} seats available</td></tr>` : ''}
       ${event.description ? `<tr><td style="padding:8px;font-weight:bold;">Description</td><td style="padding:8px;">${event.description}</td></tr>` : ''}
     </table>
-    ${eventLink ? `<p><a href="${eventLink}" style="background:#4f46e5;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;">View Event &amp; Register</a></p>` : ''}
+    ${eventLink ? `<p style="text-align:center;margin:24px 0;"><a href="${eventLink}" style="background:#4f46e5;color:#fff;padding:12px 22px;border-radius:6px;text-decoration:none;display:inline-block;font-weight:700;">View Event &amp; Register</a></p>` : ''}
     <p style="color:#888;font-size:12px;margin-top:32px;">Campus Event Finder</p>
   </div>
 </div>`;

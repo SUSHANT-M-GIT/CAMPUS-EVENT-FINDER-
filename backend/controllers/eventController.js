@@ -138,10 +138,14 @@ exports.createEvent = async (req, res) => {
     // Fire-and-forget announcement email
     (async () => {
       try {
-        const users = await User.find({ role: 'student' }, 'email').lean();
+        const users = await User.find(
+          { isVerified: true, email: { $type: 'string', $regex: /@/ } },
+          'email'
+        ).lean();
         const emails = [...new Set(users.map((u) => u.email).filter((v) => v?.includes('@')))];
         console.log(`[Email] New event "${e.title}" — ${emails.length} recipient(s)`);
-        await sendNewEventAnnouncement(emails, e, process.env.APP_URL || '');
+        const appUrl = (process.env.FRONTEND_URL || process.env.APP_URL || '').replace(/\/$/, '');
+        await sendNewEventAnnouncement(emails, e, appUrl);
       } catch (err) {
         console.error('[Email] Announcement error:', err.message);
       }
