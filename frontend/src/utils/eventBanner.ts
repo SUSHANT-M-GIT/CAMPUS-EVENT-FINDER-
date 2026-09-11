@@ -4,7 +4,10 @@ import type { SyntheticEvent } from 'react';
 export const DEFAULT_EVENT_BANNER =
   'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600';
 
-const API_BASE = (api.defaults.baseURL ?? '').replace(/\/api\/?$/, '');
+const configuredApiBase = String(api.defaults.baseURL ?? '').trim().replace(/\/api\/?$/, '');
+const API_BASE = configuredApiBase.includes('c-e-s.vercel.app')
+  ? 'https://campus-event-finder-r2j3.onrender.com'
+  : configuredApiBase;
 
 export function getEventBannerUrl(bannerImage?: string | null): string {
   const value = bannerImage?.trim();
