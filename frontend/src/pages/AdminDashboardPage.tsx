@@ -71,7 +71,6 @@ const defaultForm = {
   tags: [] as string[],
   attendanceEnabled: true,
   certificatesEnabled: false,
-  image: null as File | null,
 };
 
 //  preset tags grouped by category
@@ -351,7 +350,6 @@ export default function AdminDashboardPage() {
   const [regCounts, setRegCounts] = useState<Record<string, number>>({});
   const [form, setForm] = useState(defaultForm);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [bannerMode, setBannerMode] = useState<'default' | 'custom'>('default');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null
   );
@@ -472,7 +470,6 @@ export default function AdminDashboardPage() {
   const clearForm = () => {
     setForm(defaultForm);
     setEditingId(null);
-    setBannerMode('default');
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -547,9 +544,7 @@ export default function AdminDashboardPage() {
       tags: ev.tags ?? [],
       attendanceEnabled: ev.attendanceEnabled ?? true,
       certificatesEnabled: ev.certificatesEnabled ?? false,
-      image: null,
     });
-    setBannerMode('default');
     setActiveTab('create');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -1123,15 +1118,6 @@ export default function AdminDashboardPage() {
                   required
                 />
               </Field>
-              <Field label="About (maximum 30 words)">
-                <textarea
-                  name="about"
-                  value={form.about}
-                  onChange={handleChange}
-                  placeholder="Short event summary shown on event cards"
-                  style={{ ...inputStyle, minHeight: 64, resize: 'vertical' }}
-                />
-              </Field>
               <Field label="Description">
                 <textarea
                   name="description"
@@ -1142,34 +1128,14 @@ export default function AdminDashboardPage() {
                   required
                 />
               </Field>
-              <Field label="Event Banner">
-                <select
-                  value={bannerMode}
-                  onChange={(e) => {
-                    const nextMode = e.target.value as 'default' | 'custom';
-                    setBannerMode(nextMode);
-                    if (nextMode === 'default') setForm((prev) => ({ ...prev, image: null }));
-                  }}
-                  style={selectStyle}
-                >
-                  <option value="default">Default banner</option>
-                  <option value="custom">Add banner</option>
-                </select>
-                {bannerMode === 'custom' && (
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, image: e.target.files?.[0] ?? null }))
-                    }
-                    style={{ ...inputStyle, marginTop: 8 }}
-                  />
-                )}
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: 2 }}>
-                  {bannerMode === 'default'
-                    ? 'The existing default event banner will be displayed.'
-                    : 'Choose a JPG, PNG, or WebP image up to 5 MB.'}
-                </span>
+              <Field label="About (maximum 30 words)">
+                <textarea
+                  name="about"
+                  value={form.about}
+                  onChange={handleChange}
+                  placeholder="Short event summary shown on event cards"
+                  style={{ ...inputStyle, minHeight: 64, resize: 'vertical' }}
+                />
               </Field>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <Field label="Category">
