@@ -714,54 +714,6 @@ export default function UserDashboardPage() {
                 void descriptionWords; // kept for potential future use
                 return (
                   <article key={event._id} className="event-card">
-                    {event.bannerImage && (
-                      <div className="event-card-img-wrap">
-                        <img
-                          src={
-                            event.bannerImage.startsWith('/uploads') ||
-                            !event.bannerImage.startsWith('http')
-                              ? `${API_BASE}${event.bannerImage}?v=${event._id?.slice(-6) ?? '1'}`
-                              : event.bannerImage
-                          }
-                          alt={event.title}
-                          style={{ width: '100%', height: 175, objectFit: 'cover', display: 'block' }}
-                        />
-                        {/* Category and status badges */}
-                      <span
-                        style={{
-                          position: 'absolute',
-                          top: 10,
-                          left: 10,
-                          background: 'rgba(79,70,229,0.88)',
-                          color: '#fff',
-                          borderRadius: 99,
-                          padding: '3px 10px',
-                          fontSize: '0.7rem',
-                          fontWeight: 700,
-                          textTransform: 'capitalize',
-                          backdropFilter: 'blur(4px)',
-                        }}
-                      >
-                        {event.type}
-                      </span>
-                      <span
-                        style={{
-                          position: 'absolute',
-                          top: 10,
-                          right: 10,
-                          background: isClosed ? 'rgba(220,38,38,0.9)' : 'rgba(22,163,74,0.9)',
-                          color: '#fff',
-                          borderRadius: 99,
-                          padding: '3px 10px',
-                          fontSize: '0.7rem',
-                          fontWeight: 700,
-                        }}
-                      >
-                        {status}
-                      </span>
-                    </div>
-                    )}
-
                     <div className="event-card-body">
                       {/* Type + Status badges */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>

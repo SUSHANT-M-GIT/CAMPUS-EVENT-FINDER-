@@ -1560,21 +1560,6 @@ export default function AdminDashboardPage() {
                             💬 Q&A
                           </button>
                           <button
-                            onClick={() => handleEdit(ev)}
-                            style={{
-                              background: 'var(--primary)',
-                              color: '#fff',
-                              border: 0,
-                              borderRadius: 8,
-                              padding: '8px 14px',
-                              cursor: 'pointer',
-                              fontWeight: 600,
-                              fontSize: '0.82rem',
-                            }}
-                          >
-                            Edit
-                          </button>
-                          <button
                             onClick={() => handleDelete(ev)}
                             style={{
                               background: 'var(--danger)',
