@@ -471,7 +471,7 @@ export default function UserDashboardPage() {
             <p
               style={{
                 margin: '0 0 6px',
-                fontSize: '0.85rem',
+                fontSize: '0.75rem',
                 color: 'rgba(255,255,255,0.7)',
                 fontWeight: 500,
               }}
@@ -481,7 +481,7 @@ export default function UserDashboardPage() {
             <h1 style={{ margin: '0 0 4px' }}>
               {user?.role === 'student' && user.collegeName ? user.collegeName : getDashboardLabel(user?.role)}
             </h1>
-            <p style={{ margin: '0 0 20px', color: 'rgba(255,255,255,0.75)', fontSize: '0.9rem' }}>
+            <p style={{ margin: '0 0 14px', color: 'rgba(255,255,255,0.75)', fontSize: '0.82rem' }}>
               {new Date().toLocaleDateString('en-IN', {
                 weekday: 'long',
                 day: 'numeric',
@@ -529,7 +529,7 @@ export default function UserDashboardPage() {
                   <div key={s.label} className="summary-card">
                     <div
                       className="summary-card-value"
-                      style={{ fontSize: '1.8rem', color: '#fff' }}
+                      style={{ fontSize: '1.55rem', color: '#fff' }}
                     >
                       {s.value}
                     </div>
