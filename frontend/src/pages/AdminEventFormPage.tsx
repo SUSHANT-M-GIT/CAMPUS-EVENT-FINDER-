@@ -20,6 +20,7 @@ const defaultFormData: EventPayload = {
   maxRegistrations: 100,
   eligibility: 'all',
   tags: [],
+  image: null,
 };
 
 export default function AdminEventFormPage() {
@@ -32,6 +33,7 @@ export default function AdminEventFormPage() {
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null
   );
+  const [bannerMode, setBannerMode] = useState<'default' | 'custom'>('default');
 
   useEffect(() => {
     const loadEvent = async () => {
@@ -54,7 +56,9 @@ export default function AdminEventFormPage() {
           maxRegistrations: data.maxRegistrations ?? 100,
           eligibility: data.eligibility ?? 'all',
           tags: data.tags ?? [],
+          image: null,
         });
+        setBannerMode('default');
       } catch {
         setFeedback({ type: 'error', message: 'Unable to load event.' });
       } finally {
@@ -181,6 +185,27 @@ export default function AdminEventFormPage() {
             className="h-36 w-full rounded-md border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             required
           />
+
+          <select
+            value={bannerMode}
+            onChange={(e) => {
+              const nextMode = e.target.value as 'default' | 'custom';
+              setBannerMode(nextMode);
+              if (nextMode === 'default') setFormData((prev) => ({ ...prev, image: null }));
+            }}
+            className="w-full rounded-md border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+          >
+            <option value="default">Default banner</option>
+            <option value="custom">Add banner</option>
+          </select>
+          {bannerMode === 'custom' && (
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(e) => setFormData((prev) => ({ ...prev, image: e.target.files?.[0] ?? null }))}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            />
+          )}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <select

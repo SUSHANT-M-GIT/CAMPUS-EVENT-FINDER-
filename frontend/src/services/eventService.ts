@@ -26,6 +26,7 @@ export interface EventPayload {
   tags: string[];
   attendanceEnabled?: boolean;
   certificatesEnabled?: boolean;
+  image?: File | null;
 }
 
 export async function getEvents(query: EventsQuery = {}) {
@@ -60,6 +61,7 @@ function buildFormData(payload: EventPayload): FormData {
   payload.tags.forEach((t) => fd.append('tags[]', t));
   fd.append('attendanceEnabled', String(payload.attendanceEnabled ?? true));
   fd.append('certificatesEnabled', String(payload.certificatesEnabled ?? false));
+  if (payload.image) fd.append('image', payload.image);
   return fd;
 }
 
