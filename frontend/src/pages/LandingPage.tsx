@@ -243,15 +243,17 @@ export default function LandingPage() {
           <div className="land-hero-copy">
             <div className="land-hero-badge">
               <Zap size={12} />
-              CAMPUS EVENTS, MADE SIMPLE
+              Campus Events, Made Simple
             </div>
 
             <h1 className="land-hero-title">
-              Discover events. Register easily. Manage everything in one place.
+              Discover events.<br />
+              Register easily.<br />
+              Attend and grow.
             </h1>
 
             <p className="land-hero-sub">
-              Find college events that match your interests, register in a few clicks, and stay updated. Organizers can create events, manage registrations, and track attendance from one simple platform.
+              Find college events that match your interests and register in a few clicks. Organizers can create events, manage registrations, and track attendance — all from one platform.
             </p>
 
             <div className="land-hero-actions">
@@ -261,7 +263,7 @@ export default function LandingPage() {
                 style={{ padding: '13px 28px', fontSize: '0.97rem', boxShadow: '0 6px 20px rgba(99,102,241,0.4)' }}
                 onClick={handleBrowseEvents}
               >
-                Browse Events <ArrowRight size={15} />
+                Browse Events <ArrowRight size={15} style={{ verticalAlign: 'middle', marginLeft: 4 }} />
               </button>
               <button
                 type="button"
@@ -269,12 +271,11 @@ export default function LandingPage() {
                 style={{ padding: '13px 28px', fontSize: '0.97rem' }}
                 onClick={handleHostEvent}
               >
-                Host an Event <ArrowRight size={15} />
+                Host an Event
               </button>
             </div>
           </div>
 
-          {/* Honest, minimal stats — just a few context lines, no fake numbers */}
           <div className="land-hero-stats">
             {[
               ['QR', 'Attendance'],
@@ -283,7 +284,7 @@ export default function LandingPage() {
               ['Free', 'To Join'],
             ].map(([n, l]) => (
               <div key={l} className="land-stat">
-                <div className="land-stat-num" style={{ fontSize: '1.1rem', letterSpacing: 0 }}>{n}</div>
+                <div className="land-stat-num" style={{ fontSize: '1.15rem', letterSpacing: 0 }}>{n}</div>
                 <div className="land-stat-label">{l}</div>
               </div>
             ))}

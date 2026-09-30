@@ -3165,3 +3165,90 @@ select.input {
   .land-mobile-toggle { display: block !important; }
   .land-nav-links { display: none !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   TARGETED FIXES — hero layout, navbar contrast, select
+═══════════════════════════════════════════════════════════ */
+
+/* Hero: left-align everything in the copy block cleanly */
+.land-hero-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.land-hero-copy {
+  max-width: 640px;
+  width: 100%;
+}
+.land-hero-title {
+  font-size: clamp(2.4rem, 5.5vw, 4.2rem);
+  line-height: 1.1;
+}
+.land-hero-sub {
+  max-width: 540px;
+}
+.land-hero-actions {
+  justify-content: flex-start;
+}
+.land-hero-stats {
+  justify-content: flex-start;
+  gap: 40px;
+}
+
+/* Navbar: ensure dark-mode links are always clearly readable */
+.land-nav-link {
+  color: rgba(255, 255, 255, 0.9);
+}
+.land-nav-link:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+/* Light mode navbar: dark readable text on light background */
+[data-theme='light'] .land-nav-link {
+  color: #1e293b;
+}
+[data-theme='light'] .land-nav-link:hover {
+  color: #0f172a;
+  background: rgba(15, 23, 42, 0.07);
+}
+[data-theme='light'] .land-nav-logo {
+  color: #0f172a;
+}
+
+/* Signup select — enforce readable text in both themes */
+.auth-card select.input,
+.auth-form select.input {
+  color: #f1f5f9 !important;
+  background-color: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  -webkit-text-fill-color: #f1f5f9;
+  appearance: auto;
+}
+.auth-card select.input option,
+.auth-form select.input option {
+  background-color: #1e2840 !important;
+  color: #f1f5f9 !important;
+}
+[data-theme='light'] .auth-card select.input,
+[data-theme='light'] .auth-form select.input {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.15) !important;
+  -webkit-text-fill-color: #0f172a;
+}
+[data-theme='light'] .auth-card select.input option,
+[data-theme='light'] .auth-form select.input option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+/* Signup form: slightly cleaner spacing */
+.auth-form {
+  gap: 18px;
+}
+.auth-form > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
