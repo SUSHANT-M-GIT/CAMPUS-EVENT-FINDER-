@@ -1,4 +1,5 @@
-﻿import { Link } from 'react-router-dom';
+﻿import { Calendar, Clock, MapPin, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import type { EventItem } from '../types';
 
 interface EventCardProps {
@@ -21,58 +22,40 @@ export default function EventCard({ event }: EventCardProps) {
     : event.description;
 
   return (
-    <article className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-          STATUS: {status}
-        </span>
-        <span className="text-right text-xs font-medium text-slate-500">
-          {openSlots} / {maximum} Slots Open
-        </span>
-      </div>
-
-      <h3 className="mb-4 text-lg font-semibold text-slate-900">{event.title}</h3>
-
-      <div className="mb-4 space-y-2 text-sm text-slate-600">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Administration Name
-          </p>
-          <p className="font-medium text-slate-700">{event.administrationName || 'Not provided'}</p>
+    <article className="event-card">
+      <div className="event-card-body">
+        <div className="event-card-topline">
+          <span className={`event-status event-status-${status.toLowerCase()}`}>{status}</span>
+          <span className="event-card-slots">{openSlots} / {maximum} open</span>
         </div>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Admin Name</p>
-          <p className="font-medium text-slate-700">{event.adminName || 'Not provided'}</p>
+
+        <h3 className="event-card-title">{event.title}</h3>
+
+        <div className="event-card-admin">
+          <span>{event.administrationName || 'Campus Events'}</span>
+          <span>{event.adminName || 'Event organizer'}</span>
         </div>
-      </div>
 
-      <p className="mb-4 text-sm leading-6 text-slate-600">{shortDescription}</p>
+        <p className="event-card-description">{shortDescription}</p>
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        {(event.tags ?? []).slice(0, 5).map((tag) => (
-          <span
-            key={tag}
-            className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
-          >
-            {tag}
-          </span>
-        ))}
-      </div>
+        <div className="event-card-tags">
+          {(event.tags ?? []).slice(0, 5).map((tag) => (
+            <span key={tag} className="event-tag">{tag}</span>
+          ))}
+        </div>
 
-      <div className="mb-5 space-y-1 text-sm text-slate-600">
-        <p>Date: {new Date(event.date).toLocaleDateString()}</p>
-        <p>Time: {event.time}</p>
-        <p>Location: {event.location}</p>
-      </div>
+        <div className="event-meta event-card-details">
+          <span><Calendar size={14} />{new Date(event.date).toLocaleDateString()}</span>
+          <span><Clock size={14} />{event.time}</span>
+          <span><MapPin size={14} />{event.location}</span>
+        </div>
 
-      <div className="mt-auto border-t border-slate-200 pt-4">
-        <Link
-          to={`/events/${event._id}`}
-          aria-label={`More information about ${event.title}`}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 text-sm font-semibold text-slate-600 transition hover:border-indigo-400 hover:text-indigo-600"
-        >
-          i
-        </Link>
+        <div className="event-card-footer">
+          <span className="event-card-category">{event.type}</span>
+          <Link to={`/events/${event._id}`} aria-label={`More information about ${event.title}`} className="event-card-link">
+            View details <ArrowRight size={14} />
+          </Link>
+        </div>
       </div>
     </article>
   );

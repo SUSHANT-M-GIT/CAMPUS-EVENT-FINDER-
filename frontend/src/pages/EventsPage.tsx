@@ -62,10 +62,10 @@ export default function EventsPage() {
   }, [events, sortBy]);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8">
-      <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <main className="events-page app-container">
+      <div className="events-toolbar">
         <h1 className="mb-4 text-2xl font-bold text-slate-900">Discover Events</h1>
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="events-filter-grid">
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -104,7 +104,7 @@ export default function EventsPage() {
       ) : sortedEvents.length === 0 ? (
         <p className="text-sm text-slate-600">No events found for your filter.</p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="event-grid">
           {sortedEvents.map((event) => (
             <EventCard key={event._id} event={event} />
           ))}

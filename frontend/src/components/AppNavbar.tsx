@@ -30,6 +30,7 @@ export default function AppNavbar({
         {/* Brand Link */}
         <Link
           to="/"
+          className="dashboard-nav-brand"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -39,6 +40,7 @@ export default function AppNavbar({
           }}
         >
           <div
+            className="dashboard-nav-brand-mark"
             style={{
               width: 36,
               height: 36,
@@ -102,6 +104,7 @@ export default function AppNavbar({
           {userInitial ? (
             <Link
               to="/profile"
+              className="dashboard-nav-profile"
               title={userName ? `${userName} (View Profile)` : 'View Profile'}
               style={{
                 textDecoration: 'none',

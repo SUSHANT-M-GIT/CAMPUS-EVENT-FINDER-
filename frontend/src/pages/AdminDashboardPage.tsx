@@ -1101,9 +1101,7 @@ export default function AdminDashboardPage() {
         {activeTab === 'create' && (
           <div className="event-form-shell anim-fade-up">
             <div className="event-form-intro">
-              <p className="event-form-kicker">Event workspace</p>
-              <h2>{editingId ? 'Update your event' : 'Create a memorable event'}</h2>
-              <p>Keep the essentials clear for attendees, then fine-tune the details when you are ready.</p>
+              <p>{editingId ? 'Update the event details below.' : 'Add the essentials first, then fine-tune the details when you are ready.'}</p>
             </div>
             <form onSubmit={handleSubmit} className="event-form">
               <section className="event-form-section">
