@@ -350,6 +350,7 @@ export default function AdminDashboardPage() {
   const [regCounts, setRegCounts] = useState<Record<string, number>>({});
   const [form, setForm] = useState(defaultForm);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [additionalSettingsOpen, setAdditionalSettingsOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null
   );
@@ -1098,239 +1099,61 @@ export default function AdminDashboardPage() {
 
         {/*  CREATE / EDIT TAB  */}
         {activeTab === 'create' && (
-          <div
-            style={{
-              background: 'var(--surface-2)',
-              border: '1px solid var(--border)',
-              borderRadius: 18,
-              padding: 28,
-              maxWidth: 680,
-            }}
-          >
-            <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 16 }}>
-              <Field label="Event Title">
-                <input
-                  name="title"
-                  value={form.title}
-                  onChange={handleChange}
-                  placeholder="e.g. Annual Hackathon 2025"
-                  style={inputStyle}
-                  required
-                />
-              </Field>
-              <Field label="Description">
-                <textarea
-                  name="description"
-                  value={form.description}
-                  onChange={handleChange}
-                  placeholder="Describe the event"
-                  style={{ ...inputStyle, minHeight: 90, resize: 'vertical' }}
-                  required
-                />
-              </Field>
-              <Field label="About (maximum 30 words)">
-                <textarea
-                  name="about"
-                  value={form.about}
-                  onChange={handleChange}
-                  placeholder="Short event summary shown on event cards"
-                  style={{ ...inputStyle, minHeight: 64, resize: 'vertical' }}
-                />
-              </Field>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <Field label="Category">
-                  <select name="type" value={form.type} onChange={handleChange} style={selectStyle}>
-                    {['hackathon', 'tech', 'seminar', 'games', 'movie', 'other'].map((t) => (
-                      <option key={t} value={t}>
-                        {t.charAt(0).toUpperCase() + t.slice(1)}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Location">
-                  <input
-                    name="location"
-                    value={form.location}
-                    onChange={handleChange}
-                    placeholder="Venue / Room"
-                    style={inputStyle}
-                    required
-                  />
-                </Field>
-                <Field label="Event Type">
-                  <select name="eventType" value={form.eventType} onChange={handleChange} style={selectStyle}>
-                    <option value="individual">Individual</option>
-                    <option value="team">Team</option>
-                  </select>
-                </Field>
-                {form.eventType === 'team' && (
-                  <>
-                    <Field label="Minimum Team Size">
-                      <input type="number" name="minTeamSize" min={2} value={form.minTeamSize ?? ''} onChange={handleChange} style={inputStyle} />
-                    </Field>
-                    <Field label="Maximum Team Size">
-                      <input type="number" name="maxTeamSize" min={2} value={form.maxTeamSize ?? ''} onChange={handleChange} style={inputStyle} />
-                    </Field>
-                  </>
-                )}
-                <Field label="Event Date">
-                  <input
-                    type="date"
-                    name="date"
-                    value={form.date}
-                    onChange={handleChange}
-                    min={new Date().toISOString().split('T')[0]}
-                    style={inputStyle}
-                    required
-                  />
-                </Field>
-                <Field label="Event Time">
-                  <input
-                    type="time"
-                    name="time"
-                    value={form.time}
-                    onChange={handleChange}
-                    style={inputStyle}
-                    required
-                  />
-                </Field>
-                <Field label="Registration Deadline">
-                  <input
-                    type="datetime-local"
-                    name="registrationDeadline"
-                    value={form.registrationDeadline}
-                    onChange={handleChange}
-                    min={new Date().toISOString().slice(0, 16)}
-                    style={inputStyle}
-                    required
-                  />
-                </Field>
-                <Field label="Max Registrations">
-                  <input
-                    type="number"
-                    name="maxRegistrations"
-                    value={form.maxRegistrations}
-                    onChange={handleChange}
-                    min={1}
-                    style={inputStyle}
-                    required
-                  />
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: 2 }}>
-                    Set the maximum number of participants
-                  </span>
-                </Field>
-                <Field label="Who can register?">
-                  <select
-                    name="eligibility"
-                    value={form.eligibility}
-                    onChange={handleChange}
-                    style={selectStyle}
-                  >
-                    <option value="all"> Open to all colleges</option>
-                    <option value="own_college"> My college students only</option>
-                  </select>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: 2 }}>
-                    {form.eligibility === 'own_college'
-                      ? 'Only students from your college can register'
-                      : 'Students from any college can register'}
-                  </span>
-                </Field>
-              </div>
-              <Field label="Tags / Keywords">
-                <TagPicker
-                  tags={form.tags}
-                  onChange={(tags) => setForm((prev) => ({ ...prev, tags }))}
-                />
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: 4 }}>
-                  Tags help students discover your event via search
-                </span>
-              </Field>
-
-              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-                <label
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={form.attendanceEnabled}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        attendanceEnabled: e.target.checked,
-                        certificatesEnabled: e.target.checked ? prev.certificatesEnabled : false,
-                      }))
-                    }
-                    style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#7c3aed' }}
-                  />
-                  <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text)' }}>
-                    Enable attendance for this event
-                  </span>
-                </label>
-              </div>
-
-              {form.attendanceEnabled && (
-                /*  Certificate Setting  */
-              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-                <h4 style={{ margin: '0 0 12px', color: 'var(--text)', fontSize: '0.95rem' }}>
-                  🎓 Certificates
-                </h4>
-                <label
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={form.certificatesEnabled}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, certificatesEnabled: e.target.checked }))
-                    }
-                    style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#7c3aed' }}
-                  />
-                  <div>
-                    <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text)' }}>
-                      Enable certificates for this event
-                    </span>
-                    <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                      Students who attend will be able to download a certificate after the event.
-                    </p>
+          <div className="event-form-shell anim-fade-up">
+            <div className="event-form-intro">
+              <p className="event-form-kicker">Event workspace</p>
+              <h2>{editingId ? 'Update your event' : 'Create a memorable event'}</h2>
+              <p>Keep the essentials clear for attendees, then fine-tune the details when you are ready.</p>
+            </div>
+            <form onSubmit={handleSubmit} className="event-form">
+              <section className="event-form-section">
+                <div className="event-form-section-heading">
+                  <span className="event-form-section-number">01</span>
+                  <div><h3>Basic information</h3><p>Give your event a clear identity and a place to happen.</p></div>
+                </div>
+                <div className="event-form-fields">
+                  <div className="event-form-field-full"><Field label="Event title"><input name="title" value={form.title} onChange={handleChange} placeholder="e.g. Annual Hackathon 2025" style={inputStyle} required /></Field></div>
+                  <div className="event-form-field-full"><Field label="About"><textarea name="about" value={form.about} onChange={handleChange} placeholder="A short summary shown on event cards" style={{ ...inputStyle, minHeight: 72, resize: 'vertical' }} /><span className="event-form-hint">{form.about.trim() ? form.about.trim().split(/\s+/).length : 0} / 30 words</span></Field></div>
+                  <div className="event-form-field-full"><Field label="Full description"><textarea name="description" value={form.description} onChange={handleChange} placeholder="Describe what attendees can expect" style={{ ...inputStyle, minHeight: 132, resize: 'vertical' }} required /></Field></div>
+                  <div className="event-form-grid">
+                    <Field label="Category"><select name="type" value={form.type} onChange={handleChange} style={selectStyle}>{['hackathon', 'tech', 'seminar', 'games', 'movie', 'other'].map((t) => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}</select></Field>
+                    <Field label="Location / venue"><input name="location" value={form.location} onChange={handleChange} placeholder="Venue / Room" style={inputStyle} required /></Field>
                   </div>
-                </label>
-              </div>
-              )}
+                </div>
+              </section>
 
-              <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-                <button
-                  type="submit"
-                  style={{
-                    background: 'var(--grad-primary)',
-                    color: '#fff',
-                    border: 0,
-                    borderRadius: 10,
-                    padding: '12px 28px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    fontSize: '0.95rem',
-                  }}
-                >
-                  {editingId ? 'Update Event' : 'Create Event'}
+              <section className="event-form-section">
+                <div className="event-form-section-heading"><span className="event-form-section-number">02</span><div><h3>Schedule &amp; registration</h3><p>Set the timing, capacity, and audience for registration.</p></div></div>
+                <div className="event-form-grid">
+                  <Field label="Event date"><input type="date" name="date" value={form.date} onChange={handleChange} min={new Date().toISOString().split('T')[0]} style={inputStyle} required /></Field>
+                  <Field label="Event time"><input type="time" name="time" value={form.time} onChange={handleChange} style={inputStyle} required /></Field>
+                  <Field label="Registration deadline"><input type="datetime-local" name="registrationDeadline" value={form.registrationDeadline} onChange={handleChange} min={new Date().toISOString().slice(0, 16)} style={inputStyle} required /></Field>
+                  <Field label="Maximum registrations"><input type="number" name="maxRegistrations" value={form.maxRegistrations} onChange={handleChange} min={1} style={inputStyle} required /></Field>
+                  <Field label="Who can register?"><select name="eligibility" value={form.eligibility} onChange={handleChange} style={selectStyle}><option value="all">Open to all colleges</option><option value="own_college">My college students only</option></select><span className="event-form-hint">{form.eligibility === 'own_college' ? 'Only students from your college' : 'Students from any college'}</span></Field>
+                </div>
+              </section>
+
+              <section className="event-form-section">
+                <div className="event-form-section-heading"><span className="event-form-section-number">03</span><div><h3>Event format</h3><p>Choose how people will participate.</p></div></div>
+                <div className="event-form-grid">
+                  <Field label="Participation type"><select name="eventType" value={form.eventType} onChange={handleChange} style={selectStyle}><option value="individual">Individual</option><option value="team">Team</option></select></Field>
+                  {form.eventType === 'team' && <><Field label="Minimum team size"><input type="number" name="minTeamSize" min={2} value={form.minTeamSize ?? ''} onChange={handleChange} style={inputStyle} /></Field><Field label="Maximum team size"><input type="number" name="maxTeamSize" min={2} value={form.maxTeamSize ?? ''} onChange={handleChange} style={inputStyle} /></Field></>}
+                </div>
+              </section>
+
+              <section className="event-form-section event-form-section-settings">
+                <button type="button" className="event-form-settings-toggle" onClick={() => setAdditionalSettingsOpen((open) => !open)} aria-expanded={additionalSettingsOpen}>
+                  <span className="event-form-section-heading"><span className="event-form-section-number">04</span><span><strong>Additional settings</strong><small>Tags, attendance, and certificates</small></span></span>
+                  <span className="event-form-chevron" aria-hidden="true">{additionalSettingsOpen ? '−' : '+'}</span>
                 </button>
-                {editingId && (
-                  <button
-                    type="button"
-                    onClick={clearForm}
-                    style={{
-                      background: '#f8fafc',
-                      color: '#1e293b',
-                      border: '1px solid #cbd5e1',
-                      borderRadius: 10,
-                      padding: '12px 20px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Cancel
-                  </button>
-                )}
-              </div>
+                {additionalSettingsOpen && <div className="event-form-settings-body">
+                  <Field label={`Tags / keywords (${form.tags.length} / ${MAX_TAGS})`}><TagPicker tags={form.tags} onChange={(tags) => setForm((prev) => ({ ...prev, tags }))} /><span className="event-form-hint">Tags help students discover your event via search.</span></Field>
+                  <div className="event-form-setting-row"><div><strong>Attendance</strong><span>Allow attendance to be recorded for this event.</span></div><input type="checkbox" checked={form.attendanceEnabled} onChange={(e) => setForm((prev) => ({ ...prev, attendanceEnabled: e.target.checked, certificatesEnabled: e.target.checked ? prev.certificatesEnabled : false }))} /></div>
+                  <div className={`event-form-setting-row${form.attendanceEnabled ? '' : ' is-disabled'}`}><div><strong>Certificates</strong><span>Attendees can download a certificate after the event.</span></div><input type="checkbox" checked={form.certificatesEnabled} disabled={!form.attendanceEnabled} onChange={(e) => setForm((prev) => ({ ...prev, certificatesEnabled: e.target.checked }))} /></div>
+                </div>}
+              </section>
+
+              <div className="event-form-actions"><button type="submit" className="btn btn-primary">{editingId ? 'Update Event' : 'Create Event'}</button>{editingId && <button type="button" onClick={clearForm} className="btn btn-outline">Cancel</button>}</div>
             </form>
           </div>
         )}
