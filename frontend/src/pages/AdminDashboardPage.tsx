@@ -102,7 +102,12 @@ const MAX_TAGS = 5;
 
 function TagPicker({ tags, onChange }: { tags: string[]; onChange: (t: string[]) => void }) {
   const [custom, setCustom] = useState('');
+  const [tagSearch, setTagSearch] = useState('');
+  const [showCustom, setShowCustom] = useState(false);
   const atMax = tags.length >= MAX_TAGS;
+  const filteredTags = PRESET_TAGS.filter((tag) =>
+    tag.toLowerCase().includes(tagSearch.trim().toLowerCase())
+  );
 
   const toggle = (tag: string) => {
     const lower = tag.toLowerCase();
@@ -126,9 +131,27 @@ function TagPicker({ tags, onChange }: { tags: string[]; onChange: (t: string[])
 
   return (
     <div>
+      <input
+        value={tagSearch}
+        onChange={(e) => setTagSearch(e.target.value)}
+        placeholder="Search keywords..."
+        style={{ ...inputStyle, width: '100%', marginBottom: 10 }}
+        aria-label="Search keywords"
+      />
+
       {/* preset chips */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-        {PRESET_TAGS.map((tag) => {
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 6,
+          maxHeight: 112,
+          overflowY: 'auto',
+          paddingRight: 4,
+          marginBottom: 10,
+        }}
+      >
+        {filteredTags.map((tag) => {
           const lower = tag.toLowerCase();
           const active = tags.includes(lower);
           const disabled = atMax && !active;
@@ -155,6 +178,24 @@ function TagPicker({ tags, onChange }: { tags: string[]; onChange: (t: string[])
             </button>
           );
         })}
+        <button
+          type="button"
+          onClick={() => setShowCustom(true)}
+          disabled={atMax}
+          style={{
+            padding: '4px 12px',
+            borderRadius: 99,
+            fontSize: '0.78rem',
+            fontWeight: 600,
+            border: '1.5px solid #cde8f5',
+            background: '#f0f7fb',
+            color: C.dark,
+            cursor: atMax ? 'not-allowed' : 'pointer',
+            opacity: atMax ? 0.45 : 1,
+          }}
+        >
+          Others
+        </button>
       </div>
 
       {/* max tags notice */}
@@ -165,35 +206,38 @@ function TagPicker({ tags, onChange }: { tags: string[]; onChange: (t: string[])
       )}
 
       {/* custom tag input */}
-      <div style={{ display: 'flex', gap: 8 }}>
-        <input
-          value={custom}
-          onChange={(e) => setCustom(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') { e.preventDefault(); addCustom(); }
-          }}
-          placeholder={atMax ? 'Remove a tag to add more' : 'Add custom tag'}
-          disabled={atMax}
-          style={{ ...inputStyle, flex: 1, opacity: atMax ? 0.5 : 1 }}
-        />
-        <button
-          type="button"
-          onClick={addCustom}
-          disabled={atMax}
-          style={{
-            background: atMax ? 'var(--border)' : 'var(--grad-primary)',
-            color: atMax ? 'var(--text-dim)' : '#fff',
-            border: 0,
-            borderRadius: 9,
-            padding: '0 16px',
-            cursor: atMax ? 'not-allowed' : 'pointer',
-            fontWeight: 600,
-            fontSize: '0.88rem',
-          }}
-        >
-          + Add
-        </button>
-      </div>
+      {showCustom && (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            value={custom}
+            onChange={(e) => setCustom(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); addCustom(); }
+            }}
+            placeholder={atMax ? 'Remove a tag to add more' : 'Add custom tag'}
+            disabled={atMax}
+            style={{ ...inputStyle, flex: 1, opacity: atMax ? 0.5 : 1 }}
+            aria-label="Add custom tag"
+          />
+          <button
+            type="button"
+            onClick={addCustom}
+            disabled={atMax}
+            style={{
+              background: atMax ? 'var(--border)' : 'var(--grad-primary)',
+              color: atMax ? 'var(--text-dim)' : '#fff',
+              border: 0,
+              borderRadius: 9,
+              padding: '0 16px',
+              cursor: atMax ? 'not-allowed' : 'pointer',
+              fontWeight: 600,
+              fontSize: '0.88rem',
+            }}
+          >
+            + Add
+          </button>
+        </div>
+      )}
 
       {/* selected tags */}
       {tags.length > 0 && (
