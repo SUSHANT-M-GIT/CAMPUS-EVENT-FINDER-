@@ -74,6 +74,7 @@ export default function UserDashboardPage() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [activeTab, setActiveTab] = useState<'events' | 'registrations'>('events');
 
   const fetchEvents = useCallback(async (q?: string, t?: string) => {
     try {
@@ -449,8 +450,8 @@ export default function UserDashboardPage() {
     <div className="dashboard-page">
       <AppNavbar
         links={[
-          { label: 'Events', href: '#events' },
-          { label: 'My Registrations', href: '#registrations' },
+          { label: 'Events',           onClick: () => setActiveTab('events') },
+          { label: 'My Registrations', onClick: () => setActiveTab('registrations') },
           { label: 'Profile', to: '/profile' },
           { label: 'Logout', onClick: handleLogout },
         ]}
@@ -545,29 +546,39 @@ export default function UserDashboardPage() {
       <main className="app-container dashboard-content">
         {feedback && <Alert type={feedback.type} message={feedback.message} />}
 
-        {/*  EVENTS SECTION  */}
-        <section id="events" className="dashboard-section">
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: 20,
-              flexWrap: 'wrap',
-              gap: 12,
-            }}
+        {/* ── TAB BAR ── */}
+        <div className="dashboard-tabs" role="tablist">
+          <button
+            id="tab-btn-events"
+            role="tab"
+            aria-selected={activeTab === 'events'}
+            aria-controls="tabpanel-events"
+            className={`dashboard-tab-btn${activeTab === 'events' ? ' active' : ''}`}
+            onClick={() => setActiveTab('events')}
           >
-            <h3 style={{ margin: 0, color: 'var(--gray-900)', fontSize: '1.2rem' }}>
-              <Calendar
-                size={16}
-                style={{ verticalAlign: 'middle', marginRight: 6, color: '#4f46e5' }}
-              />
-              Discover Events
-            </h3>
-            <span style={{ fontSize: '0.8rem', color: 'var(--gray-400)', fontWeight: 500 }}>
-              {events.length} event{events.length !== 1 ? 's' : ''} available
-            </span>
-          </div>
+            Discover Events
+          </button>
+          <button
+            id="tab-btn-registrations"
+            role="tab"
+            aria-selected={activeTab === 'registrations'}
+            aria-controls="tabpanel-registrations"
+            className={`dashboard-tab-btn${activeTab === 'registrations' ? ' active' : ''}`}
+            onClick={() => setActiveTab('registrations')}
+          >
+            My Registrations
+          </button>
+        </div>
+
+        {/*  EVENTS SECTION  */}
+        {activeTab === 'events' && (
+          <div style={{ marginTop: -24 }}>
+            <section
+              id="tabpanel-events"
+              role="tabpanel"
+              aria-labelledby="tab-btn-events"
+              className="dashboard-section"
+            >
           {/* Live search bar */}
           <div style={{ marginBottom: 14 }}>
             <div className="search-bar" style={{ marginBottom: 12 }}>
@@ -626,21 +637,21 @@ export default function UserDashboardPage() {
             {/* Filter chips */}
             <div className="filter-chips">
               {[
-                { label: 'All', value: '' },
-                { label: 'Hackathon', value: 'hackathon' },
-                { label: 'Tech', value: 'tech' },
-                { label: 'Seminar', value: 'seminar' },
-                { label: 'Games', value: 'games' },
-                { label: 'Movie', value: 'movie' },
-                { label: 'Other', value: 'other' },
+                { emoji: '🧩', text: 'All',       value: '' },
+                { emoji: '⚡', text: 'Hackathon', value: 'hackathon' },
+                { emoji: '💻', text: 'Tech',      value: 'tech' },
+                { emoji: '🎤', text: 'Seminar',   value: 'seminar' },
+                { emoji: '🎮', text: 'Games',     value: 'games' },
+                { emoji: '🎬', text: 'Movie',     value: 'movie' },
+                { emoji: '📦', text: 'Other',     value: 'other' },
               ].map((f) => (
                 <button
                   key={f.value}
                   type="button"
-                  className={`filter-chip${typeFilter === f.value ? ' active' : ''}`}
+                  className={`filter-chip filter-chip-lg${typeFilter === f.value ? ' active' : ''}`}
                   onClick={() => handleTypeChange(f.value)}
                 >
-                  {f.label}
+                  <span aria-hidden="true">{f.emoji}</span> {f.text}
                 </button>
               ))}
             </div>
@@ -1294,58 +1305,20 @@ export default function UserDashboardPage() {
             </div>
           )}{' '}
           {/* end !eventsLoading */}
-        </section>
+            </section>
+          </div>
+        )}
 
         {/* MY PROFILE / REGISTRATIONS SECTION */}
-        <section id="registrations" className="dashboard-section">
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 16,
-              marginBottom: 24,
-              flexWrap: 'wrap',
-            }}
-          >
-            <div
-              style={{
-                width: 60,
-                height: 60,
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg,#4f46e5,#7c3aed)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.6rem',
-                color: '#fff',
-                fontWeight: 700,
-                flexShrink: 0,
-                boxShadow: '0 4px 14px rgba(79,70,229,0.4)',
-              }}
-            >
-              {(user?.collegeName || user?.company || user?.name)?.charAt(0).toUpperCase() ?? 'U'}
-            </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text)', fontWeight: 700 }}>
-                My Dashboard
-              </h3>
-              {user?.collegeName && (
-                <p
-                  style={{
-                    margin: '3px 0 0',
-                    fontSize: '0.88rem',
-                    color: 'var(--text-muted)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4,
-                  }}
-                >
-                  <GraduationCap size={14} /> {user.collegeName}
-                </p>
-              )}
-            </div>
-          </div>
-
+        {activeTab === 'registrations' && (
+          <>
+            <div style={{ marginTop: -24 }}>
+              <section
+                id="tabpanel-registrations"
+                role="tabpanel"
+                aria-labelledby="tab-btn-registrations"
+                className="dashboard-section"
+              >
           {/*  Stats cards  */}
           {(() => {
             const confirmed = registrations.filter((r) => r.status === 'confirmed' || !r.status);
@@ -1965,10 +1938,11 @@ export default function UserDashboardPage() {
               </>
             );
           })()}
-        </section>
+              </section>
+            </div>
 
-        {/*  CERTIFICATES SECTION  */}
-        {(() => {
+            {/*  CERTIFICATES SECTION  */}
+            {(() => {
           const certRegs = registrations.filter(
             (r) => r.attendanceStatus === 'present' && (r.eventId as EventItem)?.certificatesEnabled
           );
@@ -2142,6 +2116,8 @@ export default function UserDashboardPage() {
             </section>
           );
         })()}
+          </>
+        )}
       </main>
 
       {/*  FEEDBACK MODAL  */}
